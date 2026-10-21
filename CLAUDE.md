@@ -1,6 +1,6 @@
 # FIRSTORY Backend
 
-부모가 아이와 나누기 어려운 이야기를 AI 인터뷰로 정리해 10쪽짜리 맞춤 동화와 대화 가이드를 만들어 주는 웹 서비스의 백엔드.
+부모가 아이와 나누기 어려운 이야기를 AI 인터뷰로 정리해 8쪽짜리 맞춤 동화와 대화 가이드를 만들어 주는 웹 서비스의 백엔드.
 AI 생성은 별도 Python 서비스(LangGraph)가 맡고, 이 저장소는 회원, 아이, 동화, 읽기 기록, 알림 같은 도메인 데이터와 AI 서비스 호출을 맡는다.
 
 ## 기술 스택
@@ -111,12 +111,23 @@ com.firstory
 - 버전은 지우지 않는다. 되돌리기와 앞으로 가기는 `Story.currentVersion`만 바꾼다. 버전 전환은 다시 만들기 횟수에 포함하지 않는다.
 - 다시 만들기(`Story.requestRegeneration`)는 `REVIEWING`에서만 할 수 있고 `regenerateCount`를 1 올린다. 실패 후 다시 시도(`Story.retry`, `FAILED → REQUESTED`)는 다시 만들기 횟수에 포함하지 않는다. 한도를 다 써도 재시도는 할 수 있다.
 - `PhoneNumber.toString()`은 번호를 가린다(`PhoneNumber[***]`). 로그에 실수로 찍혀도 번호가 남지 않게 하기 위함이다. 번호가 필요하면 `digits()`나 `display()`를 명시적으로 쓰고, 그 값은 로그에 남기지 않는다.
-- 위기 신호는 동화 단위로 센다. 1회째 경고 팝업, 2회째 `BLOCKED`.
+- 위기 신호는 AI가 4단계(`SafetyLevel`: OK, SENSITIVE, REVISE, CRISIS)로 판단하고, 대응은 `SafetyPolicy`(컴포넌트)가 정한다. OK는 진행, SENSITIVE는 분위기 선택(ST-04, tone을 이미 골랐으면 진행), REVISE는 `firstory.policy.safety-revise-limit`(2)번째 전까지 다시 쓰기 안내·그 횟수째에 차단, CRISIS는 1번만에 차단(ST-05). 기록(`SafetyFlag`)은 REVISE, CRISIS만 하고, 횟수와 `occurrenceNo`는 동화 단위·단계별로 센다(`countByStoryIdAndLevel`). 차단 판단에는 REVISE 횟수만 쓴다.
+- 동화 쪽수는 `firstory.story.page-count`(8)다. DB와 엔티티는 쪽 번호 1 이상만 검사하고 상한은 이 설정값으로 본다.
 - 아이 프로필은 "다음에도 이 아이 정보로 만들기"를 체크했을 때만 저장한다. 동화는 항상 `StoryInput.childSnapshot`을 기준으로 만든다.
 - 동화 만들기에서 아이 정보는 `ChildProfileResolver.resolve` 하나로 처리한다(저장 여부 다섯 경우). snapshot은 항상 화면의 최종 입력값으로 만들고 프로필에서 읽지 않는다.
 - 다른 회원의 아이는 403이 아니라 404 `CHILD_NOT_FOUND`로 응답한다(존재 여부를 드러내지 않는다).
 - 아이 프로필 삭제는 `StoryRepository.detachChild`로 동화 연결을 먼저 끊고 소프트 삭제한다. `detachChild`는 영속성 컨텍스트를 비우므로 Child를 다시 읽어서 지운다.
 - 날짜(오늘, 이번 달, 개월 수)는 `ClockConfig.today(clock)`로 서비스 기준 시간대(Asia/Seoul)에서 센다. 시각(Instant)은 UTC 그대로 둔다.
+
+## AI 입력 규칙
+
+- 값 이름은 AI 저장소(`schemas.py`의 `StoryInputContext`)와 같은 단어를 쓴다. DB와 Java는 대문자(`name()`), AI로 보낼 때는 소문자(`AiValue.aiValue()`)로 바꾼다. 이름을 따로 짓고 변환표를 두지 않는다. AI로 보내는 enum은 `AiValue`를 구현한다.
+- 화면 문구(label)는 enum 한곳에만 두고 선택지 API(`GET /api/children/options` 등)로 내려준다.
+- "기타"(OTHER)를 고르면 직접 입력이 필수이고(`CUSTOM_VALUE_REQUIRED`), 고르지 않았으면 직접 입력은 버린다. 길이는 `CustomText`로 검사한다(`CUSTOM_VALUE_TOO_LONG`, 메시지의 `{n}`은 항목별 글자 수). 성향 20자, 좋아하는 것 한 개당 20자, 상황 분류·반응 30자, 상황 설명 60자.
+- 좋아하는 것은 목록(`interestCodes`)과 직접 입력(`customInterests`)을 합쳐 5개까지다(`Interests.normalize`).
+- 앞으로 겪을 일(UPCOMING)에는 반응과 감정을 고를 수 없다(`MOMENT_ONLY_FOR_PAST`).
+- AI 입력은 `AiContextMapper.toContext(StoryInput)`으로만 만든다. 좋아하는 것 직접 입력이 있으면 `interests`에 `"other"`를 더하고 `custom_interest`에 `", "`로 이어 붙인다(AI가 한 칸만 받는다).
+- `story_inputs.child_snapshot`의 형식이 TASK-04에서 바뀌었다(`interests` → `interestCodes` + `customInterests`, `customTrait` 추가). 이전 형식 데이터는 로컬 개발 데이터뿐이라 호환 처리하지 않는다. 로컬 DB에 옛 동화가 있으면 지우고 다시 만든다.
 
 ## 인증 규칙
 
@@ -165,7 +176,7 @@ com.firstory
 추측해서 구현하지 말고 `// TODO(PM): 설명` 주석과 함께 가장 단순한 형태로 남긴다.
 
 - 다시 만들기 최대 횟수 (임시값 3, `firstory.policy.max-regenerations`)
-- 상황 분류(situation_category), 감정(emotion) 값 목록 → 문자열 코드로 저장
+- 화면 문구(label) 임시값: `InterestCode`, `SituationCategory`, `MomentReaction`, `Emotion`, `MessageDirection` (enum에 `TODO(PM)`)
 - CRT-01 "알려주고 싶은 주제" 유형
 - 확정 후 사용하지 않는 버전 보관 정책
 - 탈퇴 시 개인정보 파기 시점 (PRD 36). 지금은 회원만 소프트 삭제하고 아이, 동화 데이터는 그대로 둔다
@@ -180,3 +191,4 @@ com.firstory
 - `docs/tasks/TASK-01-setup-and-entities.md`: 프로젝트 세팅과 JPA 엔티티
 - `docs/tasks/TASK-02-auth-and-member.md`: 인증과 회원 (세션, remember-me, CSRF, 문자 인증, 가입, 로그인, 내 정보)
 - `docs/tasks/TASK-03-child-profile.md`: 아이 프로필 API와 동화 만들기용 `ChildProfileResolver`
+- `docs/tasks/TASK-04-align-ai-input.md`: AI 입력 형식 맞추기 (V3, enum 값 이름, 직접 입력 규칙, 위기 신호 3단계, `AiContextMapper`)
