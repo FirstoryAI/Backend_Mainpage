@@ -31,6 +31,7 @@ public enum ErrorCode {
     CHILD_LABEL_EXHAUSTED(HttpStatus.BAD_REQUEST, "저장할 수 있는 아이 수를 넘었어요."),
     INVALID_CHILD_NAME(HttpStatus.BAD_REQUEST, "아이 호칭은 1~30자로 입력해 주세요."),
     CHILD_NOT_FOUND(HttpStatus.NOT_FOUND, "아이 정보를 찾을 수 없어요."),
+    INVALID_BIRTH_YM(HttpStatus.BAD_REQUEST, "생년월을 다시 확인해 주세요."),
     STORY_NOT_FOUND(HttpStatus.NOT_FOUND, "동화를 찾을 수 없어요."),
     INVALID_STATUS_TRANSITION(HttpStatus.CONFLICT, "지금 상태에서는 할 수 없는 작업이에요."),
     EMOTION_ONLY_FOR_PAST(HttpStatus.BAD_REQUEST, "감정은 있었던 일에서만 입력할 수 있어요."),
