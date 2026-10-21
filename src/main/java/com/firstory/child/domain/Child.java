@@ -2,6 +2,8 @@ package com.firstory.child.domain;
 
 import com.firstory.global.converter.YearMonthStringConverter;
 import com.firstory.global.entity.BaseTimeEntity;
+import com.firstory.global.error.BusinessException;
+import com.firstory.global.error.ErrorCode;
 import com.firstory.user.domain.User;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -126,7 +128,7 @@ public class Child extends BaseTimeEntity {
         String stripped = displayName == null ? "" : displayName.strip();
         int length = stripped.codePointCount(0, stripped.length());
         if (length < 1 || length > DISPLAY_NAME_MAX_LENGTH) {
-            throw new IllegalArgumentException("아이 호칭은 1~30자여야 해요.");
+            throw new BusinessException(ErrorCode.INVALID_CHILD_NAME);
         }
         return stripped;
     }

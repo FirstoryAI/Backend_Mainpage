@@ -15,6 +15,7 @@ public enum ErrorCode {
     INTERESTS_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "좋아하는 것은 5개까지 입력할 수 있어요."),
     INTEREST_TOO_LONG(HttpStatus.BAD_REQUEST, "좋아하는 것은 한 개당 20자까지 입력할 수 있어요."),
     CHILD_LABEL_EXHAUSTED(HttpStatus.BAD_REQUEST, "저장할 수 있는 아이 수를 넘었어요."),
+    INVALID_CHILD_NAME(HttpStatus.BAD_REQUEST, "아이 호칭은 1~30자로 입력해 주세요."),
     CHILD_NOT_FOUND(HttpStatus.NOT_FOUND, "아이 정보를 찾을 수 없어요."),
     STORY_NOT_FOUND(HttpStatus.NOT_FOUND, "동화를 찾을 수 없어요."),
     INVALID_STATUS_TRANSITION(HttpStatus.CONFLICT, "지금 상태에서는 할 수 없는 작업이에요."),
