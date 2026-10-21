@@ -2,8 +2,16 @@ package com.firstory.global.config;
 
 import com.firstory.support.IntegrationTest;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -15,6 +23,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(properties = {"springdoc.api-docs.enabled=true", "springdoc.swagger-ui.enabled=true",
         "springdoc.swagger-ui.csrf.enabled=true"})
 class OpenApiDocsTest extends IntegrationTest {
+
+    @Autowired
+    JsonMapper jsonMapper;
 
     @Test
     void 오류_코드와_성공_상태가_문서에_들어간다() throws Exception {
@@ -36,6 +47,37 @@ class OpenApiDocsTest extends IntegrationTest {
                 .andExpect(jsonPath("$.paths['/api/auth/logout'].post.responses['204']").exists())
                 .andExpect(jsonPath("$.components.schemas.ErrorResponse").exists())
                 .andExpect(jsonPath("$.components.schemas.ValidationErrorResponse").exists());
+    }
+
+    /**
+     * 문서 안의 모든 $ref가 components에 실제로 있는지 본다. 없으면 Swagger UI가 "Could not resolve reference"를 낸다.
+     */
+    @Test
+    void 모든_ref가_components에_있다() throws Exception {
+        String docs = browser().get("/v3/api-docs").andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        JsonNode root = jsonMapper.readTree(docs);
+
+        Set<String> refs = new TreeSet<>();
+        collectRefs(root, refs);
+        assertThat(refs).as("문서에 $ref가 하나도 없으면 검사가 의미 없다").isNotEmpty();
+
+        List<String> missing = refs.stream()
+                .filter(ref -> !ref.startsWith("#/") || root.at(ref.substring(1)).isMissingNode())
+                .toList();
+        assertThat(missing).as("components에 없는 $ref").isEmpty();
+    }
+
+    private static void collectRefs(JsonNode node, Set<String> refs) {
+        if (node.isObject()) {
+            JsonNode ref = node.get("$ref");
+            if (ref != null && ref.isString()) {
+                refs.add(ref.asString());
+            }
+            node.values().forEach(child -> collectRefs(child, refs));
+        } else if (node.isArray()) {
+            node.values().forEach(child -> collectRefs(child, refs));
+        }
     }
 
     @Test

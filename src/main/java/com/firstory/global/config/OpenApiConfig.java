@@ -28,6 +28,7 @@ import org.springframework.web.method.HandlerMethod;
 
 import java.util.Arrays;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -41,12 +42,17 @@ import java.util.stream.Collectors;
 public class OpenApiConfig {
 
     private static final String AUTH_TAG = "인증";
+    private static final List<Class<?>> ERROR_SCHEMAS = List.of(ErrorResponse.class, ValidationErrorResponse.class);
 
     @Bean
     public OpenAPI firstoryOpenApi() {
-        // schemas(map)는 덮어쓰므로 두 스키마를 합쳐서 한 번에 넣는다
-        Map<String, Schema> schemas = new TreeMap<>(ModelConverters.getInstance().read(ErrorResponse.class));
-        schemas.putAll(ModelConverters.getInstance().read(ValidationErrorResponse.class));
+        // 오류 응답 스키마는 @ApiErrorCodes가 $ref로만 가리켜서 springdoc이 스스로 등록하지 않는다.
+        // read()는 그 클래스만 돌려주므로 안쪽 타입(FieldMessage)까지 담는 readAll()을 쓴다.
+        // schemas(map)는 덮어쓰므로 합쳐서 한 번에 넣는다
+        Map<String, Schema> schemas = new TreeMap<>();
+        for (Class<?> errorType : ERROR_SCHEMAS) {
+            schemas.putAll(ModelConverters.getInstance().readAll(errorType));
+        }
         Components components = new Components().schemas(schemas);
         return new OpenAPI()
                 .info(new Info().title("FIRSTORY API").version("v1").description("""
