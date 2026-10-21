@@ -32,6 +32,13 @@ public record PhoneNumber(String digits) {
         return digits.substring(0, 3) + "-" + digits.substring(3, 7) + "-" + digits.substring(7);
     }
 
+    /**
+     * 가운데 4자리를 가린 형태(010-****-5678). 응답과 로그에는 이 형태만 쓴다.
+     */
+    public String masked() {
+        return digits.substring(0, 3) + "-****-" + digits.substring(7);
+    }
+
     @Override
     public String toString() {
         return "PhoneNumber[***]";

@@ -37,6 +37,11 @@ class PhoneNumberTest {
     }
 
     @Test
+    void masked는_가운데_4자리를_가린다() {
+        assertThat(PhoneNumber.fromDisplay("010-1234-5678").masked()).isEqualTo("010-****-5678");
+    }
+
+    @Test
     void toString은_번호를_가린다() {
         assertThat(PhoneNumber.fromDisplay("010-1234-5678").toString()).doesNotContain("1234");
     }
