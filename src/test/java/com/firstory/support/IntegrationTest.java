@@ -1,5 +1,6 @@
 package com.firstory.support;
 
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -133,6 +134,14 @@ public abstract class IntegrationTest {
                 {"email": "%s", "password": "%s", "rememberMe": %s}""".formatted(email, password, rememberMe))
                 .andExpect(status().isOk());
         return browser;
+    }
+
+    /**
+     * 로그인한 브라우저의 회원 id.
+     */
+    protected Long userId(Browser browser) throws Exception {
+        String me = browser.get("/api/me").andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        return ((Number) JsonPath.read(me, "$.id")).longValue();
     }
 
     protected void advance(Duration duration) {
