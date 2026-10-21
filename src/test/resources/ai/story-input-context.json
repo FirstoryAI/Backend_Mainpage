@@ -1,0 +1,27 @@
+{
+  "situation": {
+    "category": "friend_conflict",
+    "custom_category": null,
+    "timing": "past",
+    "description": "최대 60자"
+  },
+  "child": {
+    "age_months": 63,
+    "gender": "female",
+    "traits": ["shy", "cautious"],
+    "custom_trait": null,
+    "interests": ["dinosaur", "other"],
+    "custom_interest": "파란색, 기차"
+  },
+  "moment": {
+    "reactions": ["cried", "other"],
+    "custom_reaction": "방에 숨었어요",
+    "emotions": ["sad", "scared"]
+  },
+  "parent": {
+    "response": null,
+    "concern": null,
+    "message": "친구에게 먼저 말을 걸어보는 용기를 주고 싶어요",
+    "message_direction": "perspective_taking"
+  }
+}
