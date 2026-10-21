@@ -8,13 +8,13 @@ AI 생성은 별도 Python 서비스(LangGraph)가 맡고, 이 저장소는 회�
 - Java 21, Spring Boot 4.1.1, Gradle (Groovy DSL)
 - Hibernate 7, Jakarta Persistence 3.2 (Spring Boot 4.1이 관리)
 - PostgreSQL 16 + Flyway (버전은 Spring Boot BOM이 관리. 직접 지정하지 않는다)
-- Redis (문자 인증번호 TTL 저장)
+- Spring Security 7 + Spring Session JDBC (세션은 PostgreSQL에 저장. Redis는 쓰지 않는다)
 - Lombok
 
 ## 명령어
 
 ```bash
-docker compose up -d          # 로컬 PostgreSQL, Redis
+docker compose up -d          # 로컬 PostgreSQL
 ./gradlew build               # 컴파일 + 테스트
 ./gradlew test
 ./gradlew bootRun

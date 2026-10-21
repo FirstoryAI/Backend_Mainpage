@@ -47,6 +47,12 @@ public class User extends BaseTimeEntity {
     @Column(name = "onboarding_seen_at")
     private Instant onboardingSeenAt;
 
+    @Column(name = "failed_login_count", nullable = false)
+    private int failedLoginCount;
+
+    @Column(name = "locked_until")
+    private Instant lockedUntil;
+
     // TODO(PM): 탈퇴 시 개인정보 파기 시점 미정 (PRD 36)
     @Column(name = "deleted_at")
     private Instant deletedAt;
