@@ -1,15 +1,15 @@
 package com.firstory.support;
 
-import com.firstory.child.domain.Child;
-import com.firstory.child.domain.Gender;
-import com.firstory.child.domain.Trait;
-import com.firstory.generation.domain.GenerationRun;
-import com.firstory.generation.domain.RegenerateScope;
-import com.firstory.generation.domain.RunTrigger;
-import com.firstory.generation.domain.StoryVersion;
-import com.firstory.story.domain.Story;
-import com.firstory.story.domain.StoryStatus;
-import com.firstory.user.domain.User;
+import com.firstory.domain.child.entity.Child;
+import com.firstory.domain.child.entity.Gender;
+import com.firstory.domain.child.entity.Trait;
+import com.firstory.domain.generation.entity.GenerationRun;
+import com.firstory.domain.generation.entity.RegenerateScope;
+import com.firstory.domain.generation.entity.RunTrigger;
+import com.firstory.domain.generation.entity.StoryVersion;
+import com.firstory.domain.story.entity.Story;
+import com.firstory.domain.story.entity.StoryStatus;
+import com.firstory.domain.user.entity.User;
 
 import java.time.Instant;
 import java.time.YearMonth;

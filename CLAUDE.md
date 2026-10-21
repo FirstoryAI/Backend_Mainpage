@@ -37,18 +37,30 @@ docker compose up -d                                                        # .e
 
 ```
 com.firstory
-├── global        config, entity(BaseTimeEntity), error, crypto, converter
-├── user          회원, 동의
-├── child         아이 프로필, 성향
-├── story         동화, 만들기 입력, 인터뷰, 상태
-├── generation    생성 실행, 버전, 페이지
-├── guide         대화 가이드, 대화 질문
-├── reading       읽기 세션, 대화 버튼 기록
-├── safety        위기 신호
-└── notification  문자 알림
+├── FirstoryApplication   하위 패키지를 모두 스캔하도록 루트에 둔다
+├── global                config, entity(BaseTimeEntity), error, crypto, converter
+└── domain
+    ├── user              회원, 동의
+    ├── child             아이 프로필, 성향
+    ├── story             동화, 만들기 입력, 인터뷰, 상태
+    ├── generation        생성 실행, 버전, 페이지
+    ├── guide             대화 가이드, 대화 질문
+    ├── reading           읽기 세션, 대화 버튼 기록
+    ├── safety            위기 신호
+    └── notification      문자 알림
 ```
 
-각 도메인 안은 `domain`(엔티티, enum, 정책 클래스), `repository`, `service`, `controller`, `dto`로 나눈다.
+각 도메인(`com.firstory.domain.{도메인}`) 안은 계층별로 나눈다.
+
+| 패키지 | 담는 것 |
+|---|---|
+| `entity` | 엔티티, enum, 값 객체(record), 정책 클래스(`ConsentPolicy`, `Interests` 등) |
+| `repository` | Spring Data JPA Repository |
+| `service` | 트랜잭션 경계, 도메인 흐름 조합 |
+| `controller` | REST API |
+| `dto` | 요청·응답 객체, AI 서비스 연동 매핑 |
+
+클래스가 아직 없는 계층의 패키지는 미리 만들지 않는다. 테스트도 같은 패키지 구조를 따른다(공용 픽스처는 `com.firstory.support`).
 
 ## 의존성 규칙 (Spring Boot 4에서 자주 꼬이는 부분)
 
