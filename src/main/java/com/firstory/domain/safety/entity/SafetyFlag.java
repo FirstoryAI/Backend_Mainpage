@@ -25,7 +25,7 @@ import java.util.Objects;
 @Getter
 @Entity
 @Table(name = "safety_flags",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"story_id", "occurrence_no"}))
+        uniqueConstraints = @UniqueConstraint(columnNames = {"story_id", "level", "occurrence_no"}))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SafetyFlag extends BaseTimeEntity {
 
@@ -41,6 +41,11 @@ public class SafetyFlag extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     private SafetySource source;
 
+    // REVISE, CRISIS만 기록한다
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private SafetyLevel level;
+
     // 인터뷰 답변에서 나온 경우만 채운다
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "interview_turn_id")
@@ -53,7 +58,7 @@ public class SafetyFlag extends BaseTimeEntity {
     @Column(name = "ai_reason", columnDefinition = "text")
     private String aiReason;
 
-    // 이 동화에서 몇 번째
+    // 이 동화, 같은 level 안에서 몇 번째
     @Column(name = "occurrence_no", nullable = false)
     private int occurrenceNo;
 
@@ -64,13 +69,17 @@ public class SafetyFlag extends BaseTimeEntity {
     @Column(name = "detected_at", nullable = false)
     private Instant detectedAt;
 
-    private SafetyFlag(Story story, SafetySource source, InterviewTurn interviewTurn, String category,
-                       String aiReason, int occurrenceNo, Instant now) {
+    private SafetyFlag(Story story, SafetySource source, SafetyLevel level, InterviewTurn interviewTurn,
+                       String category, String aiReason, int occurrenceNo, Instant now) {
+        if (level == null || !level.isRecorded()) {
+            throw new IllegalArgumentException("위기 신호는 REVISE, CRISIS만 기록해요: " + level);
+        }
         if (occurrenceNo < 1) {
             throw new IllegalArgumentException("위기 신호 횟수는 1 이상이어야 해요: " + occurrenceNo);
         }
         this.story = Objects.requireNonNull(story);
         this.source = Objects.requireNonNull(source);
+        this.level = level;
         this.interviewTurn = interviewTurn;
         this.category = Objects.requireNonNull(category);
         this.aiReason = aiReason;
@@ -78,16 +87,15 @@ public class SafetyFlag extends BaseTimeEntity {
         this.detectedAt = Objects.requireNonNull(now);
     }
 
-    public static SafetyFlag record(Story story, SafetySource source, InterviewTurn interviewTurn, String category,
-                                    String aiReason, int occurrenceNo, Instant now) {
-        return new SafetyFlag(story, source, interviewTurn, category, aiReason, occurrenceNo, now);
+    /**
+     * @param occurrenceNo 같은 동화, 같은 level 안에서의 순번 (countByStoryIdAndLevel + 1)
+     */
+    public static SafetyFlag record(Story story, SafetySource source, SafetyLevel level, InterviewTurn interviewTurn,
+                                    String category, String aiReason, int occurrenceNo, Instant now) {
+        return new SafetyFlag(story, source, level, interviewTurn, category, aiReason, occurrenceNo, now);
     }
 
     public void respond(SafetyUserResponse response) {
         this.userResponse = Objects.requireNonNull(response);
-    }
-
-    public SafetyAction action() {
-        return SafetyPolicy.decide(occurrenceNo);
     }
 }
