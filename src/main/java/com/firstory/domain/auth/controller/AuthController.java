@@ -1,9 +1,11 @@
 package com.firstory.domain.auth.controller;
 
+import com.firstory.domain.auth.dto.LoginRequest;
 import com.firstory.domain.auth.dto.SendCodeRequest;
 import com.firstory.domain.auth.dto.SendCodeResponse;
 import com.firstory.domain.auth.dto.SignupRequest;
 import com.firstory.domain.auth.dto.VerifyCodeRequest;
+import com.firstory.domain.auth.service.LoginService;
 import com.firstory.domain.auth.service.PhoneVerificationService;
 import com.firstory.domain.auth.service.SignupService;
 import com.firstory.domain.user.dto.MeResponse;
@@ -38,6 +40,7 @@ public class AuthController {
 
     private final PhoneVerificationService phoneVerificationService;
     private final SignupService signupService;
+    private final LoginService loginService;
     private final MeService meService;
     private final LoginSuccessHandler loginSuccessHandler;
 
@@ -74,5 +77,13 @@ public class AuthController {
         phoneVerificationService.clearVerified(session);
         loginSuccessHandler.login(UserPrincipal.from(user), false, httpRequest, httpResponse);
         return ResponseEntity.status(HttpStatus.CREATED).body(meService.getMe(user.getId()));
+    }
+
+    @PostMapping("/login")
+    public MeResponse login(@Valid @RequestBody LoginRequest request,
+                            HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        UserPrincipal principal = loginService.authenticate(request.email(), request.password());
+        loginSuccessHandler.login(principal, request.rememberMeRequested(), httpRequest, httpResponse);
+        return meService.getMe(principal.getUserId());
     }
 }

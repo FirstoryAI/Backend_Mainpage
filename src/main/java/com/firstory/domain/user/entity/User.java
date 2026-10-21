@@ -12,6 +12,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.SQLRestriction;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Objects;
@@ -22,6 +23,9 @@ import java.util.Objects;
 @SQLRestriction("deleted_at IS NULL")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseTimeEntity {
+
+    public static final int MAX_LOGIN_FAILURES = 5;
+    public static final Duration LOCK_DURATION = Duration.ofMinutes(15);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -88,6 +92,26 @@ public class User extends BaseTimeEntity {
         this.phoneEnc = Objects.requireNonNull(phoneEnc);
         this.phoneHash = Objects.requireNonNull(phoneHash);
         this.phoneVerifiedAt = Objects.requireNonNull(phoneVerifiedAt);
+    }
+
+    /**
+     * 연속 5회 실패하면 15분 잠근다. 잠그면서 횟수는 0으로 되돌린다.
+     */
+    public void recordLoginFailure(Instant now) {
+        failedLoginCount++;
+        if (failedLoginCount >= MAX_LOGIN_FAILURES) {
+            lockedUntil = now.plus(LOCK_DURATION);
+            failedLoginCount = 0;
+        }
+    }
+
+    public void recordLoginSuccess() {
+        failedLoginCount = 0;
+        lockedUntil = null;
+    }
+
+    public boolean isLocked(Instant now) {
+        return lockedUntil != null && now.isBefore(lockedUntil);
     }
 
     public void withdraw(Instant now) {
