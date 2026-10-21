@@ -23,6 +23,13 @@ spring:
     jdbc:
       initialize-schema: never   # 스키마는 Flyway V2가 만든다
 
+# Swagger는 기본으로 끈다 (운영). local 프로필에서만 아래 문서로 켠다
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 firstory:
   crypto:
     # 32바이트 Base64. 아래 기본값은 로컬 개발용이다. 운영은 반드시 환경 변수로 넣는다
@@ -39,3 +46,19 @@ firstory:
   auth:
     # 아래 기본값은 로컬 개발용이다. 운영은 반드시 환경 변수로 넣는다
     remember-me-key: ${REMEMBER_ME_KEY:local-remember-me-key-change-me}
+
+---
+# local 프로필 전용: Swagger UI (/swagger-ui/index.html), API 문서 (/v3/api-docs)
+spring:
+  config:
+    activate:
+      on-profile: local
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    csrf:
+      enabled: true   # XSRF-TOKEN 쿠키 값을 X-XSRF-TOKEN 헤더로 붙여 보낸다
+    operations-sorter: method
+    tags-sorter: alpha

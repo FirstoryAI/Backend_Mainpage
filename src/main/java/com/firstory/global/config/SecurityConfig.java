@@ -76,6 +76,9 @@ public class SecurityConfig {
                                 "/api/auth/phone/send-code", "/api/auth/phone/verify",
                                 "/api/auth/signup", "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/csrf", "/actuator/health").permitAll()
+                        // Swagger. springdoc이 꺼진 운영에서는 이 경로에 핸들러가 없어 404가 난다
+                        .requestMatchers(HttpMethod.GET, "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**")
+                        .permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().denyAll());

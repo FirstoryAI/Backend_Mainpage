@@ -24,6 +24,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-session-jdbc'   // 세션 저장소: PostgreSQL
 
+    // Swagger. springdoc은 Spring Boot BOM이 관리하지 않아 버전을 적는다.
+    // 3.1.x가 Spring Boot 4.1 기준 (3.1.0에서 Boot 4.1.0으로 올림). Boot를 올리면 springdoc 호환 버전도 함께 확인한다
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
+
     // Flyway: 스타터 + PostgreSQL 모듈. 버전 적지 않음
     implementation 'org.springframework.boot:spring-boot-starter-flyway'
     implementation 'org.flywaydb:flyway-database-postgresql'

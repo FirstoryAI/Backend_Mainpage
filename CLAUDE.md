@@ -35,6 +35,20 @@ docker compose up -d                                                        # .e
 
 `.env`와 `application-local.yml`은 커밋하지 않는다. 설정을 바꾸면 `.example` 파일도 함께 고친다.
 
+### Swagger (local 프로필 전용)
+
+`local` 프로필로 띄우면 http://localhost:8081/swagger-ui/index.html 에서 열린다(API 문서 JSON은 `/v3/api-docs`). 다른 프로필(운영, test)에서는 꺼져 있어 404가 난다. 켜고 끄는 설정은 `application.yml`의 `springdoc`과 그 아래 `on-profile: local` 문서에 있다.
+
+로그인은 세션 쿠키, 상태를 바꾸는 요청은 CSRF 헤더가 필요해서 순서가 있다.
+
+1. `GET /api/auth/csrf`를 먼저 실행한다. 브라우저에 `XSRF-TOKEN` 쿠키가 생긴다.
+2. POST/PUT/PATCH/DELETE는 Swagger UI가 이 쿠키 값을 `X-XSRF-TOKEN` 헤더로 자동으로 붙인다(`springdoc.swagger-ui.csrf.enabled=true`). 따로 입력할 것은 없다.
+3. 가입하려면 `send-code` → 서버 로그의 `[SMS] 010-****-1234 ← [FIRSTORY] 인증번호 123456`에서 번호 확인 → `verify` → `signup` 순서로 같은 브라우저에서 실행한다. 가입하면 바로 로그인된다.
+4. 로그인하면 `FSESSION` 쿠키로 인증된다. 이후 `/api/me`, `/api/children` 등을 바로 실행할 수 있다.
+5. 로그아웃하면 `XSRF-TOKEN`도 지워진다. 다시 쓰려면 1번부터 한다. 403 `FORBIDDEN`이 나오면 대부분 1번을 빠뜨린 것이다.
+
+API를 추가할 때는 `@Operation(summary = "한국어 요약")`과 `@ApiErrorCodes({ErrorCode...})`를 단다. `OpenApiConfig`가 `ErrorCode`의 상태와 메시지로 오류 응답 설명을 만든다. 로그인이 필요한 컨트롤러는 클래스에 `@ApiErrorCodes(ErrorCode.UNAUTHORIZED)`를 달고, 상태를 바꾸는 요청의 403(CSRF)은 자동으로 붙는다. 성공 상태가 200이 아니면 `@ResponseStatus`로 적는다(`ResponseEntity`로는 문서에 나타나지 않는다).
+
 ## 패키지 구조 (도메인별)
 
 ```
@@ -70,6 +84,7 @@ com.firstory
 - Spring Boot 4는 자동 설정이 기술별 모듈로 쪼개져 있다. **Flyway는 `flyway-core`만 넣으면 자동 설정이 동작하지 않는다.** 반드시 `spring-boot-starter-flyway`를 쓴다.
 - `flyway-core`, `flyway-database-postgresql`, Testcontainers, Hibernate 등 BOM이 관리하는 라이브러리에 **버전을 직접 적지 않는다.** 버전이 섞이면 Flyway가 PostgreSQL을 인식하지 못하는 오류가 난다.
 - 의존성을 바꾼 뒤에는 `./gradlew dependencyInsight --dependency flyway`로 flyway 모듈들의 버전이 모두 같은지 확인한다.
+- 예외: springdoc-openapi는 BOM에 없어서 버전을 적는다(`3.1.1`). springdoc 3.1.x가 Spring Boot 4.1 기준이다. Spring Boot를 올릴 때 springdoc 릴리스 노트에서 호환 버전을 다시 확인한다.
 
 ## 스키마 규칙
 
