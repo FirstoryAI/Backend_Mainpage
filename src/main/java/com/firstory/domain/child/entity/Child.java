@@ -95,6 +95,16 @@ public class Child extends BaseTimeEntity {
         applyProfile(birthYm, gender, traits, interests);
     }
 
+    /**
+     * 저장된 값과 같은지. 같으면 갱신하지 않아 child_traits 행을 지우고 다시 넣지 않게 한다.
+     */
+    public boolean hasProfile(YearMonth birthYm, Gender gender, Collection<Trait> traits, List<String> interests) {
+        return this.birthYm.equals(birthYm)
+                && this.gender == gender
+                && this.traits.equals(toTraitSet(traits))
+                && this.interests.equals(Interests.normalize(interests));
+    }
+
     public void rename(String displayName) {
         this.displayName = validateDisplayName(displayName);
     }
@@ -122,6 +132,14 @@ public class Child extends BaseTimeEntity {
             this.traits.addAll(traits);
         }
         this.interests = Interests.normalize(interests);
+    }
+
+    private static Set<Trait> toTraitSet(Collection<Trait> traits) {
+        Set<Trait> set = EnumSet.noneOf(Trait.class);
+        if (traits != null) {
+            traits.stream().filter(Objects::nonNull).forEach(set::add);
+        }
+        return set;
     }
 
     private static String validateDisplayName(String displayName) {
