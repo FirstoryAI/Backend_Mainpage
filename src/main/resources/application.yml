@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: firstory
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/firstory}
+    username: ${DB_USERNAME:firstory}
+    password: ${DB_PASSWORD:firstory}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_batch_fetch_size: 100
+        jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+firstory:
+  crypto:
+    # 32바이트 Base64. 아래 기본값은 로컬 개발용이다. 운영은 반드시 환경 변수로 넣는다
+    phone-aes-key: ${PHONE_AES_KEY:LlNjGbl6PF959ZAmeT0cgo7fB8RzybmscK7lwJIujzA=}
+    phone-hmac-key: ${PHONE_HMAC_KEY:Chg1Q+ecsxbaP3RFwbIYhmQvksrUc1XG03McsuGB+Jk=}
+  policy:
+    max-regenerations: ${MAX_REGENERATIONS:3}   # TODO(PM): 다시 만들기 최대 횟수 미정 (결정 4번). 임시값 3
+  ai:
+    base-url: ${AI_BASE_URL:http://localhost:8000}
