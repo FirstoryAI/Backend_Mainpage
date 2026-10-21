@@ -2,6 +2,8 @@ package com.firstory.domain.story.repository;
 
 import com.firstory.domain.child.entity.Child;
 import com.firstory.domain.child.entity.Gender;
+import com.firstory.domain.child.entity.InterestCode;
+import com.firstory.domain.child.entity.Interests;
 import com.firstory.domain.child.entity.Trait;
 import com.firstory.domain.child.repository.ChildRepository;
 import com.firstory.domain.generation.entity.GenerationRun;
@@ -55,7 +57,8 @@ class StoryRepositoryTest extends RepositoryTest {
         Story story = storyRepository.save(story(user));
         StoryInput input = StoryInput.begin(story);
         ChildSnapshot snapshot = ChildSnapshot.of(YearMonth.of(2021, 3), Gender.MALE,
-                Set.of(Trait.STUBBORN, Trait.SENSITIVE), List.of("자동차"), LocalDate.of(2026, 10, 21));
+                Set.of(Trait.STUBBORN, Trait.OTHER), "겁이 많아요",
+                new Interests(List.of(InterestCode.VEHICLE), List.of("자동차")), LocalDate.of(2026, 10, 21));
         input.writeChild(snapshot);
         storyInputRepository.save(input);
         em.flush();

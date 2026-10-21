@@ -2,6 +2,8 @@ package com.firstory.support;
 
 import com.firstory.domain.child.entity.Child;
 import com.firstory.domain.child.entity.Gender;
+import com.firstory.domain.child.entity.InterestCode;
+import com.firstory.domain.child.entity.Interests;
 import com.firstory.domain.child.entity.Trait;
 import com.firstory.domain.generation.entity.GenerationRun;
 import com.firstory.domain.generation.entity.RegenerateScope;
@@ -36,7 +38,7 @@ public final class Fixtures {
 
     public static Child child(User user, String displayName) {
         return Child.save(user, displayName, YearMonth.of(2021, 3), Gender.FEMALE,
-                Set.of(Trait.SHY, Trait.CURIOUS), List.of("공룡", "기차"));
+                Set.of(Trait.SHY, Trait.CURIOUS), null, new Interests(List.of(InterestCode.DINOSAUR), List.of("기차")));
     }
 
     public static Story story(User user) {

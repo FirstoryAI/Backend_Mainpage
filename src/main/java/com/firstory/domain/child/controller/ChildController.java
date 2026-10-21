@@ -49,7 +49,7 @@ public class ChildController {
         return childService.list(principal.getUserId());
     }
 
-    @Operation(summary = "입력 선택지", description = "성향, 성별 버튼 문구와 좋아하는 것 개수·길이 제한")
+    @Operation(summary = "입력 선택지", description = "성향, 성별, 좋아하는 것 버튼 문구와 직접 입력 개수·길이 제한")
     @GetMapping("/options")
     public ChildOptionsResponse options() {
         return OPTIONS;
@@ -63,9 +63,11 @@ public class ChildController {
     }
 
     @Operation(summary = "아이 추가",
-            description = "호칭은 비어 있는 가장 앞 글자로 자동으로 붙는다 (아이 A, 아이 B…). traits, interests는 생략하면 빈 목록. 응답 201")
+            description = "호칭은 비어 있는 가장 앞 글자로 자동으로 붙는다 (아이 A, 아이 B…). "
+                    + "traits, interestCodes, customInterests는 생략하면 빈 목록. "
+                    + "traits에 OTHER가 있으면 customTrait 필수, 없으면 customTrait는 버린다. 응답 201")
     @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.INVALID_BIRTH_YM, ErrorCode.INTERESTS_LIMIT_EXCEEDED,
-            ErrorCode.INTEREST_TOO_LONG, ErrorCode.CHILD_LABEL_EXHAUSTED})
+            ErrorCode.CUSTOM_VALUE_REQUIRED, ErrorCode.CUSTOM_VALUE_TOO_LONG, ErrorCode.CHILD_LABEL_EXHAUSTED})
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ChildResponse create(@AuthenticationPrincipal UserPrincipal principal,
@@ -75,7 +77,7 @@ public class ChildController {
 
     @Operation(summary = "아이 정보 수정", description = "생년월, 성별, 성향, 좋아하는 것을 바꾼다. 호칭은 바꾸지 않는다")
     @ApiErrorCodes({ErrorCode.CHILD_NOT_FOUND, ErrorCode.VALIDATION_FAILED, ErrorCode.INVALID_BIRTH_YM,
-            ErrorCode.INTERESTS_LIMIT_EXCEEDED, ErrorCode.INTEREST_TOO_LONG})
+            ErrorCode.INTERESTS_LIMIT_EXCEEDED, ErrorCode.CUSTOM_VALUE_REQUIRED, ErrorCode.CUSTOM_VALUE_TOO_LONG})
     @PutMapping("/{id:\\d+}")
     public ChildResponse update(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id,
                                 @Valid @RequestBody ChildProfileRequest request) {

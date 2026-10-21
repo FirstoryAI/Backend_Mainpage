@@ -5,6 +5,7 @@ import com.firstory.domain.child.dto.ChildResponse;
 import com.firstory.domain.child.dto.ChildSelection;
 import com.firstory.domain.child.dto.ResolvedChild;
 import com.firstory.domain.child.entity.Gender;
+import com.firstory.domain.child.entity.InterestCode;
 import com.firstory.domain.child.entity.Trait;
 import com.firstory.global.config.ClockConfig;
 import com.firstory.global.error.BusinessException;
@@ -28,9 +29,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ChildProfileResolverTest extends IntegrationTest {
 
     static final ChildProfile SAVED = new ChildProfile(YearMonth.of(2021, 3), Gender.FEMALE,
-            Set.of(Trait.SHY), List.of("공룡"));
+            Set.of(Trait.SHY), null, List.of(InterestCode.DINOSAUR), List.of());
     static final ChildProfile EDITED = new ChildProfile(YearMonth.of(2020, 5), Gender.MALE,
-            Set.of(Trait.CURIOUS, Trait.ACTIVE), List.of(" 기차 ", "기차", "블록"));
+            Set.of(Trait.CURIOUS, Trait.ACTIVE, Trait.OTHER), " 겁이 많아요 ", List.of(InterestCode.SPACE),
+            List.of(" 기차 ", "기차", "블록"));
 
     @Autowired
     ChildProfileResolver resolver;
@@ -56,7 +58,9 @@ class ChildProfileResolverTest extends IntegrationTest {
         ChildResponse saved = childService.get(userId, resolved.child().getId());
         assertThat(saved.displayName()).isEqualTo("아이 A");
         assertThat(saved.birthYm()).isEqualTo("2020-05");
-        assertThat(saved.interests()).containsExactly("기차", "블록");
+        assertThat(saved.customTrait()).isEqualTo("겁이 많아요");
+        assertThat(saved.interestCodes()).containsExactly(InterestCode.SPACE);
+        assertThat(saved.customInterests()).containsExactly("기차", "블록");
         assertSnapshotIs(resolved, EDITED);
     }
 
@@ -79,8 +83,10 @@ class ChildProfileResolverTest extends IntegrationTest {
         ChildResponse updated = childService.get(userId, childId);
         assertThat(updated.birthYm()).isEqualTo("2020-05");
         assertThat(updated.gender()).isEqualTo(Gender.MALE);
-        assertThat(updated.traits()).containsExactly(Trait.ACTIVE, Trait.CURIOUS);
-        assertThat(updated.interests()).containsExactly("기차", "블록");
+        assertThat(updated.traits()).containsExactly(Trait.ACTIVE, Trait.CURIOUS, Trait.OTHER);
+        assertThat(updated.customTrait()).isEqualTo("겁이 많아요");
+        assertThat(updated.interestCodes()).containsExactly(InterestCode.SPACE);
+        assertThat(updated.customInterests()).containsExactly("기차", "블록");
         assertSnapshotIs(resolved, EDITED);
     }
 
@@ -107,7 +113,9 @@ class ChildProfileResolverTest extends IntegrationTest {
         assertThat(reloaded.birthYm()).isEqualTo("2021-03");
         assertThat(reloaded.gender()).isEqualTo(Gender.FEMALE);
         assertThat(reloaded.traits()).containsExactly(Trait.SHY);
-        assertThat(reloaded.interests()).containsExactly("공룡");
+        assertThat(reloaded.customTrait()).isNull();
+        assertThat(reloaded.interestCodes()).containsExactly(InterestCode.DINOSAUR);
+        assertThat(reloaded.customInterests()).isEmpty();
         assertSnapshotIs(resolved, EDITED);
     }
 
@@ -126,7 +134,8 @@ class ChildProfileResolverTest extends IntegrationTest {
 
     @Test
     void 저장하지_않아도_입력값은_항상_검증한다() {
-        ChildProfile future = new ChildProfile(YearMonth.of(2099, 1), Gender.MALE, Set.of(), List.of());
+        ChildProfile future = new ChildProfile(YearMonth.of(2099, 1), Gender.MALE, Set.of(), null, List.of(),
+                List.of());
 
         assertThatThrownBy(() -> resolver.resolve(userId, new ChildSelection(null, future, false)))
                 .isInstanceOf(BusinessException.class)
@@ -150,7 +159,9 @@ class ChildProfileResolverTest extends IntegrationTest {
                 .isEqualTo((int) ChronoUnit.MONTHS.between(input.birthYm(), YearMonth.from(ClockConfig.today(clock))));
         assertThat(resolved.snapshot().gender()).isEqualTo(input.gender());
         assertThat(resolved.snapshot().traits()).containsExactlyElementsOf(input.traits().stream().sorted().toList());
-        assertThat(resolved.snapshot().interests()).containsExactlyElementsOf(input.interests());
+        assertThat(resolved.snapshot().customTrait()).isEqualTo(input.customTrait());
+        assertThat(resolved.snapshot().interestCodes()).containsExactlyElementsOf(input.interestCodes());
+        assertThat(resolved.snapshot().customInterests()).containsExactlyElementsOf(input.customInterests());
     }
 
     private Timestamp updatedAt(Long childId) {

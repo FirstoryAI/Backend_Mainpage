@@ -2,6 +2,7 @@ package com.firstory.domain.child.repository;
 
 import com.firstory.domain.child.entity.Child;
 import com.firstory.domain.child.entity.ChildLabelPolicy;
+import com.firstory.domain.child.entity.InterestCode;
 import com.firstory.domain.child.entity.Trait;
 import com.firstory.domain.user.entity.User;
 import com.firstory.domain.user.repository.UserRepository;
@@ -38,7 +39,8 @@ class ChildRepositoryTest extends RepositoryTest {
         Child found = childRepository.findByIdAndUserId(saved.getId(), user.getId()).orElseThrow();
 
         assertThat(found.getTraits()).containsExactlyInAnyOrder(Trait.SHY, Trait.CURIOUS);
-        assertThat(found.getInterests()).containsExactly("공룡", "기차");
+        assertThat(found.getInterestCodes()).containsExactly(InterestCode.DINOSAUR);
+        assertThat(found.getCustomInterests()).containsExactly("기차");
         assertThat(found.getBirthYm()).isEqualTo(YearMonth.of(2021, 3));
         assertThat(found.getCreatedAt()).isNotNull();
     }

@@ -11,4 +11,12 @@ public class BusinessException extends RuntimeException {
         super(errorCode.getMessage());
         this.errorCode = errorCode;
     }
+
+    /**
+     * 메시지의 {n}을 채운다 (예: CUSTOM_VALUE_TOO_LONG의 항목별 글자 수).
+     */
+    public BusinessException(ErrorCode errorCode, int n) {
+        super(errorCode.getMessage().replace("{n}", String.valueOf(n)));
+        this.errorCode = errorCode;
+    }
 }

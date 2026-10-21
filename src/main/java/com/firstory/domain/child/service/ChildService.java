@@ -77,13 +77,15 @@ public class ChildService {
         BirthYmPolicy.validate(profile.birthYm(), clock);
         String label = ChildLabelPolicy.nextLabel(childRepository.findDisplayNamesByUserId(userId));
         return childRepository.save(Child.save(userRepository.getReferenceById(userId), label,
-                profile.birthYm(), profile.gender(), profile.traits(), profile.interests()));
+                profile.birthYm(), profile.gender(), profile.traits(), profile.customTrait(), profile.interests()));
     }
 
     void applyIfChanged(Child child, ChildProfile profile) {
         BirthYmPolicy.validate(profile.birthYm(), clock);
-        if (!child.hasProfile(profile.birthYm(), profile.gender(), profile.traits(), profile.interests())) {
-            child.updateProfile(profile.birthYm(), profile.gender(), profile.traits(), profile.interests());
+        if (!child.hasProfile(profile.birthYm(), profile.gender(), profile.traits(), profile.customTrait(),
+                profile.interests())) {
+            child.updateProfile(profile.birthYm(), profile.gender(), profile.traits(), profile.customTrait(),
+                    profile.interests());
         }
     }
 

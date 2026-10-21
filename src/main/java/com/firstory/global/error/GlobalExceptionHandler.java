@@ -13,8 +13,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusiness(BusinessException e) {
-        ErrorCode errorCode = e.getErrorCode();
-        return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
+        return ResponseEntity.status(e.getErrorCode().getStatus()).body(ErrorResponse.of(e));
     }
 
     // 거부된 값(rejectedValue)은 비밀번호나 번호일 수 있어 응답에 담지 않는다

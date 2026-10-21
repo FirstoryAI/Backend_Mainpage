@@ -2,6 +2,8 @@ package com.firstory.domain.story.entity;
 
 import com.firstory.domain.child.entity.Child;
 import com.firstory.domain.child.entity.Gender;
+import com.firstory.domain.child.entity.InterestCode;
+import com.firstory.domain.child.entity.Interests;
 import com.firstory.domain.child.entity.Trait;
 import org.junit.jupiter.api.Test;
 
@@ -24,7 +26,8 @@ class ChildSnapshotTest {
                 .map(RecordComponent::getName)
                 .toList();
 
-        assertThat(components).containsExactly("ageMonths", "gender", "traits", "interests");
+        assertThat(components).containsExactly("ageMonths", "gender", "traits", "customTrait", "interestCodes",
+                "customInterests");
         assertThat(components).noneMatch(name -> name.toLowerCase().contains("name"));
     }
 
@@ -37,16 +40,20 @@ class ChildSnapshotTest {
         assertThat(snapshot.ageMonths()).isEqualTo(67);
         assertThat(snapshot.gender()).isEqualTo(Gender.FEMALE);
         assertThat(snapshot.traits()).containsExactly(Trait.SHY, Trait.CURIOUS);
-        assertThat(snapshot.interests()).containsExactly("공룡", "기차");
+        assertThat(snapshot.interestCodes()).containsExactly(InterestCode.DINOSAUR);
+        assertThat(snapshot.customInterests()).containsExactly("기차");
         assertThat(snapshot.toString()).doesNotContain("우리 첫째");
     }
 
     @Test
-    void 저장하지_않은_입력은_관심사를_정규화한다() {
+    void 저장하지_않은_입력은_관심사와_성향_직접_입력을_정규화한다() {
         ChildSnapshot snapshot = ChildSnapshot.of(YearMonth.of(2022, 1), Gender.UNSPECIFIED,
-                Set.of(Trait.ACTIVE), List.of(" 공 ", "공"), LocalDate.of(2026, 1, 31));
+                Set.of(Trait.ACTIVE), "버려져요", new Interests(List.of(InterestCode.SPACE), List.of(" 공 ", "공")),
+                LocalDate.of(2026, 1, 31));
 
         assertThat(snapshot.ageMonths()).isEqualTo(48);
-        assertThat(snapshot.interests()).containsExactly("공");
+        assertThat(snapshot.customTrait()).isNull();
+        assertThat(snapshot.interestCodes()).containsExactly(InterestCode.SPACE);
+        assertThat(snapshot.customInterests()).containsExactly("공");
     }
 }

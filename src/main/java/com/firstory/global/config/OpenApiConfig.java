@@ -138,6 +138,7 @@ public class OpenApiConfig {
         return switch (code) {
             case FORBIDDEN -> code.getMessage() + " (X-XSRF-TOKEN 헤더가 없거나 맞지 않을 때도 이 응답)";
             case VALIDATION_FAILED -> code.getMessage() + " (fields에 필드별 메시지)";
+            case CUSTOM_VALUE_TOO_LONG -> code.getMessage() + " ({n}은 항목별 최대 글자 수)";
             default -> code.getMessage();
         };
     }

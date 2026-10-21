@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ChildIntegrationTest extends IntegrationTest {
 
     static final String PROFILE = """
-            {"birthYm": "2021-03", "gender": "FEMALE", "traits": ["SHY"], "interests": ["공룡"]}""";
+            {"birthYm": "2021-03", "gender": "FEMALE", "traits": ["SHY"], "interestCodes": ["DINOSAUR"]}""";
 
     @Autowired
     UserRepository userRepository;
@@ -97,18 +97,66 @@ class ChildIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void 좋아하는_것이_6개면_INTERESTS_LIMIT_EXCEEDED() throws Exception {
+    void 새_형식으로_추가하고_조회하면_그대로_돌아온다() throws Exception {
+        long id = create("""
+                {"birthYm": "2021-03", "gender": "FEMALE", "traits": ["SHY", "CAUTIOUS"],
+                 "interestCodes": ["SPACE", "DINOSAUR"], "customInterests": ["파란색", "기차"]}""");
+
+        parent.get("/api/children/" + id)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.gender").value("FEMALE"))
+                .andExpect(jsonPath("$.traits", contains("CAUTIOUS", "SHY")))
+                .andExpect(jsonPath("$.customTrait").isEmpty())
+                .andExpect(jsonPath("$.interestCodes", contains("DINOSAUR", "SPACE")))
+                .andExpect(jsonPath("$.customInterests", contains("파란색", "기차")));
+    }
+
+    @Test
+    void 목록_3개와_직접_입력_3개면_INTERESTS_LIMIT_EXCEEDED() throws Exception {
         parent.post("/api/children", """
-                {"birthYm": "2021-03", "gender": "MALE", "interests": ["1", "2", "3", "4", "5", "6"]}""")
+                {"birthYm": "2021-03", "gender": "MALE", "interestCodes": ["DINOSAUR", "SPACE", "ANIMAL"],
+                 "customInterests": ["기차", "파란색", "블록"]}""")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INTERESTS_LIMIT_EXCEEDED"));
     }
 
     @Test
-    void 좋아하는_것은_공백을_지우고_중복을_합친다() throws Exception {
+    void 직접_입력이_길면_항목별_글자_수를_알려준다() throws Exception {
         parent.post("/api/children", """
-                {"birthYm": "2021-03", "gender": "MALE", "interests": [" 공룡 ", "공룡", ""]}""")
-                .andExpect(jsonPath("$.interests", contains("공룡")));
+                {"birthYm": "2021-03", "gender": "MALE", "customInterests": ["%s"]}""".formatted("가".repeat(21)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CUSTOM_VALUE_TOO_LONG"))
+                .andExpect(jsonPath("$.message").value("직접 입력은 20자까지 쓸 수 있어요."));
+    }
+
+    @Test
+    void 좋아하는_것_직접_입력은_공백을_지우고_중복을_합친다() throws Exception {
+        parent.post("/api/children", """
+                {"birthYm": "2021-03", "gender": "MALE", "customInterests": [" 기차 ", "기차", ""]}""")
+                .andExpect(jsonPath("$.customInterests", contains("기차")));
+    }
+
+    @Test
+    void 성향_OTHER의_직접_입력이_왕복된다() throws Exception {
+        long id = create("""
+                {"birthYm": "2021-03", "gender": "MALE", "traits": ["OTHER", "SHY"], "customTrait": " 겁이 많아요 "}""");
+
+        parent.get("/api/children/" + id)
+                .andExpect(jsonPath("$.traits", contains("SHY", "OTHER")))
+                .andExpect(jsonPath("$.customTrait").value("겁이 많아요"));
+
+        parent.put("/api/children/" + id, """
+                {"birthYm": "2021-03", "gender": "MALE", "traits": ["SHY"], "customTrait": "남아 있으면 안 돼요"}""")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.customTrait").isEmpty());
+    }
+
+    @Test
+    void 성향_OTHER에_직접_입력이_없으면_CUSTOM_VALUE_REQUIRED() throws Exception {
+        parent.post("/api/children", """
+                {"birthYm": "2021-03", "gender": "MALE", "traits": ["OTHER"], "customTrait": "  "}""")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CUSTOM_VALUE_REQUIRED"));
     }
 
     @Test
@@ -117,7 +165,8 @@ class ChildIntegrationTest extends IntegrationTest {
                 {"birthYm": "2021-03", "gender": "UNSPECIFIED"}""")
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.traits", hasSize(0)))
-                .andExpect(jsonPath("$.interests", hasSize(0)));
+                .andExpect(jsonPath("$.interestCodes", hasSize(0)))
+                .andExpect(jsonPath("$.customInterests", hasSize(0)));
     }
 
     @Test
@@ -136,6 +185,9 @@ class ChildIntegrationTest extends IntegrationTest {
                 {"birthYm": "2021-03", "gender": "MALE", "traits": ["BRAVE"]}""")
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
         parent.post("/api/children", """
+                {"birthYm": "2021-03", "gender": "MALE", "interestCodes": ["ROBOT"]}""")
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        parent.post("/api/children", """
                 {"birthYm": "2021-3", "gender": "MALE"}""")
                 .andExpect(jsonPath("$.code").value("INVALID_BIRTH_YM"));
         parent.post("/api/children", """
@@ -148,13 +200,14 @@ class ChildIntegrationTest extends IntegrationTest {
         long id = create(PROFILE);
 
         parent.put("/api/children/" + id, """
-                {"birthYm": "2020-01", "gender": "MALE", "traits": ["ACTIVE"], "interests": ["기차"]}""")
+                {"birthYm": "2020-01", "gender": "MALE", "traits": ["ACTIVE"], "customInterests": ["기차"]}""")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.displayName").value("아이 A"))
                 .andExpect(jsonPath("$.birthYm").value("2020-01"))
                 .andExpect(jsonPath("$.gender").value("MALE"))
                 .andExpect(jsonPath("$.traits", contains("ACTIVE")))
-                .andExpect(jsonPath("$.interests", contains("기차")));
+                .andExpect(jsonPath("$.interestCodes", hasSize(0)))
+                .andExpect(jsonPath("$.customInterests", contains("기차")));
     }
 
     @Test
@@ -198,15 +251,22 @@ class ChildIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void 선택지는_성향_7개와_라벨을_준다() throws Exception {
+    void 선택지는_좋아하는_것_7개_성향_7개_성별_3개와_라벨을_준다() throws Exception {
         parent.get("/api/children/options")
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.interests", hasSize(7)))
+                .andExpect(jsonPath("$.interests[0].code").value("DINOSAUR"))
+                .andExpect(jsonPath("$.interests[0].label").value("공룡"))
+                .andExpect(jsonPath("$.interests[*].label", everyItem(not(emptyOrNullString()))))
                 .andExpect(jsonPath("$.traits", hasSize(7)))
                 .andExpect(jsonPath("$.traits[0].code").value("SENSITIVE"))
+                .andExpect(jsonPath("$.traits[6].code").value("OTHER"))
                 .andExpect(jsonPath("$.traits[*].label", everyItem(not(emptyOrNullString()))))
-                .andExpect(jsonPath("$.genders", hasSize(3)))
+                .andExpect(jsonPath("$.genders[*].code", contains("FEMALE", "MALE", "UNSPECIFIED")))
+                .andExpect(jsonPath("$.genders[*].label", contains("여자아이", "남자아이", "밝히지 않을래요")))
                 .andExpect(jsonPath("$.interestsMax").value(5))
-                .andExpect(jsonPath("$.interestMaxLength").value(20));
+                .andExpect(jsonPath("$.customTraitMaxLength").value(20))
+                .andExpect(jsonPath("$.customInterestMaxLength").value(20));
     }
 
     private long create(String profile) throws Exception {

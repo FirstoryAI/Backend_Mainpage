@@ -26,8 +26,10 @@ public enum ErrorCode {
     INVALID_PHONE_FORMAT(HttpStatus.BAD_REQUEST, "010-0000-0000 형식으로 입력해 주세요."),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "이미 가입된 이메일이에요."),
     DUPLICATE_PHONE(HttpStatus.CONFLICT, "이미 가입된 휴대폰 번호예요."),
-    INTERESTS_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "좋아하는 것은 5개까지 입력할 수 있어요."),
-    INTEREST_TOO_LONG(HttpStatus.BAD_REQUEST, "좋아하는 것은 한 개당 20자까지 입력할 수 있어요."),
+    INTERESTS_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "좋아하는 것은 고른 것과 직접 입력을 합쳐 5개까지예요."),
+    CUSTOM_VALUE_REQUIRED(HttpStatus.BAD_REQUEST, "기타를 고르면 내용을 직접 입력해 주세요."),
+    // {n}은 항목별 최대 글자 수로 채운다 (BusinessException(ErrorCode, int))
+    CUSTOM_VALUE_TOO_LONG(HttpStatus.BAD_REQUEST, "직접 입력은 {n}자까지 쓸 수 있어요."),
     CHILD_LABEL_EXHAUSTED(HttpStatus.BAD_REQUEST, "저장할 수 있는 아이 수를 넘었어요."),
     INVALID_CHILD_NAME(HttpStatus.BAD_REQUEST, "아이 호칭은 1~30자로 입력해 주세요."),
     CHILD_NOT_FOUND(HttpStatus.NOT_FOUND, "아이 정보를 찾을 수 없어요."),

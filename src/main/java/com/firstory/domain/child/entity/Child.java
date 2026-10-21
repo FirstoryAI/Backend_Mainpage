@@ -3,6 +3,7 @@ package com.firstory.domain.child.entity;
 import com.firstory.domain.user.entity.User;
 import com.firstory.global.converter.YearMonthStringConverter;
 import com.firstory.global.entity.BaseTimeEntity;
+import com.firstory.global.entity.CustomText;
 import com.firstory.global.error.BusinessException;
 import com.firstory.global.error.ErrorCode;
 import jakarta.persistence.CollectionTable;
@@ -45,6 +46,7 @@ import java.util.Set;
 public class Child extends BaseTimeEntity {
 
     public static final int DISPLAY_NAME_MAX_LENGTH = 30;
+    public static final int CUSTOM_TRAIT_MAX_LENGTH = 20;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -72,37 +74,64 @@ public class Child extends BaseTimeEntity {
     @Column(name = "trait_code", nullable = false, length = 30)
     private Set<Trait> traits = EnumSet.noneOf(Trait.class);
 
+    // traits에 OTHER가 있을 때만 값이 있다
+    @Column(name = "custom_trait", length = 20)
+    private String customTrait;
+
+    // InterestCode 선언 순서
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "interest_codes", nullable = false, columnDefinition = "jsonb")
+    private List<InterestCode> interestCodes = new ArrayList<>();
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "custom_interests", nullable = false, columnDefinition = "jsonb")
-    private List<String> interests = new ArrayList<>();
+    private List<String> customInterests = new ArrayList<>();
 
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
     private Child(User user, String displayName, YearMonth birthYm, Gender gender,
-                  Collection<Trait> traits, List<String> interests) {
+                  Collection<Trait> traits, String customTrait, Interests interests) {
         this.user = Objects.requireNonNull(user);
         this.displayName = validateDisplayName(displayName);
-        applyProfile(birthYm, gender, traits, interests);
+        applyProfile(birthYm, gender, traits, customTrait, interests);
     }
 
     public static Child save(User user, String displayName, YearMonth birthYm, Gender gender,
-                             Collection<Trait> traits, List<String> interests) {
-        return new Child(user, displayName, birthYm, gender, traits, interests);
+                             Collection<Trait> traits, String customTrait, Interests interests) {
+        return new Child(user, displayName, birthYm, gender, traits, customTrait, interests);
     }
 
-    public void updateProfile(YearMonth birthYm, Gender gender, Collection<Trait> traits, List<String> interests) {
-        applyProfile(birthYm, gender, traits, interests);
+    public void updateProfile(YearMonth birthYm, Gender gender, Collection<Trait> traits, String customTrait,
+                              Interests interests) {
+        applyProfile(birthYm, gender, traits, customTrait, interests);
     }
 
     /**
      * 저장된 값과 같은지. 같으면 갱신하지 않아 child_traits 행을 지우고 다시 넣지 않게 한다.
      */
-    public boolean hasProfile(YearMonth birthYm, Gender gender, Collection<Trait> traits, List<String> interests) {
+    public boolean hasProfile(YearMonth birthYm, Gender gender, Collection<Trait> traits, String customTrait,
+                              Interests interests) {
+        Set<Trait> traitSet = toTraitSet(traits);
+        Interests normalized = Interests.normalize(interests.codes(), interests.customs());
         return this.birthYm.equals(birthYm)
                 && this.gender == gender
-                && this.traits.equals(toTraitSet(traits))
-                && this.interests.equals(Interests.normalize(interests));
+                && this.traits.equals(traitSet)
+                && Objects.equals(this.customTrait, customTraitOf(traitSet, customTrait))
+                && this.interestCodes.equals(normalized.codes())
+                && this.customInterests.equals(normalized.customs());
+    }
+
+    public Interests getInterests() {
+        return new Interests(interestCodes, customInterests);
+    }
+
+    /**
+     * 성향 직접 입력. OTHER를 골랐으면 필수(20자까지), 고르지 않았으면 버린다.
+     */
+    public static String customTraitOf(Collection<Trait> traits, String customTrait) {
+        return CustomText.resolve(traits != null && traits.contains(Trait.OTHER), customTrait,
+                CUSTOM_TRAIT_MAX_LENGTH);
     }
 
     public void rename(String displayName) {
@@ -123,15 +152,18 @@ public class Child extends BaseTimeEntity {
         return (int) ChronoUnit.MONTHS.between(birthYm, YearMonth.from(date));
     }
 
-    private void applyProfile(YearMonth birthYm, Gender gender, Collection<Trait> traits, List<String> interests) {
+    private void applyProfile(YearMonth birthYm, Gender gender, Collection<Trait> traits, String customTrait,
+                              Interests interests) {
+        Set<Trait> traitSet = toTraitSet(traits);
+        Interests normalized = Interests.normalize(interests.codes(), interests.customs());
+        this.customTrait = customTraitOf(traitSet, customTrait);
         this.birthYm = Objects.requireNonNull(birthYm);
         this.gender = Objects.requireNonNull(gender);
         // 영속 컬렉션은 교체하지 않고 내용만 바꾼다
         this.traits.clear();
-        if (traits != null) {
-            this.traits.addAll(traits);
-        }
-        this.interests = Interests.normalize(interests);
+        this.traits.addAll(traitSet);
+        this.interestCodes = new ArrayList<>(normalized.codes());
+        this.customInterests = new ArrayList<>(normalized.customs());
     }
 
     private static Set<Trait> toTraitSet(Collection<Trait> traits) {
