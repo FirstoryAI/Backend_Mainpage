@@ -1,0 +1,10 @@
+# 로컬 개발용 설정. application-local.yml로 복사해서 쓴다 (application-local.yml은 커밋하지 않는다)
+# 실행: ./gradlew bootRun --args='--spring.profiles.active=local'
+# 로컬에 이미 PostgreSQL(5432)과 다른 앱(8080)이 떠 있는 환경을 피하기 위한 포트다.
+# docker compose도 .env의 POSTGRES_PORT=55432로 맞춰 띄운다.
+server:
+  port: 8081
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:55432/firstory

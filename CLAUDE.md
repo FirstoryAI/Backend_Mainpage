@@ -20,6 +20,19 @@ docker compose up -d          # 로컬 PostgreSQL, Redis
 ./gradlew bootRun
 ```
 
+### 로컬 실행 (포트가 겹치는 개발 PC)
+
+로컬에 PostgreSQL(5432)이나 다른 앱(8080)이 이미 떠 있으면 `local` 프로필로 띄운다. DB 55432, 서버 8081을 쓴다.
+
+```bash
+cp .env.example .env                                                        # POSTGRES_PORT=55432
+cp src/main/resources/application-local.yml.example src/main/resources/application-local.yml
+docker compose up -d                                                        # .env를 읽어 55432로 띄움
+./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+`.env`와 `application-local.yml`은 커밋하지 않는다. 설정을 바꾸면 `.example` 파일도 함께 고친다.
+
 ## 패키지 구조 (도메인별)
 
 ```
