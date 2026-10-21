@@ -8,3 +8,12 @@ server:
 spring:
   datasource:
     url: jdbc:postgresql://localhost:55432/firstory
+
+# 쿠키와 출처. 기본값(application.yml)으로 충분하면 지워도 된다
+# firstory:
+#   web:
+#     cookie-secure: false
+#     cookie-domain:
+#     allowed-origins: http://localhost:5173   # 프론트 개발 서버. Vite 프록시로 같은 출처면 비운다
+#   auth:
+#     remember-me-key: local-remember-me-key-change-me

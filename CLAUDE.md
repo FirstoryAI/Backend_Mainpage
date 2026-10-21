@@ -17,8 +17,10 @@ AI 생성은 별도 Python 서비스(LangGraph)가 맡고, 이 저장소는 회�
 docker compose up -d          # 로컬 PostgreSQL
 ./gradlew build               # 컴파일 + 테스트
 ./gradlew test
-./gradlew bootRun
+./gradlew bootRun --args='--spring.profiles.active=local'   # local 프로필 필수 (아래 참고)
 ```
+
+`SmsSender` 구현은 아직 `LoggingSmsSender`(`local`, `test` 프로필 전용)뿐이다. 프로필 없이 띄우면 `SmsSender` 빈이 없어 기동이 실패한다 (의도된 동작. 실제 문자 대행사 연동은 TASK-07).
 
 ### 로컬 실행 (포트가 겹치는 개발 PC)
 
@@ -38,9 +40,10 @@ docker compose up -d                                                        # .e
 ```
 com.firstory
 ├── FirstoryApplication   하위 패키지를 모두 스캔하도록 루트에 둔다
-├── global                config, entity(BaseTimeEntity), error, crypto, converter
+├── global                config, entity(BaseTimeEntity), error, crypto, converter, security, sms
 └── domain
-    ├── user              회원, 동의
+    ├── auth              문자 인증, 가입, 로그인, 문자 발송 기록
+    ├── user              회원, 동의, 내 정보
     ├── child             아이 프로필, 성향
     ├── story             동화, 만들기 입력, 인터뷰, 상태
     ├── generation        생성 실행, 버전, 페이지
@@ -96,11 +99,36 @@ com.firstory
 - 위기 신호는 동화 단위로 센다. 1회째 경고 팝업, 2회째 `BLOCKED`.
 - 아이 프로필은 "다음에도 이 아이 정보로 만들기"를 체크했을 때만 저장한다. 동화는 항상 `StoryInput.childSnapshot`을 기준으로 만든다.
 
+## 인증 규칙
+
+- 로그인은 이메일 + 비밀번호. 서버 세션(Spring Session JDBC, PostgreSQL)으로 유지한다. **JWT를 쓰지 않는다.**
+- 세션 유휴 만료 30분, 세션 쿠키 `FSESSION`. 로그인 상태 유지(remember-me)는 persistent token 방식으로 90일, 쿠키 `FREMEMBER`, 기본값 꺼짐.
+- 쿠키는 모두 HttpOnly(CSRF 쿠키 제외), SameSite=Lax, Secure는 `COOKIE_SECURE`.
+- CSRF는 켠다(SPA 방식). 프론트는 앱을 열 때와 로그아웃한 뒤 `GET /api/auth/csrf`를 불러 `XSRF-TOKEN` 쿠키를 받고, 상태를 바꾸는 요청에 `X-XSRF-TOKEN` 헤더로 돌려보낸다. 로그인, 가입도 검사한다.
+- 로그인은 필터가 아닌 API(`LoginService` + `LoginSuccessHandler`)에서 처리하고 `SecurityContextRepository`로 명시적으로 저장한다. 로그아웃은 `LogoutFilter`(`POST /api/auth/logout`).
+- 인증번호와 인증 결과는 세션에 저장한다(코드는 SHA-256 해시만). 세션에 넣는 객체는 `Serializable` record로 만들고 `toString`에서 번호를 가린다.
+- 비밀번호 변경과 탈퇴는 `SessionRevoker.revokeAll(email)`로 그 회원의 모든 세션과 remember-me 토큰을 지운다. Principal 이름은 이메일이다.
+- 현재 시각은 `Clock` 빈으로 구한다. **`Instant.now()`를 직접 부르지 않는다.** JPA auditing(created_at)도 이 Clock을 따른다.
+- 로그인 컨트롤러에서는 `@AuthenticationPrincipal UserPrincipal`로 `userId`를 꺼낸다.
+
+### 환경 변수
+
+도메인(`firstoryofficial`)과 출처는 코드에 적지 않고 환경 변수로만 받는다.
+
+| 환경 변수 | 로컬 기본값 | 운영 | 용도 |
+|---|---|---|---|
+| `COOKIE_SECURE` | `false` | `true` | 쿠키 Secure 속성 |
+| `COOKIE_DOMAIN` | (비움) | (비움) 또는 최상위 도메인 | API를 서브도메인으로 나눌 때만. 비우면 host-only 쿠키 |
+| `ALLOWED_ORIGINS` | `http://localhost:5173` | (비움) 또는 프론트 출처 | CORS. 쉼표로 구분. 비우면 CORS 설정을 등록하지 않음 |
+| `REMEMBER_ME_KEY` | 로컬용 임의값 | 비밀값 | remember-me 서명 키 |
+| `PHONE_AES_KEY`, `PHONE_HMAC_KEY` | 로컬용 값 | 비밀값 | 휴대폰 번호 암호화, 해시 |
+
 ## 개인정보 규칙 (반드시 지킬 것)
 
 - 휴대폰 번호는 `PhoneCrypto`로 암호화해 `phone_enc`에, 중복 체크용 HMAC은 `phone_hash`에 저장한다. 평문 저장 금지.
 - 아이 호칭(`Child.displayName`)은 AI 서비스로 보내지 않는다. `ChildSnapshot`에도 넣지 않는다.
-- 휴대폰 번호, 아이 정보, 부모 입력 서술, 인터뷰 답변을 로그에 남기지 않는다.
+- 휴대폰 번호, 아이 정보, 부모 입력 서술, 인터뷰 답변을 로그에 남기지 않는다. 비밀번호와 인증번호도 남기지 않는다(로컬 `LoggingSmsSender`의 인증번호만 예외).
+- 휴대폰 번호는 응답에도 가린 형태(`PhoneNumber.masked()`, `010-****-5678`)만 내려준다.
 
 ## 에러와 문구
 
@@ -111,6 +139,7 @@ com.firstory
 
 - 도메인 규칙(상태 전이, 동의 검증, 관심사 정규화, 호칭 부여, 버전 전환)은 Spring 없이 단위 테스트.
 - Repository 테스트는 jsonb와 부분 인덱스가 있어 H2를 쓰지 않는다. Testcontainers PostgreSQL을 쓴다.
+- API 통합 테스트는 `com.firstory.support.IntegrationTest`를 상속한다(`@SpringBootTest` + MockMvc + Testcontainers, `test` 프로필). `Browser`가 기기 하나의 쿠키와 CSRF 헤더를 들고 다니고, `MutableClock`으로 시간을 옮기고, `RecordingSmsSender`에서 인증번호를 읽는다.
 
 ## 아직 정해지지 않은 것
 
@@ -120,10 +149,13 @@ com.firstory
 - 상황 분류(situation_category), 감정(emotion) 값 목록 → 문자열 코드로 저장
 - CRT-01 "알려주고 싶은 주제" 유형
 - 확정 후 사용하지 않는 버전 보관 정책
-- 탈퇴 시 개인정보 파기 시점 (PRD 36)
+- 탈퇴 시 개인정보 파기 시점 (PRD 36). 지금은 회원만 소프트 삭제하고 아이, 동화 데이터는 그대로 둔다
+- 비밀번호 규칙 (임시: 8~64자, 영문과 숫자 각각 1개 이상, `PasswordPolicy`)
+- 서비스 최상위 도메인(.com, .kr, .co.kr). 코드에는 적지 않는다
 - 웹 푸시(PUSH_SUBSCRIPTIONS)는 2차 범위. 지금 만들지 않는다.
 - 카카오 로그인은 하지 않는다. 이메일 + 비밀번호 + 문자 인증 휴대폰 번호로만 가입한다.
 
 ## 작업 문서
 
 - `docs/tasks/TASK-01-setup-and-entities.md`: 프로젝트 세팅과 JPA 엔티티
+- `docs/tasks/TASK-02-auth-and-member.md`: 인증과 회원 (세션, remember-me, CSRF, 문자 인증, 가입, 로그인, 내 정보)
