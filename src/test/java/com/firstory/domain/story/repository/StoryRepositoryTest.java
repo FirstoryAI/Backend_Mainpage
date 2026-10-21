@@ -11,6 +11,12 @@ import com.firstory.domain.generation.entity.StoryVersion;
 import com.firstory.domain.generation.repository.GenerationRunRepository;
 import com.firstory.domain.generation.repository.StoryVersionRepository;
 import com.firstory.domain.story.entity.ChildSnapshot;
+import com.firstory.domain.story.entity.Emotion;
+import com.firstory.domain.story.entity.InterviewEndReason;
+import com.firstory.domain.story.entity.MessageDirection;
+import com.firstory.domain.story.entity.MomentReaction;
+import com.firstory.domain.story.entity.SituationCategory;
+import com.firstory.domain.story.entity.SituationTiming;
 import com.firstory.domain.story.entity.Story;
 import com.firstory.domain.story.entity.StoryInput;
 import com.firstory.domain.user.entity.User;
@@ -23,6 +29,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.firstory.support.Fixtures.*;
@@ -67,6 +74,33 @@ class StoryRepositoryTest extends RepositoryTest {
         StoryInput found = storyInputRepository.findById(story.getId()).orElseThrow();
 
         assertThat(found.getChildSnapshot()).isEqualTo(snapshot);
+    }
+
+    @Test
+    void 만들기_입력의_jsonb_값이_그대로_돌아온다() {
+        User user = userRepository.save(user());
+        Story story = storyRepository.save(story(user));
+        StoryInput input = StoryInput.begin(story);
+        input.writeSituation(SituationTiming.PAST, SituationCategory.OTHER, "동생이 생겼어요", "설명",
+                List.of(MomentReaction.CRIED, MomentReaction.OTHER), "방에 숨었어요", List.of(Emotion.SAD, Emotion.SCARED));
+        input.writeParent(null, "걱정", "용기를 주고 싶어요", MessageDirection.PERSPECTIVE_TAKING);
+        Map<String, Object> finalContext = Map.of(
+                "parent", Map.of("concern", "걱정", "message_direction", "perspective_taking"),
+                "moment", Map.of("reactions", List.of("cried", "other")));
+        input.finishInterview("요약", InterviewEndReason.SUFFICIENT, finalContext);
+        storyInputRepository.save(input);
+        em.flush();
+        em.clear();
+
+        StoryInput found = storyInputRepository.findById(story.getId()).orElseThrow();
+
+        assertThat(found.getSituationCategory()).isEqualTo(SituationCategory.OTHER);
+        assertThat(found.getSituationCustomCategory()).isEqualTo("동생이 생겼어요");
+        assertThat(found.getMomentReactions()).containsExactly(MomentReaction.CRIED, MomentReaction.OTHER);
+        assertThat(found.getMomentCustomReaction()).isEqualTo("방에 숨었어요");
+        assertThat(found.getEmotions()).containsExactly(Emotion.SAD, Emotion.SCARED);
+        assertThat(found.getMessageDirection()).isEqualTo(MessageDirection.PERSPECTIVE_TAKING);
+        assertThat(found.getFinalContext()).isEqualTo(finalContext);
     }
 
     @Test

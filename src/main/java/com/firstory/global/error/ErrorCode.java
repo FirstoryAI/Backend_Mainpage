@@ -36,6 +36,8 @@ public enum ErrorCode {
     INVALID_BIRTH_YM(HttpStatus.BAD_REQUEST, "생년월을 다시 확인해 주세요."),
     STORY_NOT_FOUND(HttpStatus.NOT_FOUND, "동화를 찾을 수 없어요."),
     INVALID_STATUS_TRANSITION(HttpStatus.CONFLICT, "지금 상태에서는 할 수 없는 작업이에요."),
+    DESCRIPTION_TOO_LONG(HttpStatus.BAD_REQUEST, "상황 설명은 60자까지 쓸 수 있어요."),
+    MOMENT_ONLY_FOR_PAST(HttpStatus.BAD_REQUEST, "아이의 반응과 감정은 있었던 일에서만 고를 수 있어요."),
     VERSION_NOT_IN_STORY(HttpStatus.BAD_REQUEST, "이 동화의 버전이 아니에요."),
     REGENERATION_LIMIT_REACHED(HttpStatus.CONFLICT, "다시 만들기 횟수를 모두 썼어요."),
     PAGE_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "없는 쪽이에요.");
