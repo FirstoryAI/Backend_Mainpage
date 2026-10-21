@@ -46,4 +46,11 @@ public class JsonRememberMeServices extends PersistentTokenBasedRememberMeServic
         }
         cancelCookie(request, response);
     }
+
+    /**
+     * 토큰은 이미 지웠고 브라우저의 FREMEMBER 쿠키만 지울 때 쓴다 (탈퇴, 비밀번호 변경).
+     */
+    public void clearCookie(HttpServletRequest request, HttpServletResponse response) {
+        cancelCookie(request, response);
+    }
 }

@@ -88,6 +88,10 @@ public class User extends BaseTimeEntity {
         return onboardingSeenAt != null;
     }
 
+    public void changePassword(String passwordHash) {
+        this.passwordHash = Objects.requireNonNull(passwordHash);
+    }
+
     public void changePhone(String phoneEnc, String phoneHash, Instant phoneVerifiedAt) {
         this.phoneEnc = Objects.requireNonNull(phoneEnc);
         this.phoneHash = Objects.requireNonNull(phoneHash);
