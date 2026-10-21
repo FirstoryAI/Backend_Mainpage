@@ -108,7 +108,7 @@ public class Story extends BaseTimeEntity {
 
     /**
      * 다시 만들기. 확인 중(REVIEWING)일 때만 가능하고 횟수 한도를 넘을 수 없다.
-     * 실패 후 다시 시도(FAILED → REQUESTED)는 changeStatus로 하며 횟수에 포함하지 않는다.
+     * 실패 후 다시 시도는 retry()를 쓴다.
      */
     public void requestRegeneration(int maxRegenerations) {
         if (status != StoryStatus.REVIEWING) {
@@ -119,6 +119,16 @@ public class Story extends BaseTimeEntity {
         }
         changeStatus(StoryStatus.REQUESTED);
         regenerateCount++;
+    }
+
+    /**
+     * 실패 후 다시 시도 (FAILED → REQUESTED). 다시 만들기 횟수에 포함하지 않는다.
+     */
+    public void retry() {
+        if (status != StoryStatus.FAILED) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
+        }
+        changeStatus(StoryStatus.REQUESTED);
     }
 
     public void confirm(Instant now) {

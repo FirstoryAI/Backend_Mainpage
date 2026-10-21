@@ -98,6 +98,43 @@ class StoryTest {
     }
 
     @Test
+    void 실패한_동화는_다시_시도할_수_있고_다시_만들기_횟수는_그대로다() {
+        Story story = story(user);
+        moveToReviewing(story);
+        story.requestRegeneration(3);
+        story.changeStatus(StoryStatus.FAILED);
+
+        story.retry();
+
+        assertThat(story.getStatus()).isEqualTo(StoryStatus.REQUESTED);
+        assertThat(story.getRegenerateCount()).isEqualTo(1);
+    }
+
+    @Test
+    void 다시_만들기_한도를_다_써도_실패_재시도는_가능하다() {
+        Story story = story(user);
+        moveToReviewing(story);
+        story.requestRegeneration(1);
+        story.changeStatus(StoryStatus.FAILED);
+
+        story.retry();
+
+        assertThat(story.getStatus()).isEqualTo(StoryStatus.REQUESTED);
+        assertThat(story.getRegenerateCount()).isEqualTo(1);
+    }
+
+    @Test
+    void 실패_상태가_아니면_다시_시도할_수_없다() {
+        Story story = story(user);
+        moveToReviewing(story);
+
+        assertThatThrownBy(story::retry)
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION);
+        assertThat(story.getStatus()).isEqualTo(StoryStatus.REVIEWING);
+    }
+
+    @Test
     void 확정하면_COMPLETED와_확정_시각이_남는다() {
         Story story = story(user);
         moveToReviewing(story);
