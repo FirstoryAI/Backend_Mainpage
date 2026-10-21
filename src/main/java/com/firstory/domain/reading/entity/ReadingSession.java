@@ -64,8 +64,11 @@ public class ReadingSession extends BaseTimeEntity {
         return new ReadingSession(story, version, now);
     }
 
-    public void moveTo(int page) {
-        if (page < StoryPage.FIRST_PAGE || page > StoryPage.LAST_PAGE) {
+    /**
+     * @param pageCount 동화 쪽수 (firstory.story.page-count)
+     */
+    public void moveTo(int page, int pageCount) {
+        if (page < StoryPage.FIRST_PAGE || page > pageCount) {
             throw new BusinessException(ErrorCode.PAGE_OUT_OF_RANGE);
         }
         this.lastPage = page;

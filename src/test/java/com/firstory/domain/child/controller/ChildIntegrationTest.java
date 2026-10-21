@@ -114,7 +114,7 @@ class ChildIntegrationTest extends IntegrationTest {
     @Test
     void 성향과_좋아하는_것은_생략하면_빈_목록() throws Exception {
         parent.post("/api/children", """
-                {"birthYm": "2021-03", "gender": "UNDISCLOSED"}""")
+                {"birthYm": "2021-03", "gender": "UNSPECIFIED"}""")
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.traits", hasSize(0)))
                 .andExpect(jsonPath("$.interests", hasSize(0)));
@@ -198,10 +198,10 @@ class ChildIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void 선택지는_성향_6개와_라벨을_준다() throws Exception {
+    void 선택지는_성향_7개와_라벨을_준다() throws Exception {
         parent.get("/api/children/options")
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.traits", hasSize(6)))
+                .andExpect(jsonPath("$.traits", hasSize(7)))
                 .andExpect(jsonPath("$.traits[0].code").value("SENSITIVE"))
                 .andExpect(jsonPath("$.traits[*].label", everyItem(not(emptyOrNullString()))))
                 .andExpect(jsonPath("$.genders", hasSize(3)))

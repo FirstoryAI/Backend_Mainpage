@@ -73,7 +73,7 @@ public class Child extends BaseTimeEntity {
     private Set<Trait> traits = EnumSet.noneOf(Trait.class);
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = false, columnDefinition = "jsonb")
+    @Column(name = "custom_interests", nullable = false, columnDefinition = "jsonb")
     private List<String> interests = new ArrayList<>();
 
     @Column(name = "deleted_at")

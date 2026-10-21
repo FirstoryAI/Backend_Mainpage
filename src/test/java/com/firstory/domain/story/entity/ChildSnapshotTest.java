@@ -43,7 +43,7 @@ class ChildSnapshotTest {
 
     @Test
     void 저장하지_않은_입력은_관심사를_정규화한다() {
-        ChildSnapshot snapshot = ChildSnapshot.of(YearMonth.of(2022, 1), Gender.UNDISCLOSED,
+        ChildSnapshot snapshot = ChildSnapshot.of(YearMonth.of(2022, 1), Gender.UNSPECIFIED,
                 Set.of(Trait.ACTIVE), List.of(" 공 ", "공"), LocalDate.of(2026, 1, 31));
 
         assertThat(snapshot.ageMonths()).isEqualTo(48);

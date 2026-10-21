@@ -1,8 +1,6 @@
 package com.firstory.domain.story.entity;
 
 import com.firstory.global.entity.BaseTimeEntity;
-import com.firstory.global.error.BusinessException;
-import com.firstory.global.error.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -50,13 +48,6 @@ public class StoryInput extends BaseTimeEntity {
     @Column(columnDefinition = "text")
     private String description;
 
-    @Column(name = "moment_reaction", columnDefinition = "text")
-    private String momentReaction;
-
-    // TODO(PM): 감정 값 목록 미정. 문자열 코드로 저장
-    @Column(length = 30)
-    private String emotion;
-
     @Column(name = "parent_message", columnDefinition = "text")
     private String parentMessage;
 
@@ -86,16 +77,11 @@ public class StoryInput extends BaseTimeEntity {
         return new StoryInput(story);
     }
 
-    public void writeSituation(SituationTiming timing, String category, String description,
-                               String momentReaction, String emotion) {
-        if (timing != SituationTiming.PAST && emotion != null && !emotion.isBlank()) {
-            throw new BusinessException(ErrorCode.EMOTION_ONLY_FOR_PAST);
-        }
+    // 반응과 감정은 V3에서 목록 컬럼으로 바뀌었다. 검증과 함께 TASK-04 3단계에서 채운다
+    public void writeSituation(SituationTiming timing, String category, String description) {
         this.situationTiming = timing;
         this.situationCategory = category;
         this.description = description;
-        this.momentReaction = momentReaction;
-        this.emotion = timing == SituationTiming.PAST ? emotion : null;
     }
 
     public void writeChild(ChildSnapshot childSnapshot) {

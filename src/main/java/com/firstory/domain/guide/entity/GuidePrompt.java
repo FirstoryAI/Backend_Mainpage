@@ -53,8 +53,8 @@ public class GuidePrompt extends BaseTimeEntity {
 
     private GuidePrompt(ReadingGuide guide, int seq, int afterPage, String question, String purpose,
                         String parentHint) {
-        if (afterPage < 1 || afterPage > 10) {
-            throw new IllegalArgumentException("질문 위치는 1~10쪽 사이여야 해요: " + afterPage);
+        if (afterPage < 1) {
+            throw new IllegalArgumentException("질문 위치는 1쪽 이상이어야 해요: " + afterPage);
         }
         this.guide = Objects.requireNonNull(guide);
         this.seq = seq;

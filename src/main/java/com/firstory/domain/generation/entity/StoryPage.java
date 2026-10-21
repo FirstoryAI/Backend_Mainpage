@@ -26,8 +26,8 @@ import java.util.Objects;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class StoryPage extends BaseTimeEntity {
 
+    // 마지막 쪽은 설정값(firstory.story.page-count)이다. DB와 엔티티는 1 이상만 검사한다
     public static final int FIRST_PAGE = 1;
-    public static final int LAST_PAGE = 10;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -55,8 +55,8 @@ public class StoryPage extends BaseTimeEntity {
 
     private StoryPage(StoryVersion version, int pageNo, String text, String imagePrompt,
                       String imageKey, ImageStatus imageStatus) {
-        if (pageNo < FIRST_PAGE || pageNo > LAST_PAGE) {
-            throw new IllegalArgumentException("쪽 번호는 1~10 사이여야 해요: " + pageNo);
+        if (pageNo < FIRST_PAGE) {
+            throw new IllegalArgumentException("쪽 번호는 1 이상이어야 해요: " + pageNo);
         }
         this.version = Objects.requireNonNull(version);
         this.pageNo = pageNo;

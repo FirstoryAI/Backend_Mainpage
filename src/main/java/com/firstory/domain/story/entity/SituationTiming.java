@@ -1,11 +1,12 @@
 package com.firstory.domain.story.entity;
 
+import com.firstory.global.entity.AiValue;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 @Getter
 @RequiredArgsConstructor
-public enum SituationTiming {
+public enum SituationTiming implements AiValue {
 
     PAST("있었던 일"),
     UPCOMING("앞으로 겪을 일");
