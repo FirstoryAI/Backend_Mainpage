@@ -2,12 +2,22 @@ package com.firstory.domain.auth.controller;
 
 import com.firstory.domain.auth.dto.SendCodeRequest;
 import com.firstory.domain.auth.dto.SendCodeResponse;
+import com.firstory.domain.auth.dto.SignupRequest;
 import com.firstory.domain.auth.dto.VerifyCodeRequest;
 import com.firstory.domain.auth.service.PhoneVerificationService;
+import com.firstory.domain.auth.service.SignupService;
+import com.firstory.domain.user.dto.MeResponse;
+import com.firstory.domain.user.entity.User;
+import com.firstory.domain.user.service.MeService;
 import com.firstory.global.crypto.PhoneNumber;
+import com.firstory.global.security.LoginSuccessHandler;
+import com.firstory.global.security.UserPrincipal;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +37,9 @@ import java.time.Duration;
 public class AuthController {
 
     private final PhoneVerificationService phoneVerificationService;
+    private final SignupService signupService;
+    private final MeService meService;
+    private final LoginSuccessHandler loginSuccessHandler;
 
     /**
      * 프론트가 앱을 처음 열 때, 로그아웃한 뒤에 부른다. 토큰을 읽어야 XSRF-TOKEN 쿠키가 내려간다.
@@ -48,5 +61,18 @@ public class AuthController {
     public ResponseEntity<Void> verify(@Valid @RequestBody VerifyCodeRequest request, HttpSession session) {
         phoneVerificationService.verify(session, PhoneNumber.fromDisplay(request.phone()), request.code());
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 가입하면 바로 로그인된다 (remember-me는 발급하지 않는다).
+     */
+    @PostMapping("/signup")
+    public ResponseEntity<MeResponse> signup(@Valid @RequestBody SignupRequest request,
+                                             HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        HttpSession session = httpRequest.getSession();
+        User user = signupService.signup(request, session);
+        phoneVerificationService.clearVerified(session);
+        loginSuccessHandler.login(UserPrincipal.from(user), false, httpRequest, httpResponse);
+        return ResponseEntity.status(HttpStatus.CREATED).body(meService.getMe(user.getId()));
     }
 }
