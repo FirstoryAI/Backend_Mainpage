@@ -1,6 +1,7 @@
 package com.firstory.story.domain;
 
 import com.firstory.child.domain.Child;
+import com.firstory.generation.domain.StoryVersion;
 import com.firstory.global.entity.BaseTimeEntity;
 import com.firstory.global.error.BusinessException;
 import com.firstory.global.error.ErrorCode;
@@ -51,6 +52,11 @@ public class Story extends BaseTimeEntity {
     @Column(nullable = false, length = 30)
     private StoryStatus status;
 
+    // 되돌리기와 앞으로 가기는 이 값만 바꾼다. 버전은 지우지 않는다
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "current_version_id")
+    private StoryVersion currentVersion;
+
     // 현재 버전 제목 복사본 (서재 목록용)
     @Column(length = 100)
     private String title;
@@ -83,6 +89,21 @@ public class Story extends BaseTimeEntity {
             throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
         }
         this.status = next;
+    }
+
+    /**
+     * 보여 줄 버전을 바꾼다. 새 버전 표시, 되돌리기, 앞으로 가기 모두 이 메서드를 쓴다.
+     * 다시 만들기 횟수에는 포함하지 않는다.
+     */
+    public void showVersion(StoryVersion version) {
+        if (version == null || !version.belongsTo(this)) {
+            throw new BusinessException(ErrorCode.VERSION_NOT_IN_STORY);
+        }
+        if (status != StoryStatus.REVIEWING) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
+        }
+        this.currentVersion = version;
+        this.title = version.getTitle();
     }
 
     /**
