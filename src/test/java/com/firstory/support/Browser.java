@@ -46,6 +46,14 @@ public class Browser {
         return perform(withCsrf(withBody(MockMvcRequestBuilders.put(url), json)));
     }
 
+    public ResultActions patch(String url, String json) throws Exception {
+        return perform(withCsrf(withBody(MockMvcRequestBuilders.patch(url), json)));
+    }
+
+    public ResultActions delete(String url) throws Exception {
+        return perform(withCsrf(MockMvcRequestBuilders.delete(url)));
+    }
+
     public ResultActions postWithoutCsrf(String url, String json) throws Exception {
         return perform(withBody(MockMvcRequestBuilders.post(url), json));
     }

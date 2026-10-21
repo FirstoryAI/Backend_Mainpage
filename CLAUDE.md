@@ -98,6 +98,10 @@ com.firstory
 - `PhoneNumber.toString()`은 번호를 가린다(`PhoneNumber[***]`). 로그에 실수로 찍혀도 번호가 남지 않게 하기 위함이다. 번호가 필요하면 `digits()`나 `display()`를 명시적으로 쓰고, 그 값은 로그에 남기지 않는다.
 - 위기 신호는 동화 단위로 센다. 1회째 경고 팝업, 2회째 `BLOCKED`.
 - 아이 프로필은 "다음에도 이 아이 정보로 만들기"를 체크했을 때만 저장한다. 동화는 항상 `StoryInput.childSnapshot`을 기준으로 만든다.
+- 동화 만들기에서 아이 정보는 `ChildProfileResolver.resolve` 하나로 처리한다(저장 여부 다섯 경우). snapshot은 항상 화면의 최종 입력값으로 만들고 프로필에서 읽지 않는다.
+- 다른 회원의 아이는 403이 아니라 404 `CHILD_NOT_FOUND`로 응답한다(존재 여부를 드러내지 않는다).
+- 아이 프로필 삭제는 `StoryRepository.detachChild`로 동화 연결을 먼저 끊고 소프트 삭제한다. `detachChild`는 영속성 컨텍스트를 비우므로 Child를 다시 읽어서 지운다.
+- 날짜(오늘, 이번 달, 개월 수)는 `ClockConfig.today(clock)`로 서비스 기준 시간대(Asia/Seoul)에서 센다. 시각(Instant)은 UTC 그대로 둔다.
 
 ## 인증 규칙
 
@@ -151,6 +155,7 @@ com.firstory
 - 확정 후 사용하지 않는 버전 보관 정책
 - 탈퇴 시 개인정보 파기 시점 (PRD 36). 지금은 회원만 소프트 삭제하고 아이, 동화 데이터는 그대로 둔다
 - 비밀번호 규칙 (임시: 8~64자, 영문과 숫자 각각 1개 이상, `PasswordPolicy`)
+- 아이 대상 연령 범위 (임시: 0~144개월, `BirthYmPolicy.MAX_AGE_MONTHS`)
 - 서비스 최상위 도메인(.com, .kr, .co.kr). 코드에는 적지 않는다
 - 웹 푸시(PUSH_SUBSCRIPTIONS)는 2차 범위. 지금 만들지 않는다.
 - 카카오 로그인은 하지 않는다. 이메일 + 비밀번호 + 문자 인증 휴대폰 번호로만 가입한다.
@@ -159,3 +164,4 @@ com.firstory
 
 - `docs/tasks/TASK-01-setup-and-entities.md`: 프로젝트 세팅과 JPA 엔티티
 - `docs/tasks/TASK-02-auth-and-member.md`: 인증과 회원 (세션, remember-me, CSRF, 문자 인증, 가입, 로그인, 내 정보)
+- `docs/tasks/TASK-03-child-profile.md`: 아이 프로필 API와 동화 만들기용 `ChildProfileResolver`
