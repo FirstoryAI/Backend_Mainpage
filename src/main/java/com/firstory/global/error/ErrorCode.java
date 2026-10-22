@@ -40,7 +40,12 @@ public enum ErrorCode {
     MOMENT_ONLY_FOR_PAST(HttpStatus.BAD_REQUEST, "아이의 반응과 감정은 있었던 일에서만 고를 수 있어요."),
     VERSION_NOT_IN_STORY(HttpStatus.BAD_REQUEST, "이 동화의 버전이 아니에요."),
     REGENERATION_LIMIT_REACHED(HttpStatus.CONFLICT, "다시 만들기 횟수를 모두 썼어요."),
-    PAGE_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "없는 쪽이에요.");
+    PAGE_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "없는 쪽이에요."),
+    STORY_BLOCKED(HttpStatus.CONFLICT, "이 내용으로는 동화를 만들 수 없어요."),
+    STORY_INPUT_INCOMPLETE(HttpStatus.BAD_REQUEST, "상황과 아이 정보를 먼저 입력해 주세요."),
+    AI_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "동화 도우미가 잠시 응답하지 않아요. 잠시 후 다시 시도해 주세요."),
+    AI_BUSY(HttpStatus.CONFLICT, "이전 요청을 처리하고 있어요. 잠시 후 다시 시도해 주세요."),
+    AI_STATE_MISMATCH(HttpStatus.CONFLICT, "진행 상태가 맞지 않아요. 화면을 새로고침해 주세요.");
 
     private final HttpStatus status;
     private final String message;
