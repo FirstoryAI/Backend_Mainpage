@@ -45,6 +45,17 @@ class OpenApiDocsTest extends IntegrationTest {
                 .andExpect(jsonPath("$.paths['/api/me'].get.responses['401'].description",
                         containsString("UNAUTHORIZED")))
                 .andExpect(jsonPath("$.paths['/api/auth/logout'].post.responses['204']").exists())
+                .andExpect(jsonPath("$.paths['/api/stories'].post.responses['201']").exists())
+                .andExpect(jsonPath("$.paths['/api/stories/{id}/situation'].put.summary").value("상황 입력 (CRT-01, 02)"))
+                .andExpect(jsonPath("$.paths['/api/stories/{id}/situation'].put.responses['503'].description",
+                        containsString("AI_UNAVAILABLE")))
+                .andExpect(jsonPath("$.paths['/api/stories/{id}/situation'].put.responses['409'].description",
+                        containsString("STORY_BLOCKED")))
+                .andExpect(jsonPath("$.paths['/api/stories/{id}/interview/start'].post.responses['400'].description",
+                        containsString("STORY_INPUT_INCOMPLETE")))
+                .andExpect(jsonPath("$.paths['/api/stories/{id}/interview/answer'].post.responses['409'].description",
+                        containsString("AI_BUSY")))
+                .andExpect(jsonPath("$.paths['/api/stories/{id}'].delete.responses['204']").exists())
                 .andExpect(jsonPath("$.components.schemas.ErrorResponse").exists())
                 .andExpect(jsonPath("$.components.schemas.ValidationErrorResponse").exists());
     }
