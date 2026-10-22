@@ -14,7 +14,10 @@ import com.firstory.domain.story.entity.StoryStatus;
 import com.firstory.domain.story.entity.Tone;
 import com.firstory.domain.story.repository.StoryInputRepository;
 import com.firstory.domain.story.repository.StoryRepository;
+import com.firstory.domain.generation.entity.RegenerateScope;
 import com.firstory.global.ai.AiClient;
+import com.firstory.global.ai.AiGenerationResult;
+import com.firstory.global.ai.AiGenerationStatus;
 import com.firstory.global.ai.InterviewReply;
 import com.firstory.global.ai.SafetyResult;
 import com.firstory.global.config.FirstoryProperties;
@@ -271,6 +274,37 @@ class SafetyGuardTest {
 
         @Override
         public InterviewReply answerInterview(String threadId, String answer) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void generate(String threadId, UUID runId, int runNo, String outputPrefix, Tone tone) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public AiGenerationStatus status(String threadId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public AiGenerationResult result(String threadId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void approve(String threadId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void regenerate(String threadId, RegenerateScope scope, List<Integer> pages, String feedback,
+                               String baseCheckpointId, UUID runId, int runNo, String outputPrefix) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void retry(String threadId, UUID runId, int runNo, String outputPrefix) {
             throw new UnsupportedOperationException();
         }
     }

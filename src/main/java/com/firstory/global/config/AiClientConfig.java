@@ -3,6 +3,7 @@ package com.firstory.global.config;
 import com.firstory.global.ai.AiClient;
 import com.firstory.global.ai.FakeAiClient;
 import com.firstory.global.ai.HttpAiClient;
+import com.firstory.global.storage.FileStorage;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,7 +22,7 @@ public class AiClientConfig {
 
     @Bean
     @ConditionalOnProperty(name = "firstory.ai.mode", havingValue = "fake")
-    public FakeAiClient fakeAiClient() {
-        return new FakeAiClient();
+    public FakeAiClient fakeAiClient(FileStorage fileStorage, FirstoryProperties properties) {
+        return new FakeAiClient(fileStorage, properties.story().pageCount());
     }
 }

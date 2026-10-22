@@ -1,6 +1,7 @@
 package com.firstory.global.ai;
 
 import com.firstory.domain.child.entity.Child;
+import com.firstory.domain.generation.entity.RegenerateScope;
 import com.firstory.domain.safety.entity.SafetyLevel;
 import com.firstory.domain.safety.entity.SafetySource;
 import com.firstory.domain.story.entity.ChildSnapshot;
@@ -240,6 +241,138 @@ class HttpAiClientTest {
 
         assertError(() -> client.answerInterview(THREAD_ID, "답변"), ErrorCode.AI_UNAVAILABLE);
         assertError(() -> client.checkSafety(SafetySource.FORM, List.of("글"), null), ErrorCode.AI_UNAVAILABLE);
+    }
+
+    @Test
+    void 생성_시작은_run_정보와_tone을_보낸다() {
+        UUID runId = UUID.fromString("6c1f0f7e-2b8a-4f53-9a6e-0f5b8f0c2d11");
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/generate"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header(HttpAiClient.TOKEN_HEADER, TOKEN))
+                .andExpect(content().json("""
+                        {"run_id": "6c1f0f7e-2b8a-4f53-9a6e-0f5b8f0c2d11", "run_no": 1,
+                         "output_prefix": "stories/123/runs/1/", "tone": "warm"}""", JsonCompareMode.STRICT))
+                .andRespond(withStatus(HttpStatus.ACCEPTED).contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"accepted\": true}"));
+
+        client.generate(THREAD_ID, runId, 1, "stories/123/runs/1/", Tone.WARM);
+
+        server.verify();
+    }
+
+    @Test
+    void 진행_상태를_읽는다() {
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/status"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header(HttpAiClient.TOKEN_HEADER, TOKEN))
+                .andRespond(withSuccess("""
+                        {"state": "RUNNING", "run_no": 1, "current_node": "illustrate", "stage": 3, "error": null,
+                         "updated_at": "2026-10-21T05:30:00Z"}""", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/status"))
+                .andRespond(withSuccess("""
+                        {"state": "FAILED", "run_no": 1, "current_node": "illustrate", "stage": 3,
+                         "error": {"code": "IMAGE_API_ERROR", "node": "illustrate", "message": "부모 입력"}}""",
+                        MediaType.APPLICATION_JSON));
+
+        assertThat(client.status(THREAD_ID))
+                .isEqualTo(new AiGenerationStatus(AiRunState.RUNNING, 1, "illustrate", 3, null));
+        assertThat(client.status(THREAD_ID).error()).isEqualTo("IMAGE_API_ERROR");
+        server.verify();
+    }
+
+    @Test
+    void 결과를_읽는다() {
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/result"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        {"run_no": 1, "checkpoint_id": "1ef8a", "title": "공룡 아로의 새 친구",
+                         "design": {"hero": "아로"},
+                         "character_sheets": [{"role": "main", "name": "아로", "path": "stories/123/runs/1/images/sheet-main-1.png"}],
+                         "pages": [{"page_no": 1, "text": "아로는 **쿵쿵**", "image_prompt": "p",
+                                    "image_path": "stories/123/runs/1/images/page-01.png", "image_status": "done"}],
+                         "guide": {"before_reading": {"intent": "의도", "tips": ["팁"]},
+                                   "prompts": [{"after_page": 3, "text": "질문", "purpose": "emotion", "parent_hint": "힌트"}],
+                                   "after_reading": {"bridge_question": "다리", "if_undecided": "괜찮아요"}},
+                         "cost": {"input_tokens": 41230, "output_tokens": 8120, "image_count": 9},
+                         "safety": {"level": "OK", "category": null, "reason": null}}""", MediaType.APPLICATION_JSON));
+
+        AiGenerationResult result = client.result(THREAD_ID);
+
+        assertThat(result.runNo()).isEqualTo(1);
+        assertThat(result.checkpointId()).isEqualTo("1ef8a");
+        assertThat(result.design()).containsEntry("hero", "아로");
+        assertThat(result.characterSheets()).containsExactly(
+                new AiGenerationResult.CharacterSheet("main", "아로", "stories/123/runs/1/images/sheet-main-1.png"));
+        assertThat(result.pages()).containsExactly(new AiGenerationResult.Page(1, "아로는 **쿵쿵**", "p",
+                "stories/123/runs/1/images/page-01.png", "done"));
+        assertThat(result.guide()).isEqualTo(new AiGenerationResult.Guide("의도", List.of("팁"), "다리", "괜찮아요",
+                List.of(new AiGenerationResult.Prompt(3, "질문", "emotion", "힌트"))));
+        assertThat(result.cost()).isEqualTo(new AiGenerationResult.Cost(41230, 8120, 9));
+        assertThat(result.safety()).isEqualTo(SafetyResult.ok());
+    }
+
+    @Test
+    void 확정은_approve() {
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/review"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().json("""
+                        {"action": "approve"}""", JsonCompareMode.STRICT))
+                .andRespond(withSuccess("""
+                        {"state": "COMPLETED"}""", MediaType.APPLICATION_JSON));
+
+        client.approve(THREAD_ID);
+
+        server.verify();
+    }
+
+    @Test
+    void 다시_만들기는_scope를_바꾸고_기준_checkpoint를_보낸다() {
+        UUID runId = UUID.fromString("6c1f0f7e-2b8a-4f53-9a6e-0f5b8f0c2d12");
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/review"))
+                .andExpect(content().json("""
+                        {"action": "regenerate", "scope": "images", "pages": [3, 5], "feedback": null,
+                         "base_checkpoint_id": "1ef8a", "run_id": "6c1f0f7e-2b8a-4f53-9a6e-0f5b8f0c2d12",
+                         "run_no": 2, "output_prefix": "stories/123/runs/2/"}""", JsonCompareMode.STRICT))
+                .andRespond(withStatus(HttpStatus.ACCEPTED));
+
+        client.regenerate(THREAD_ID, RegenerateScope.IMAGES, List.of(3, 5), null, "1ef8a", runId, 2,
+                "stories/123/runs/2/");
+
+        server.verify();
+    }
+
+    @Test
+    void scope_값은_스펙과_같다() {
+        assertThat(HttpAiClient.scopeValue(RegenerateScope.CHARACTER_STORY)).isEqualTo("story");
+        assertThat(HttpAiClient.scopeValue(RegenerateScope.TEXT)).isEqualTo("text");
+        assertThat(HttpAiClient.scopeValue(RegenerateScope.IMAGES)).isEqualTo("images");
+        assertThatThrownBy(() -> HttpAiClient.scopeValue(RegenerateScope.ALL))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void 다시_시도는_retry() {
+        UUID runId = UUID.fromString("6c1f0f7e-2b8a-4f53-9a6e-0f5b8f0c2d13");
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/retry"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().json("""
+                        {"run_id": "6c1f0f7e-2b8a-4f53-9a6e-0f5b8f0c2d13", "run_no": 2,
+                         "output_prefix": "stories/123/runs/2/", "tone": null}""", JsonCompareMode.STRICT))
+                .andRespond(withStatus(HttpStatus.ACCEPTED));
+
+        client.retry(THREAD_ID, runId, 2, "stories/123/runs/2/");
+
+        server.verify();
+    }
+
+    @Test
+    void 생성_중인_thread에_다시_시작하면_AI_BUSY() {
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/generate"))
+                .andRespond(withStatus(HttpStatus.CONFLICT).contentType(MediaType.APPLICATION_JSON).body("""
+                        {"error": {"code": "THREAD_BUSY", "message": "busy"}}"""));
+
+        assertError(() -> client.generate(THREAD_ID, UUID.randomUUID(), 1, "stories/1/runs/1/", null),
+                ErrorCode.AI_BUSY);
     }
 
     private static Map<String, Object> contextOfChildNamed(String displayName) {

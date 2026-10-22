@@ -2,6 +2,7 @@ package com.firstory.global.ai;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.firstory.domain.generation.entity.RegenerateScope;
 import com.firstory.domain.safety.entity.SafetyLevel;
 import com.firstory.domain.safety.entity.SafetySource;
 import com.firstory.domain.story.entity.InterviewEndReason;
@@ -106,6 +107,109 @@ public class HttpAiClient implements AiClient {
                 .body(InterviewBody.class)));
     }
 
+    @Override
+    public void generate(String threadId, UUID runId, int runNo, String outputPrefix, Tone tone) {
+        TransactionGuard.requireNoTransaction();
+        RunRequest request = new RunRequest(runId, runNo, outputPrefix, tone == null ? null : tone.aiValue());
+        call(threadId, () -> restClient.post()
+                .uri("/v1/threads/{threadId}/generate", threadId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .toBodilessEntity());
+    }
+
+    @Override
+    public AiGenerationStatus status(String threadId) {
+        TransactionGuard.requireNoTransaction();
+        StatusBody body = call(threadId, () -> restClient.get()
+                .uri("/v1/threads/{threadId}/status", threadId)
+                .retrieve()
+                .body(StatusBody.class));
+        if (body == null || body.state() == null) {
+            throw invalidResponse(threadId, "state");
+        }
+        try {
+            return new AiGenerationStatus(AiRunState.valueOf(body.state().toUpperCase(Locale.ROOT)), body.runNo(),
+                    body.currentNode(), body.stage(), errorCodeOf(body.error()));
+        } catch (IllegalArgumentException e) {
+            throw invalidResponse(threadId, "state");
+        }
+    }
+
+    @Override
+    public AiGenerationResult result(String threadId) {
+        TransactionGuard.requireNoTransaction();
+        ResultBody body = call(threadId, () -> restClient.get()
+                .uri("/v1/threads/{threadId}/result", threadId)
+                .retrieve()
+                .body(ResultBody.class));
+        if (body == null || body.runNo() == null || body.title() == null) {
+            throw invalidResponse(threadId, "result");
+        }
+        try {
+            return body.toResult();
+        } catch (NullPointerException | IllegalArgumentException | ClassCastException e) {
+            throw invalidResponse(threadId, "result");
+        }
+    }
+
+    @Override
+    public void approve(String threadId) {
+        TransactionGuard.requireNoTransaction();
+        review(threadId, Map.of("action", "approve"));
+    }
+
+    @Override
+    public void regenerate(String threadId, RegenerateScope scope, List<Integer> pages, String feedback,
+                           String baseCheckpointId, UUID runId, int runNo, String outputPrefix) {
+        TransactionGuard.requireNoTransaction();
+        RegenerateRequest request = new RegenerateRequest("regenerate", scopeValue(scope),
+                pages == null ? List.of() : pages, feedback, baseCheckpointId, runId, runNo, outputPrefix);
+        review(threadId, request);
+    }
+
+    @Override
+    public void retry(String threadId, UUID runId, int runNo, String outputPrefix) {
+        TransactionGuard.requireNoTransaction();
+        RunRequest request = new RunRequest(runId, runNo, outputPrefix, null);
+        call(threadId, () -> restClient.post()
+                .uri("/v1/threads/{threadId}/retry", threadId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .toBodilessEntity());
+    }
+
+    static String scopeValue(RegenerateScope scope) {
+        return switch (scope) {
+            case CHARACTER_STORY -> "story";
+            case TEXT -> "text";
+            case IMAGES -> "images";
+            case ALL -> throw new IllegalArgumentException("다시 만들기 범위로 ALL은 보내지 않아요");
+        };
+    }
+
+    private void review(String threadId, Object request) {
+        call(threadId, () -> restClient.post()
+                .uri("/v1/threads/{threadId}/review", threadId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .toBodilessEntity());
+    }
+
+    // error는 { code, node, message } 객체 (스펙 7-5). message는 남기지 않는다
+    private static String errorCodeOf(Object error) {
+        if (error instanceof Map<?, ?> map && map.get("code") instanceof String code) {
+            return code;
+        }
+        if (error instanceof String code) {
+            return code;
+        }
+        return error == null ? null : "UNKNOWN";
+    }
+
     static String sourceValue(SafetySource source) {
         return switch (source) {
             case FORM -> "form";
@@ -203,6 +307,82 @@ public class HttpAiClient implements AiClient {
                          String summary,
                          @JsonProperty("end_reason") String endReason,
                          Map<String, Object> context) {
+    }
+
+    record RunRequest(@JsonProperty("run_id") UUID runId, @JsonProperty("run_no") int runNo,
+                      @JsonProperty("output_prefix") String outputPrefix, String tone) {
+    }
+
+    record RegenerateRequest(String action, String scope, List<Integer> pages, String feedback,
+                             @JsonProperty("base_checkpoint_id") String baseCheckpointId,
+                             @JsonProperty("run_id") UUID runId, @JsonProperty("run_no") int runNo,
+                             @JsonProperty("output_prefix") String outputPrefix) {
+    }
+
+    record StatusBody(String state, @JsonProperty("run_no") Integer runNo,
+                      @JsonProperty("current_node") String currentNode, Integer stage, Object error) {
+    }
+
+    // TODO(AI 연동): guide(04-guide.json)의 키 이름은 AI 저장소에서 확인 필요. 지금은 before_reading{intent, tips},
+    //  prompts[{after_page, text, purpose, parent_hint}], after_reading{bridge_question, if_undecided}로 읽는다
+    record ResultBody(@JsonProperty("run_no") Integer runNo,
+                      @JsonProperty("checkpoint_id") String checkpointId,
+                      String title,
+                      Map<String, Object> design,
+                      @JsonProperty("character_sheets") List<SheetBody> characterSheets,
+                      List<PageBody> pages,
+                      Map<String, Object> guide,
+                      CostBody cost,
+                      SafetyBody safety) {
+
+        AiGenerationResult toResult() {
+            return new AiGenerationResult(runNo, checkpointId, title, design,
+                    characterSheets == null ? List.of() : characterSheets.stream()
+                            .map(sheet -> new AiGenerationResult.CharacterSheet(sheet.role(), sheet.name(), sheet.path()))
+                            .toList(),
+                    pages == null ? List.of() : pages.stream()
+                            .map(page -> new AiGenerationResult.Page(page.pageNo(), page.text(), page.imagePrompt(),
+                                    page.imagePath(), page.imageStatus()))
+                            .toList(),
+                    guide(guide),
+                    cost == null ? null : new AiGenerationResult.Cost(cost.inputTokens(), cost.outputTokens(),
+                            cost.imageCount()),
+                    safety == null || safety.level() == null ? null : new SafetyResult(
+                            SafetyLevel.valueOf(safety.level().toUpperCase(Locale.ROOT)), safety.category(),
+                            safety.reason()));
+        }
+
+        @SuppressWarnings("unchecked")
+        private static AiGenerationResult.Guide guide(Map<String, Object> guide) {
+            if (guide == null) {
+                return null;
+            }
+            Map<String, Object> before = guide.get("before_reading") instanceof Map<?, ?> map
+                    ? (Map<String, Object>) map : Map.of();
+            Map<String, Object> after = guide.get("after_reading") instanceof Map<?, ?> map
+                    ? (Map<String, Object>) map : Map.of();
+            List<AiGenerationResult.Prompt> prompts = guide.get("prompts") instanceof List<?> list
+                    ? list.stream().map(item -> (Map<String, Object>) item)
+                    .map(item -> new AiGenerationResult.Prompt(((Number) item.get("after_page")).intValue(),
+                            (String) item.get("text"), (String) item.get("purpose"), (String) item.get("parent_hint")))
+                    .toList()
+                    : List.of();
+            return new AiGenerationResult.Guide((String) before.get("intent"), (List<String>) before.get("tips"),
+                    (String) after.get("bridge_question"), (String) after.get("if_undecided"), prompts);
+        }
+    }
+
+    record SheetBody(String role, String name, String path) {
+    }
+
+    record PageBody(@JsonProperty("page_no") int pageNo, String text,
+                    @JsonProperty("image_prompt") String imagePrompt,
+                    @JsonProperty("image_path") String imagePath,
+                    @JsonProperty("image_status") String imageStatus) {
+    }
+
+    record CostBody(@JsonProperty("input_tokens") int inputTokens, @JsonProperty("output_tokens") int outputTokens,
+                    @JsonProperty("image_count") int imageCount) {
     }
 
     record ErrorBody(ErrorDetail error) {
