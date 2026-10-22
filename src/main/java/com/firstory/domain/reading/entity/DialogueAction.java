@@ -55,4 +55,11 @@ public class DialogueAction extends BaseTimeEntity {
     public static DialogueAction record(ReadingSession session, GuidePrompt prompt, DialogueActionType action) {
         return new DialogueAction(session, prompt, action);
     }
+
+    /**
+     * 같은 세션, 같은 질문에 다시 누르면 마지막 값으로 바꾼다 (잘못 누른 것을 고칠 수 있게).
+     */
+    public void change(DialogueActionType action) {
+        this.action = Objects.requireNonNull(action);
+    }
 }
