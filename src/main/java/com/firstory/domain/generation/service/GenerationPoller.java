@@ -3,6 +3,8 @@ package com.firstory.domain.generation.service;
 import com.firstory.domain.generation.entity.GenerationRun;
 import com.firstory.domain.generation.entity.GenerationStage;
 import com.firstory.domain.generation.repository.GenerationRunRepository;
+import com.firstory.domain.notification.entity.NotificationType;
+import com.firstory.domain.notification.service.NotificationService;
 import com.firstory.domain.story.entity.Story;
 import com.firstory.domain.story.entity.StoryStatus;
 import com.firstory.global.ai.AiClient;
@@ -44,16 +46,18 @@ public class GenerationPoller {
     private final GenerationRunRepository runRepository;
     private final AiClient aiClient;
     private final GenerationResultRecorder recorder;
+    private final NotificationService notificationService;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
     private final Duration timeout;
 
     public GenerationPoller(GenerationRunRepository runRepository, AiClient aiClient,
-                            GenerationResultRecorder recorder, TransactionTemplate transactionTemplate, Clock clock,
-                            FirstoryProperties properties) {
+                            GenerationResultRecorder recorder, NotificationService notificationService,
+                            TransactionTemplate transactionTemplate, Clock clock, FirstoryProperties properties) {
         this.runRepository = runRepository;
         this.aiClient = aiClient;
         this.recorder = recorder;
+        this.notificationService = notificationService;
         this.transactionTemplate = transactionTemplate;
         this.clock = clock;
         this.timeout = properties.generation().timeout();
@@ -126,13 +130,20 @@ public class GenerationPoller {
             log.info("AI 결과를 받지 못해 다음에 다시 확인해요: run_id={}, code={}", runId, e.getErrorCode());
             return;
         }
-        recorder.record(runId, result);
+        switch (recorder.record(runId, result)) {
+            case SUCCEEDED -> notificationService.notify(runId, NotificationType.STORY_COMPLETED);
+            case FAILED -> notificationService.notify(runId, NotificationType.STORY_FAILED);
+            case SKIPPED -> {
+                // 다른 쪽이 먼저 처리했다
+            }
+        }
     }
 
     /**
      * @return 이번에 실패로 바꿨으면 true (이미 다른 쪽이 처리했으면 false)
      */
     boolean fail(Long runId, String errorCode) {
+        // 트랜잭션이 끝난 뒤 알림을 보낸다
         Boolean failed = transactionTemplate.execute(status -> runRepository.findByIdForUpdate(runId)
                 .filter(GenerationRun::isRunning)
                 .map(run -> {
@@ -142,10 +153,12 @@ public class GenerationPoller {
                     return true;
                 })
                 .orElse(false));
-        if (Boolean.TRUE.equals(failed)) {
-            log.info("생성이 실패했어요: run_id={}, code={}", runId, errorCode);
+        if (!Boolean.TRUE.equals(failed)) {
+            return false;
         }
-        return Boolean.TRUE.equals(failed);
+        log.info("생성이 실패했어요: run_id={}, code={}", runId, errorCode);
+        notificationService.notify(runId, NotificationType.STORY_FAILED);
+        return true;
     }
 
     private record RunRef(Long id, String threadId, Instant startedAt) {
