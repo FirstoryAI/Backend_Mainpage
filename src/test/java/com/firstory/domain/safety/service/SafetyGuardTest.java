@@ -67,7 +67,7 @@ class SafetyGuardTest {
     @BeforeEach
     void setUp() {
         SafetyPolicy policy = new SafetyPolicy(new FirstoryProperties(null, null,
-                new FirstoryProperties.Policy(3, REVISE_LIMIT), null, null, null));
+                new FirstoryProperties.Policy(3, REVISE_LIMIT), null, null, null, null, null));
         guard = new SafetyGuard(ai, policy, flags, stories, inputs,
                 TransactionOperations.withoutTransaction(),
                 Clock.fixed(NOW, ZoneOffset.UTC));

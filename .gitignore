@@ -43,5 +43,8 @@ bin/
 .env
 src/main/resources/application-local.yml
 
+### Local storage (그림 파일) ###
+data/
+
 ### Archives ###
 *.zip

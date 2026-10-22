@@ -6,7 +6,8 @@ import java.time.Duration;
 import java.util.List;
 
 @ConfigurationProperties("firstory")
-public record FirstoryProperties(Crypto crypto, Story story, Policy policy, Ai ai, Web web, Auth auth) {
+public record FirstoryProperties(Crypto crypto, Story story, Policy policy, Ai ai, Web web, Auth auth,
+                                 Generation generation, Storage storage) {
 
     public record Crypto(String phoneAesKey, String phoneHmacKey) {
     }
@@ -68,5 +69,21 @@ public record FirstoryProperties(Crypto crypto, Story story, Policy policy, Ai a
     }
 
     public record Auth(String rememberMeKey) {
+    }
+
+    /**
+     * 생성 진행 확인 (GenerationPoller).
+     *
+     * @param pollEnabled  false면 스케줄러를 등록하지 않는다 (test 프로필은 pollOnce()를 직접 부른다)
+     * @param pollInterval AI에 진행 상태를 묻는 간격
+     * @param timeout      시작하고 이 시간이 지나도 RUNNING이면 실패로 처리한다
+     */
+    public record Generation(boolean pollEnabled, Duration pollInterval, Duration timeout) {
+    }
+
+    /**
+     * @param localRoot 로컬 파일 저장소의 루트 폴더. 그림 파일이 여기에 쌓인다
+     */
+    public record Storage(String localRoot) {
     }
 }

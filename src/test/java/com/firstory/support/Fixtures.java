@@ -57,7 +57,7 @@ public final class Fixtures {
 
     public static GenerationRun run(Story story, int runNo) {
         RunTrigger trigger = runNo == 1 ? RunTrigger.INITIAL : RunTrigger.REGENERATE;
-        return GenerationRun.start(story, runNo, trigger, RegenerateScope.ALL, null, null, null, NOW);
+        return GenerationRun.start(story, runNo, trigger, RegenerateScope.ALL, null, List.of(), null, null, NOW);
     }
 
     public static StoryVersion version(Story story, GenerationRun run, int versionNo, StoryVersion parent) {

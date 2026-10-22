@@ -18,7 +18,12 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 @Getter
@@ -55,6 +60,11 @@ public class GenerationRun extends BaseTimeEntity {
     @Column(columnDefinition = "text")
     private String feedback;
 
+    // 그림만 다시(IMAGES) 그릴 쪽 번호. 비어 있으면 전체
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "target_pages", nullable = false, columnDefinition = "jsonb")
+    private List<Integer> targetPages = new ArrayList<>();
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private RunStatus status;
@@ -85,22 +95,32 @@ public class GenerationRun extends BaseTimeEntity {
     private Instant finishedAt;
 
     private GenerationRun(Story story, int runNo, RunTrigger triggerType, RegenerateScope scope,
-                          StoryVersion baseVersion, String feedback, String langsmithTraceId, Instant now) {
+                          StoryVersion baseVersion, List<Integer> targetPages, String feedback,
+                          String langsmithTraceId, Instant now) {
         this.story = Objects.requireNonNull(story);
         this.runNo = runNo;
         this.triggerType = Objects.requireNonNull(triggerType);
         this.scope = Objects.requireNonNull(scope);
         this.baseVersion = baseVersion;
+        this.targetPages = targetPages == null ? new ArrayList<>() : new ArrayList<>(targetPages);
         this.feedback = feedback;
         this.langsmithTraceId = langsmithTraceId;
         this.status = RunStatus.RUNNING;
         this.startedAt = Objects.requireNonNull(now);
     }
 
+    /**
+     * @param targetPages 그림만 다시(IMAGES)일 때 다시 그릴 쪽. 다른 범위나 전체면 빈 목록
+     */
     public static GenerationRun start(Story story, int runNo, RunTrigger trigger, RegenerateScope scope,
-                                      StoryVersion baseVersion, String feedback, String langsmithTraceId,
-                                      Instant now) {
-        return new GenerationRun(story, runNo, trigger, scope, baseVersion, feedback, langsmithTraceId, now);
+                                      StoryVersion baseVersion, List<Integer> targetPages, String feedback,
+                                      String langsmithTraceId, Instant now) {
+        return new GenerationRun(story, runNo, trigger, scope, baseVersion, targetPages, feedback,
+                langsmithTraceId, now);
+    }
+
+    public boolean isRunning() {
+        return status == RunStatus.RUNNING;
     }
 
     public void progress(String node) {

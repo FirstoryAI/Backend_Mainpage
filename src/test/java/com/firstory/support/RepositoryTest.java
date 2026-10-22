@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Import;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
- * Flyway 마이그레이션(V1~V4)을 적용한 PostgreSQL 16에서 도는 Repository 테스트의 기반.
+ * Flyway 마이그레이션(V1~V5)을 적용한 PostgreSQL 16에서 도는 Repository 테스트의 기반.
  * jsonb와 부분 인덱스가 있어 H2를 쓰지 않는다.
  * 컨테이너는 모든 테스트 클래스가 함께 쓴다 (Spring 컨텍스트 캐시와 수명을 맞추기 위함).
  */

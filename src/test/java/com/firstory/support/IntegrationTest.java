@@ -24,7 +24,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 실제 Security 필터, Spring Session JDBC, Flyway V1~V4가 모두 적용된 상태에서 도는 통합 테스트의 기반.
+ * 실제 Security 필터, Spring Session JDBC, Flyway V1~V5가 모두 적용된 상태에서 도는 통합 테스트의 기반.
  * 테스트마다 다른 이메일과 번호를 써서 서로 영향을 주지 않는다.
  */
 @SpringBootTest

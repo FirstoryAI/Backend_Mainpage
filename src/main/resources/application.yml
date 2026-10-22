@@ -46,6 +46,12 @@ firstory:
     internal-token: ${AI_INTERNAL_TOKEN:}       # X-Internal-Token. mode=http인데 비어 있으면 기동 실패
     connect-timeout: 3s
     read-timeout: 35s                           # 인터뷰 API는 30초 이내 응답 (스펙 v0.3)
+  generation:
+    poll-enabled: true                          # test 프로필은 false (테스트가 pollOnce()를 직접 부른다)
+    poll-interval: 5s                           # AI에 진행 상태를 묻는 간격
+    timeout: 15m                                # 시작하고 이 시간이 지나도 RUNNING이면 실패 처리
+  storage:
+    local-root: ${STORAGE_LOCAL_ROOT:./data/storage}   # 그림 파일 저장 폴더 (커밋하지 않는다)
   web:
     cookie-secure: ${COOKIE_SECURE:false}                      # 운영은 true
     cookie-domain: ${COOKIE_DOMAIN:}                           # API를 서브도메인으로 나눌 때만 설정
@@ -79,3 +85,7 @@ spring:
 firstory:
   ai:
     mode: fake
+  generation:
+    poll-enabled: false
+  storage:
+    local-root: build/test-storage
