@@ -159,6 +159,20 @@ public class StoryInput extends BaseTimeEntity {
         this.emotions = new ArrayList<>(emotionList);
     }
 
+    /**
+     * writeSituation과 같은 검증만 하고 저장하지 않는다. 위기 신호 검사(AI 호출) 전에 형식 오류를 먼저 알리기 위함.
+     */
+    public static void validateSituation(SituationTiming timing, SituationCategory category, String customCategory,
+                                         String description, Collection<MomentReaction> reactions,
+                                         String customReaction, Collection<Emotion> emotions) {
+        new StoryInput().writeSituation(timing, category, customCategory, description, reactions, customReaction,
+                emotions);
+    }
+
+    public boolean hasSituation() {
+        return situationTiming != null && situationCategory != null;
+    }
+
     public void writeChild(ChildSnapshot childSnapshot) {
         this.childSnapshot = Objects.requireNonNull(childSnapshot);
     }

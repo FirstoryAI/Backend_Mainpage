@@ -146,6 +146,13 @@ public class Story extends BaseTimeEntity {
         }
     }
 
+    /**
+     * 동화 만들기(CRT-03)에서 고른 아이 프로필. 저장하지 않았으면 null.
+     */
+    public void assignChild(Child child) {
+        this.child = child;
+    }
+
     public void detachChild() {
         this.child = null;
     }
