@@ -61,6 +61,7 @@ public class HttpAiClient implements AiClient {
 
     @Override
     public SafetyResult checkSafety(SafetySource source, List<String> texts, String questionContext) {
+        TransactionGuard.requireNoTransaction();
         SafetyCheckRequest request = new SafetyCheckRequest(sourceValue(source), texts,
                 questionContext == null ? null : Map.of("question", questionContext));
         SafetyCheckResponse response = call(null, () -> restClient.post()
@@ -83,6 +84,7 @@ public class HttpAiClient implements AiClient {
 
     @Override
     public InterviewReply startInterview(String threadId, UUID runId, Map<String, Object> context, Tone tone) {
+        TransactionGuard.requireNoTransaction();
         StartInterviewRequest request = new StartInterviewRequest(runId, context, tone == null ? null : tone.aiValue());
         return toReply(threadId, call(threadId, () -> restClient.post()
                 .uri("/v1/threads/{threadId}/interview/start", threadId)
@@ -94,6 +96,7 @@ public class HttpAiClient implements AiClient {
 
     @Override
     public InterviewReply answerInterview(String threadId, String answer) {
+        TransactionGuard.requireNoTransaction();
         Map<String, Object> request = answer == null ? Map.of("skip", true) : Map.of("answer", answer);
         return toReply(threadId, call(threadId, () -> restClient.post()
                 .uri("/v1/threads/{threadId}/interview/answer", threadId)

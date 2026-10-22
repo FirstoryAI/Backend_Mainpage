@@ -2,7 +2,9 @@ package com.firstory.domain.story.repository;
 
 import com.firstory.domain.story.entity.Story;
 import com.firstory.domain.story.entity.StoryStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,6 +18,13 @@ public interface StoryRepository extends JpaRepository<Story, Long> {
     Optional<Story> findByIdAndUserId(Long id, Long userId);
 
     Optional<Story> findByThreadId(String threadId);
+
+    /**
+     * AI 호출 뒤 결과를 저장할 때 쓴다. 같은 동화에 동시에 들어온 요청(위기 신호 순번, 인터뷰 차례)을 차례로 처리한다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from Story s where s.id = :id")
+    Optional<Story> findByIdForUpdate(@Param("id") Long id);
 
     List<Story> findAllByUserIdOrderByCreatedAtDesc(Long userId);
 

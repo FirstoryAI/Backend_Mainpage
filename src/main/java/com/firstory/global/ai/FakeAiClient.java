@@ -47,6 +47,7 @@ public class FakeAiClient implements AiClient {
 
     @Override
     public SafetyResult checkSafety(SafetySource source, List<String> texts, String questionContext) {
+        TransactionGuard.requireNoTransaction();
         throwIfFailing();
         String joined = String.join("\n", texts);
         if (joined.contains(marker(SafetyLevel.CRISIS))) {
@@ -64,6 +65,7 @@ public class FakeAiClient implements AiClient {
 
     @Override
     public InterviewReply startInterview(String threadId, UUID runId, Map<String, Object> context, Tone tone) {
+        TransactionGuard.requireNoTransaction();
         throwIfFailing();
         threads.put(threadId, new ThreadState(context));
         return InterviewReply.question(1, FIRST_QUESTION, null);
@@ -71,6 +73,7 @@ public class FakeAiClient implements AiClient {
 
     @Override
     public InterviewReply answerInterview(String threadId, String answer) {
+        TransactionGuard.requireNoTransaction();
         answerCalls.computeIfAbsent(threadId, id -> new AtomicInteger()).incrementAndGet();
         throwIfFailing();
         ThreadState state = threads.get(threadId);
