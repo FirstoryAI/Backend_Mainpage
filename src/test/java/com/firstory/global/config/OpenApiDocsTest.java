@@ -56,6 +56,17 @@ class OpenApiDocsTest extends IntegrationTest {
                 .andExpect(jsonPath("$.paths['/api/stories/{id}/interview/answer'].post.responses['409'].description",
                         containsString("AI_BUSY")))
                 .andExpect(jsonPath("$.paths['/api/stories/{id}'].delete.responses['204']").exists())
+                .andExpect(jsonPath("$.paths['/api/stories/{id}/confirm'].post.responses['202']").exists())
+                .andExpect(jsonPath("$.paths['/api/stories/{id}/confirm'].post.responses['400'].description",
+                        containsString("TONE_REQUIRED")))
+                .andExpect(jsonPath("$.paths['/api/stories/{id}/regenerate'].post.responses['202']").exists())
+                .andExpect(jsonPath("$.paths['/api/stories/{id}/regenerate'].post.responses['409'].description",
+                        containsString("REGENERATION_LIMIT_REACHED")))
+                .andExpect(jsonPath("$.paths['/api/stories/{id}/generation'].get.summary").exists())
+                .andExpect(jsonPath("$.paths['/api/stories/{id}/versions/{versionId}/pages/{pageNo}/image']"
+                        + ".get.responses['200'].content['image/png']").exists())
+                .andExpect(jsonPath("$.paths['/api/stories/{id}/versions/{versionId}/pages/{pageNo}/image']"
+                        + ".get.responses['404'].description", containsString("IMAGE_NOT_FOUND")))
                 .andExpect(jsonPath("$.components.schemas.ErrorResponse").exists())
                 .andExpect(jsonPath("$.components.schemas.ValidationErrorResponse").exists());
     }

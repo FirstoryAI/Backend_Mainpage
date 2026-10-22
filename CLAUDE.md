@@ -35,7 +35,7 @@ docker compose up -d                                                        # .e
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-`application-local.yml`은 `firstory.ai.mode: fake`라서 AI 서버 없이 뜬다(아래 "AI 호출 규칙").
+`application-local.yml`은 `firstory.ai.mode: fake`라서 AI 서버 없이 뜬다(아래 "AI 호출 규칙"). 가짜 AI가 만든 그림 파일은 `./data/storage`(`STORAGE_LOCAL_ROOT`)에 쌓인다. `data/`는 커밋하지 않는다. 지워도 되지만 지우면 이미 만든 동화의 그림은 404가 난다.
 
 `.env`와 `application-local.yml`은 커밋하지 않는다. 설정을 바꾸면 `.example` 파일도 함께 고친다.
 
@@ -50,6 +50,7 @@ docker compose up -d                                                        # .e
 3. 가입하려면 `send-code` → 서버 로그의 `[SMS] 010-****-1234 ← [FIRSTORY] 인증번호 123456`에서 번호 확인 → `verify` → `signup` 순서로 같은 브라우저에서 실행한다. 가입하면 바로 로그인된다.
 4. 로그인하면 `FSESSION` 쿠키로 인증된다. 이후 `/api/me`, `/api/children` 등을 바로 실행할 수 있다.
 5. 동화 만들기(CRT-01~05)는 `POST /api/stories` → `situation` → `child` → `message` → `interview/start` → `interview/answer` 순서다. local은 FakeAiClient라 답변 3번째나 `{"skip": true}`에서 인터뷰가 끝난다(CONFIRMING). 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`를 넣으면 그 위기 신호로 판단한다.
+   이어서 `confirm` → `generation`(스케줄러가 5초마다 한 단계씩 진행, 약 25초면 REVIEWING) → `preview` → 그림 API(`imageUrl`을 브라우저에서 연다) → `regenerate` → `current-version` → `approve` 순서로 확정까지 해 볼 수 있다. 전하고 싶은 말에 `[[FAIL]]`을 넣으면 첫 생성이 실패하고(`retry`로 다시 시도), `[[OUTPUT_REVISE]]`를 넣으면 결과 위기 신호로 실패한다.
 6. 로그아웃하면 `XSRF-TOKEN`도 지워진다. 다시 쓰려면 1번부터 한다. 403 `FORBIDDEN`이 나오면 대부분 1번을 빠뜨린 것이다.
 
 API를 추가할 때는 `@Operation(summary = "한국어 요약")`과 `@ApiErrorCodes({ErrorCode...})`를 단다. `OpenApiConfig`가 `ErrorCode`의 상태와 메시지로 오류 응답 설명을 만든다. 로그인이 필요한 컨트롤러는 클래스에 `@ApiErrorCodes(ErrorCode.UNAUTHORIZED)`를 달고, 상태를 바꾸는 요청의 403(CSRF)은 자동으로 붙는다. 성공 상태가 200이 아니면 `@ResponseStatus`로 적는다(`ResponseEntity`로는 문서에 나타나지 않는다).
@@ -59,7 +60,7 @@ API를 추가할 때는 `@Operation(summary = "한국어 요약")`과 `@ApiError
 ```
 com.firstory
 ├── FirstoryApplication   하위 패키지를 모두 스캔하도록 루트에 둔다
-├── global                config, entity(BaseTimeEntity), error, crypto, converter, security, sms, ai(AI 서비스 호출)
+├── global                config, entity(BaseTimeEntity), error, crypto, converter, security, sms, ai(AI 서비스 호출), storage(파일 저장소)
 └── domain
     ├── auth              문자 인증, 가입, 로그인, 문자 발송 기록
     ├── user              회원, 동의, 내 정보
@@ -138,19 +139,50 @@ com.firstory
 
 - AI 서비스(FastAPI) 스펙은 `docs/FIRSTORY-AI-API-SPEC-v0.3.md`. 호출은 `global.ai.AiClient` 하나로 한다.
 - `firstory.ai.mode`로 구현을 고른다(`AiClientConfig`). `http`(기본)는 `HttpAiClient`(RestClient, `X-Internal-Token`, 연결 3초·응답 35초), `fake`는 `FakeAiClient`. local, test 프로필은 `fake`. `http`인데 `AI_INTERNAL_TOKEN`이 비어 있으면 기동하지 않는다.
-- `FakeAiClient`는 고정 동작이다. 위기 신호는 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`가 있으면 그 level, 없으면 OK. 인터뷰는 질문 1 → 답변 2번까지 다음 질문 → 3번째 답변이나 skip이면 CONFIRM. thread 상태는 메모리에만 있어 서버를 다시 띄우면 진행 중인 인터뷰는 이어갈 수 없다. 테스트에서는 `failWith(ErrorCode)`로 장애를 흉내 내고 `answerCalls(threadId)`로 호출 여부를 본다.
+- `FakeAiClient`는 고정 동작이다. 위기 신호는 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`가 있으면 그 level, 없으면 OK. 인터뷰는 질문 1 → 답변 2번까지 다음 질문 → 3번째 답변이나 skip이면 CONFIRM. 생성은 `status`를 부를 때마다 한 단계씩(design_story → write_story → illustrate → render → REVIEWING, 글 다시는 write_story부터, 그림만 다시는 illustrate_only → render) 나아가고, REVIEWING이 될 때 8쪽 결과와 실제 PNG를 `FileStorage`에 쓴다. 전하고 싶은 말에 `[[FAIL]]`이면 첫 생성 실패, `[[OUTPUT_REVISE]]`면 첫 생성 결과의 safety가 REVISE. thread 상태는 메모리에만 있어 서버를 다시 띄우면 진행 중인 인터뷰와 생성은 이어갈 수 없다. 테스트에서는 `failWith(ErrorCode)`로 장애를, `misdirectOutput()`으로 다른 동화 경로를 흉내 내고(`clearFailure()`로 둘 다 되돌린다), `answerCalls`, `statusCalls`, `lastBaseCheckpointId`로 호출을 본다.
 - **DB 트랜잭션 안에서 AI를 부르지 않는다**(응답이 35초까지 걸려 커넥션을 붙잡는다). ① 트랜잭션으로 조회·검증 → ② 트랜잭션 밖에서 AI 호출 → ③ 새 트랜잭션으로 저장. ③에서 동화를 `StoryRepository.findByIdForUpdate`로 다시 읽어 상태가 바뀌었으면 `INVALID_STATUS_TRANSITION`. AI를 부르는 서비스 메서드에는 `@Transactional`을 달지 않고 `TransactionTemplate`을 쓴다. `AiClient` 구현은 트랜잭션 안에서 불리면 `IllegalStateException`을 던진다(`TransactionGuard`).
+- 문자 발송(`SmsSender.send`)도 같은 이유로 트랜잭션 밖에서 한다.
 - AI 오류는 `AI_UNAVAILABLE`(연결 실패, 타임아웃, 5xx, 422, 응답 형식 오류), `AI_BUSY`(409 THREAD_BUSY), `AI_STATE_MISMATCH`(409 INVALID_STATE, 404 THREAD_NOT_FOUND)로 바꾼다. AI 호출이 실패하면 아무것도 저장하지 않는다.
 - **AI 요청·응답 본문을 로그에 남기지 않는다.** 오류 로그에는 thread_id, 상태 코드, AI 오류 code만 남긴다. AI 응답 record(`InterviewReply`)와 요청·응답 DTO는 `toString`에서 내용을 가린다.
 
+## 생성 흐름 (CRT-06 ~ REV-04)
+
+- `POST /confirm`(CONFIRMING → REQUESTED)이 `AiClient.generate`를 부르고 `GenerationRun`(INITIAL, ALL)을 만든다. AI는 바로 받아들이고 뒤에서 만든다.
+- **진행은 `GenerationPoller`가 AI에 묻는다.** `firstory.generation.poll-interval`(5s)마다 RUNNING 실행을 `FOR UPDATE SKIP LOCKED`로 최대 20개 짧게 잡고, 실행마다 트랜잭션 밖에서 `AiClient.status`를 부른다. 저장할 때는 실행을 `findByIdForUpdate`로 다시 잠가 아직 RUNNING일 때만 바꾼다. 그래서 서버가 여러 대여도 같은 실행을 두 번 저장하지 않는다. test 프로필은 `poll-enabled: false`이고 테스트가 `pollOnce()`를 직접 부른다.
+  - AI RUNNING: 노드로 단계를 정해(`GenerationStage`, 모르는 노드는 그대로) `run.progress`, 스토리는 1~2단계 GENERATING_TEXT, 3~4단계 GENERATING_IMAGES (`Story.advanceGenerationTo`가 허용된 전이를 차례로 밟는다. 뒤로 가지 않는다)
+  - AI REVIEWING: `AiClient.result` → `GenerationResultRecorder`
+  - AI FAILED, 시작 후 `firstory.generation.timeout`(15m) 지남(TIMEOUT): 실행 FAILED, 스토리 FAILED
+  - AI 연결 실패: 아무것도 바꾸지 않고 다음 주기에 다시 (결국 timeout이 처리). 실행 하나의 실패가 다른 실행을 막지 않는다
+- **진행 조회(`GET /generation`)는 DB만 읽는다. AI를 부르지 않는다.**
+- `GenerationResultRecorder`(한 트랜잭션): 파일 key가 모두 `stories/{storyId}/` 아래인지(아니면 INVALID_OUTPUT_PATH), 쪽 수가 `page-count`인지(INVALID_PAGE_COUNT), 결과 위기 신호(아래)를 본 뒤 버전(`parentVersion` = 실행의 기준 버전), 페이지, 가이드(`text` → `question`)를 만들고 실행 SUCCEEDED, 스토리 REVIEWING, 새 버전을 보여준다.
+- 다시 만들기(`regenerate`)는 CHARACTER_STORY, TEXT, IMAGES(`pages`로 쪽 선택, 비면 전체)만. 메모는 300자, 위기 신호를 먼저 검사한다. AI가 실패하면 실행도 횟수도 저장하지 않는다. AI에는 **현재 버전의 checkpointId**를 기준으로 보낸다(되돌린 버전에서 갈라진다).
+- 그림만 다시는 바뀌지 않은 쪽이 이전 실행의 파일 key를 그대로 쓴다. 파일을 복사하지 않는다.
+- 다시 시도(`retry`, FAILED → REQUESTED)는 마지막 실패 실행과 같은 범위·쪽·기준 버전으로 RETRY 실행을 만든다. 다시 만들기 횟수에 넣지 않는다.
+- 확정(`approve`)은 Spring이 먼저 저장하고(COMPLETED, confirmedAt) 트랜잭션 밖에서 `AiClient.approve`를 부른다. AI가 실패해도 확정은 유지한다.
+
+## 파일 저장소와 그림 API
+
+- 파일은 `global.storage.FileStorage`로만 읽고 쓴다. 지금은 `LocalFileStorage`(`firstory.storage.local-root`, 기본 `./data/storage`, test는 `build/test-storage`). S3는 같은 인터페이스로 나중에 추가하고 그림 API 주소와 동작은 그대로 둔다.
+- key 형식은 `stories/{storyId}/runs/{runNo}/images/page-01.png`, `.../images/sheet-{role}-{n}.png` (`StoryFiles`). AI에 넘기는 `output_prefix`도 `StoryFiles.runPrefix`로 만든다.
+- `LocalFileStorage`는 `..`, 절대 경로, 역슬래시, `:`가 있는 key를 거부하고, `normalize()`한 경로가 루트 밖이면 한 번 더 거부한다.
+- 그림 API(`/api/stories/{id}/versions/{versionId}/pages/{pageNo}/image`, `/character-sheet`): 내 동화(`findByIdAndUserId`) → 그 동화의 버전 → 그 버전의 쪽 순서로 확인하고 하나라도 아니면 404. **파일 위치는 DB에 저장된 key로만 찾는다.** key가 `stories/{storyId}/`로 시작하는지 한 번 더 본다. 헤더는 `image/png`, `nosniff`, `private, max-age=3600`, `inline`. 오류를 JSON으로 내려야 해서 `produces`를 걸지 않는다.
+- **응답 어디에도 파일 key나 서버 경로를 넣지 않는다.** 주소는 DB id로만 만든다(`StoryImageUrls`).
+
+## 알림 규칙
+
+- `NotificationService.notify(runId, type)`는 **트랜잭션 밖에서** 부른다. 최신 SMS_NOTIFY 동의가 활성일 때만, 같은 (실행, 종류)가 없을 때만 PENDING 저장 → `SmsSender.send` → SENT/FAILED. 예외를 던지지 않는다(알림 실패가 생성 흐름을 깨뜨리지 않는다).
+- STORY_STARTED는 처음 만들기(INITIAL)에만, STORY_COMPLETED와 STORY_FAILED는 모든 실행에. 확정 때는 보내지 않는다(PRD 33). 문구는 `NotificationTemplate`(code가 `template_code`).
+- 문자에 아이 정보, 동화 제목, 부모 입력을 넣지 않는다.
+
 ## 위기 신호 처리 흐름
 
-- 글을 받는 곳(CRT-01~04 폼, 인터뷰 답변)은 `SafetyGuard.check`를 부른다. 빈 글은 빼고, 남은 글이 없으면 AI를 부르지 않는다. 버려질 직접 입력(OTHER를 고르지 않았을 때)은 검사하지 않는다.
+- 글을 받는 곳(CRT-01~04 폼, 인터뷰 답변, 다시 만들기 메모)은 `SafetyGuard.check`를 부른다. 빈 글은 빼고, 남은 글이 없으면 AI를 부르지 않는다. 버려질 직접 입력(OTHER를 고르지 않았을 때)은 검사하지 않는다.
 - 형식 검증(`StoryInput.validateSituation`, `ChildProfileRequest.toProfile` 등)은 AI 호출 전에 한다. 형식 오류는 AI를 부르지 않고 400.
 - 대응: OK → PROCEED. SENSITIVE → `markToneRequired()`, tone이 있으면 PROCEED 아니면 CHOOSE_TONE(저장하고 ST-04). REVISE → `SafetyFlag` 저장 후 `SafetyPolicy.decide`로 ASK_REVISE 또는 BLOCK. CRISIS → `SafetyFlag` 저장 후 BLOCK. BLOCK이면 `story.block()`.
 - **ASK_REVISE와 BLOCK이면 입력을 저장하지 않고 AI 그래프로도 보내지 않는다.** 인터뷰 답변이 ASK_REVISE면 같은 질문을 다시 준다. 인터뷰 답변은 그래프에 보내기 전에 검사한다(스펙 v0.3). skip은 검사하지 않는다.
 - 차단 응답에는 `helpKind`(CRISIS → `CHILD_SAFETY`, REVISE로 차단 → `PARENTING`)만 준다. **상담 기관 이름과 번호는 백엔드에 넣지 않는다**(프론트가 helpKind로 보여준다).
-- BLOCKED 동화의 모든 변경 요청은 `STORY_BLOCKED`. 나가기(DELETE)와 조회(draft)만 된다.
+- BLOCKED 동화의 모든 변경 요청은 `STORY_BLOCKED`. 나가기(DELETE)와 조회(draft)만 된다. 다시 만들기 메모로 REVIEWING에서도 차단될 수 있다.
+- **결과 위기 신호**(AI 결과의 `safety`가 REVISE, CRISIS): `SafetyFlag`(source OUTPUT)를 감사용으로 남기고 버전을 만들지 않고 실행·스토리 FAILED(`OUTPUT_UNSAFE`). 부모는 다시 시도할 수 있다. **부모의 REVISE 횟수에는 넣지 않는다**(`countByStoryIdAndLevelAndSourceNot(OUTPUT)`). 다만 `occurrenceNo`는 UNIQUE(story, level, occurrence_no)라 OUTPUT까지 포함한 개수로 정한다.
 
 ## 인증 규칙
 
@@ -178,6 +210,7 @@ com.firstory
 | `AI_MODE` | `http` (local, test 프로필은 `fake`) | `http` | AI 클라이언트 구현 |
 | `AI_BASE_URL` | `http://localhost:8000` | AI 서버 주소 | FastAPI 기본 주소 |
 | `AI_INTERNAL_TOKEN` | (비움) | 비밀값 | `X-Internal-Token`. `http`면 필수 |
+| `STORAGE_LOCAL_ROOT` | `./data/storage` | 그림 파일 폴더 | 로컬 파일 저장소 루트 (S3 전까지) |
 
 ## 개인정보 규칙 (반드시 지킬 것)
 
@@ -197,6 +230,7 @@ com.firstory
 - Repository 테스트는 jsonb와 부분 인덱스가 있어 H2를 쓰지 않는다. Testcontainers PostgreSQL을 쓴다.
 - API 통합 테스트는 `com.firstory.support.IntegrationTest`를 상속한다(`@SpringBootTest` + MockMvc + Testcontainers, `test` 프로필). `Browser`가 기기 하나의 쿠키와 CSRF 헤더를 들고 다니고, `MutableClock`으로 시간을 옮기고, `RecordingSmsSender`에서 인증번호를 읽는다. AI는 `FakeAiClient` 빈을 주입받아 쓴다(장애 설정은 `@AfterEach`에서 `clearFailure()`).
 - `HttpAiClient`는 `MockRestServiceServer`로 경로, 헤더, 요청 JSON 키 구조, 오류 변환을 확인한다.
+- 생성 통합 테스트는 `GenerationPoller.pollOnce()`를 직접 부른다(처음 만들기·다시 시도 5번, 글 다시 4번, 그림만 다시 3번이면 REVIEWING). 시간 초과는 `MutableClock`을 옮긴다. 문자 알림은 `RecordingSmsSender.lastText`로 본다.
 
 ## 아직 정해지지 않은 것
 
@@ -210,6 +244,8 @@ com.firstory
 - 위기 신호 차단 화면의 상담 기관 이름과 번호 (G-FACT). 백엔드는 `helpKind`만 준다
 - 전하고 싶은 말(CRT-04) 글자 수 제한. 지금은 제한하지 않는다 (`MessageRequest`)
 - 위기 신호 `category` 값 목록 (스펙 D4). 지금은 AI가 준 문자열을 그대로 저장하고, 비어 있으면 `other`
+- 알림 문구 (`NotificationTemplate` 임시값). 다시 만들기·다시 시도의 시작 알림을 보낼지 (지금은 보내지 않는다)
+- AI 결과 가이드(04-guide.json)의 키 이름 (`HttpAiClient.ResultBody`, TODO(AI 연동))
 - 탈퇴 시 개인정보 파기 시점 (PRD 36). 지금은 회원만 소프트 삭제하고 아이, 동화 데이터는 그대로 둔다
 - 비밀번호 규칙 (임시: 8~64자, 영문과 숫자 각각 1개 이상, `PasswordPolicy`)
 - 아이 대상 연령 범위 (임시: 0~144개월, `BirthYmPolicy.MAX_AGE_MONTHS`)
@@ -224,4 +260,5 @@ com.firstory
 - `docs/tasks/TASK-03-child-profile.md`: 아이 프로필 API와 동화 만들기용 `ChildProfileResolver`
 - `docs/tasks/TASK-04-align-ai-input.md`: AI 입력 형식 맞추기 (V3, enum 값 이름, 직접 입력 규칙, 위기 신호 3단계, `AiContextMapper`)
 - `docs/tasks/TASK-05-story-creation.md`: 동화 만들기 (V4, AI 클라이언트, `SafetyGuard`, 입력 API CRT-01~04·ST-04, 인터뷰 API CRT-05)
+- `docs/tasks/TASK-06-generation-and-review.md`: 생성과 검토 (V5, 파일 저장소, 생성 진행 스케줄러, 결과 저장, 검토 API, 그림 API, 문자 알림)
 - `docs/FIRSTORY-AI-API-SPEC-v0.3.md`: AI 서비스(FastAPI) API 스펙

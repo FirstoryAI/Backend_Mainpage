@@ -25,6 +25,13 @@ public class RecordingSmsSender implements SmsSender {
         delegate.send(to, text);
     }
 
+    /**
+     * 이 번호로 마지막에 보낸 문자. 없으면 null.
+     */
+    public String lastText(String phoneDisplay) {
+        return lastText.get(PhoneNumber.fromDisplay(phoneDisplay).digits());
+    }
+
     public String lastCode(String phoneDisplay) {
         String text = lastText.get(PhoneNumber.fromDisplay(phoneDisplay).digits());
         if (text == null) {
