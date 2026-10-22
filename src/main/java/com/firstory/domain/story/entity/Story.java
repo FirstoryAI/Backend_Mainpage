@@ -23,6 +23,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 
 @Getter
@@ -31,6 +32,9 @@ import java.util.Objects;
 @SQLRestriction("deleted_at IS NULL")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Story extends BaseTimeEntity {
+
+    private static final List<StoryStatus> GENERATION_ORDER = List.of(StoryStatus.REQUESTED,
+            StoryStatus.GENERATING_TEXT, StoryStatus.GENERATING_IMAGES, StoryStatus.REVIEWING);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -129,6 +133,21 @@ public class Story extends BaseTimeEntity {
             throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
         }
         changeStatus(StoryStatus.REQUESTED);
+    }
+
+    /**
+     * 생성 진행에 맞춰 상태를 앞으로 옮긴다 (REQUESTED → GENERATING_TEXT → GENERATING_IMAGES → REVIEWING).
+     * 허용된 전이를 차례로 밟는다. 이미 target이거나 더 나아가 있으면 그대로 둔다.
+     */
+    public void advanceGenerationTo(StoryStatus target) {
+        int to = GENERATION_ORDER.indexOf(target);
+        if (to < 0 || !GENERATION_ORDER.contains(status)) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
+        }
+        while (GENERATION_ORDER.indexOf(status) < to) {
+            changeStatus(status.canTransitionTo(target) ? target
+                    : GENERATION_ORDER.get(GENERATION_ORDER.indexOf(status) + 1));
+        }
     }
 
     public void confirm(Instant now) {

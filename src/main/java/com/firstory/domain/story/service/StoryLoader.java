@@ -18,12 +18,12 @@ import java.util.Set;
  */
 @Component
 @RequiredArgsConstructor
-class StoryLoader {
+public class StoryLoader {
 
     private final StoryRepository storyRepository;
     private final StoryInputRepository storyInputRepository;
 
-    Story findOwned(Long userId, Long storyId) {
+    public Story findOwned(Long userId, Long storyId) {
         return storyRepository.findByIdAndUserId(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
     }
@@ -31,7 +31,7 @@ class StoryLoader {
     /**
      * 변경 요청용. 차단된 동화는 STORY_BLOCKED, 허용하지 않는 상태는 INVALID_STATUS_TRANSITION.
      */
-    Story findEditable(Long userId, Long storyId, Set<StoryStatus> allowed) {
+    public Story findEditable(Long userId, Long storyId, Set<StoryStatus> allowed) {
         Story story = findOwned(userId, storyId);
         if (story.getStatus() == StoryStatus.BLOCKED) {
             throw new BusinessException(ErrorCode.STORY_BLOCKED);
@@ -47,7 +47,7 @@ class StoryLoader {
      *
      * @param loaded AI 호출 전에 조회한 동화
      */
-    Story lockUnchanged(Story loaded) {
+    public Story lockUnchanged(Story loaded) {
         Story story = storyRepository.findByIdForUpdate(loaded.getId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
         if (story.getStatus() != loaded.getStatus()) {
@@ -56,7 +56,7 @@ class StoryLoader {
         return story;
     }
 
-    StoryInput input(Story story) {
+    public StoryInput input(Story story) {
         return storyInputRepository.findById(story.getId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
     }

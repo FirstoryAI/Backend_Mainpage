@@ -45,7 +45,12 @@ public enum ErrorCode {
     STORY_INPUT_INCOMPLETE(HttpStatus.BAD_REQUEST, "상황과 아이 정보를 먼저 입력해 주세요."),
     AI_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "동화 도우미가 잠시 응답하지 않아요. 잠시 후 다시 시도해 주세요."),
     AI_BUSY(HttpStatus.CONFLICT, "이전 요청을 처리하고 있어요. 잠시 후 다시 시도해 주세요."),
-    AI_STATE_MISMATCH(HttpStatus.CONFLICT, "진행 상태가 맞지 않아요. 화면을 새로고침해 주세요.");
+    AI_STATE_MISMATCH(HttpStatus.CONFLICT, "진행 상태가 맞지 않아요. 화면을 새로고침해 주세요."),
+    TONE_REQUIRED(HttpStatus.BAD_REQUEST, "이야기 분위기를 먼저 골라 주세요."),
+    INVALID_PAGE_SELECTION(HttpStatus.BAD_REQUEST, "다시 그릴 쪽을 다시 골라 주세요."),
+    FEEDBACK_TOO_LONG(HttpStatus.BAD_REQUEST, "요청 메모는 300자까지 쓸 수 있어요."),
+    VERSION_NOT_FOUND(HttpStatus.NOT_FOUND, "이 동화의 버전을 찾을 수 없어요."),
+    IMAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "그림을 찾을 수 없어요.");
 
     private final HttpStatus status;
     private final String message;

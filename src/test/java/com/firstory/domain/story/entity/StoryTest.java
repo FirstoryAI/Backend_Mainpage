@@ -20,6 +20,51 @@ class StoryTest {
     }
 
     @Test
+    void 생성_진행은_허용된_순서를_차례로_밟는다() {
+        Story story = requested();
+
+        story.advanceGenerationTo(StoryStatus.REVIEWING);
+
+        assertThat(story.getStatus()).isEqualTo(StoryStatus.REVIEWING);
+    }
+
+    @Test
+    void 그림만_다시는_REQUESTED에서_GENERATING_IMAGES로_바로_간다() {
+        Story story = requested();
+
+        story.advanceGenerationTo(StoryStatus.GENERATING_IMAGES);
+
+        assertThat(story.getStatus()).isEqualTo(StoryStatus.GENERATING_IMAGES);
+    }
+
+    @Test
+    void 생성_진행은_뒤로_가지_않는다() {
+        Story story = requested();
+        story.advanceGenerationTo(StoryStatus.GENERATING_IMAGES);
+
+        story.advanceGenerationTo(StoryStatus.GENERATING_TEXT);
+        story.advanceGenerationTo(StoryStatus.GENERATING_IMAGES);
+
+        assertThat(story.getStatus()).isEqualTo(StoryStatus.GENERATING_IMAGES);
+    }
+
+    @Test
+    void 생성_중이_아니면_생성_진행으로_옮길_수_없다() {
+        Story story = story(user);
+
+        assertThatThrownBy(() -> story.advanceGenerationTo(StoryStatus.GENERATING_TEXT))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    private Story requested() {
+        Story story = story(user);
+        story.changeStatus(StoryStatus.INTERVIEWING);
+        story.changeStatus(StoryStatus.CONFIRMING);
+        story.changeStatus(StoryStatus.REQUESTED);
+        return story;
+    }
+
+    @Test
     void 허용되지_않은_전이는_예외() {
         Story story = story(user);
 
