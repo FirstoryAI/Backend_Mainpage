@@ -1,5 +1,6 @@
 package com.firstory.domain.generation.controller;
 
+import com.firstory.domain.generation.entity.RegenerateScope;
 import com.firstory.domain.generation.service.GenerationPoller;
 import com.firstory.domain.notification.entity.NotificationType;
 import com.firstory.domain.notification.service.NotificationService;
@@ -453,11 +454,15 @@ class GenerationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.error").value(FakeAiClient.FAILURE_CODE));
         assertThat(notificationTypes(id)).containsExactlyInAnyOrder("STORY_STARTED", "STORY_FAILED");
         assertThat(sms.lastText(phone)).contains("만들지 못했어요");
+        // 결과 위기 신호가 아닌 실패는 retry
+        int regenerateCalls = ai.regenerateCalls(threadId(id));
 
         parent.post(storyUrl(id) + "/retry", null)
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.status").value("REQUESTED"))
                 .andExpect(jsonPath("$.runNo").value(2));
+        assertThat(ai.retryCalls(threadId(id))).isOne();
+        assertThat(ai.regenerateCalls(threadId(id))).isEqualTo(regenerateCalls);
         pollTimes(POLLS_TO_REVIEW);
 
         assertThat(storyStatus(id)).isEqualTo("REVIEWING");
@@ -522,10 +527,19 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertThat(flag.get("source")).isEqualTo("OUTPUT");
         assertThat(flag.get("level")).isEqualTo("REVISE");
 
-        // 다시 시도하면 결과가 나오고, 부모 메모의 첫 REVISE는 차단이 아니라 다시 쓰기 안내다
+        // 다시 시도는 retry가 아니라 regenerate(첫 생성이라 기준 null, 범위 CHARACTER_STORY)를 부른다
         parent.post(storyUrl(id) + "/retry", null).andExpect(status().isAccepted());
+        assertThat(ai.retryCalls(threadId(id))).isZero();
+        assertThat(ai.regenerateCalls(threadId(id))).isOne();
+        assertThat(ai.lastBaseCheckpointId(threadId(id))).isNull();
+        assertThat(ai.lastRegenerateScope(threadId(id))).isEqualTo(RegenerateScope.CHARACTER_STORY);
         pollTimes(POLLS_TO_REVIEW);
         assertThat(storyStatus(id)).isEqualTo("REVIEWING");
+        assertThat(regenerateCount(id)).isZero();
+        assertThat(jdbc.queryForObject("SELECT trigger_type FROM generation_runs WHERE story_id = ? AND run_no = 2",
+                String.class, id)).isEqualTo("RETRY");
+
+        // 부모 메모의 첫 REVISE는 차단이 아니라 다시 쓰기 안내다
         regenerate(id, """
                 {"scope": "TEXT", "feedback": "[[REVISE]]"}""")
                 .andExpect(jsonPath("$.safety.action").value("ASK_REVISE"))

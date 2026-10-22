@@ -300,6 +300,8 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 
 - 코드에는 `character`도 있지만 `story`와 같은 경로라 Spring은 `story`만 쓴다
 - `base_checkpoint_id`: 어느 버전에서 다시 만들지 (8장)
+- `base_checkpoint_id`가 null이면 thread의 현재 상태에서 다시 만든다
+- 결과 위기 신호로 실패 처리된 경우, 백엔드는 retry 대신 review regenerate를 부른다
 
 ### 7-8. POST /v1/threads/{thread_id}/retry
 

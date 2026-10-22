@@ -312,6 +312,34 @@ class HttpAiClientTest {
     }
 
     @Test
+    void 가이드의_parent_hint와_if_undecided는_없어도_된다() {
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/result"))
+                .andRespond(withSuccess("""
+                        {"run_no": 1, "checkpoint_id": "cp", "title": "제목", "pages": [],
+                         "guide": {"before_reading": {"intent": "의도", "tips": []},
+                                   "prompts": [{"after_page": 3, "purpose": "emotion", "text": "질문"}],
+                                   "after_reading": {"bridge_question": "다리"}}}""", MediaType.APPLICATION_JSON));
+
+        AiGenerationResult.Guide guide = client.result(THREAD_ID).guide();
+
+        assertThat(guide.ifUndecided()).isNull();
+        assertThat(guide.prompts()).containsExactly(new AiGenerationResult.Prompt(3, "질문", "emotion", null));
+    }
+
+    @Test
+    void 기준_checkpoint가_없으면_null로_보낸다() {
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/review"))
+                .andExpect(request -> assertThat(JSON.readTree(((MockClientHttpRequest) request).getBodyAsString())
+                        .get("base_checkpoint_id").isNull()).isTrue())
+                .andRespond(withStatus(HttpStatus.ACCEPTED));
+
+        client.regenerate(THREAD_ID, RegenerateScope.CHARACTER_STORY, List.of(), null, null, UUID.randomUUID(), 2,
+                "stories/123/runs/2/");
+
+        server.verify();
+    }
+
+    @Test
     void 확정은_approve() {
         server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/review"))
                 .andExpect(method(HttpMethod.POST))

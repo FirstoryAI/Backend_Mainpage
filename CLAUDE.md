@@ -157,7 +157,8 @@ com.firstory
 - `GenerationResultRecorder`(한 트랜잭션): 파일 key가 모두 `stories/{storyId}/` 아래인지(아니면 INVALID_OUTPUT_PATH), 쪽 수가 `page-count`인지(INVALID_PAGE_COUNT), 결과 위기 신호(아래)를 본 뒤 버전(`parentVersion` = 실행의 기준 버전), 페이지, 가이드(`text` → `question`)를 만들고 실행 SUCCEEDED, 스토리 REVIEWING, 새 버전을 보여준다.
 - 다시 만들기(`regenerate`)는 CHARACTER_STORY, TEXT, IMAGES(`pages`로 쪽 선택, 비면 전체)만. 메모는 300자, 위기 신호를 먼저 검사한다. AI가 실패하면 실행도 횟수도 저장하지 않는다. AI에는 **현재 버전의 checkpointId**를 기준으로 보낸다(되돌린 버전에서 갈라진다).
 - 그림만 다시는 바뀌지 않은 쪽이 이전 실행의 파일 key를 그대로 쓴다. 파일을 복사하지 않는다.
-- 다시 시도(`retry`, FAILED → REQUESTED)는 마지막 실패 실행과 같은 범위·쪽·기준 버전으로 RETRY 실행을 만든다. 다시 만들기 횟수에 넣지 않는다.
+- 다시 시도(`retry`, FAILED → REQUESTED)는 마지막 실패 실행과 같은 범위·쪽·기준 버전으로 RETRY 실행을 만든다. 다시 만들기 횟수에 넣지 않는다. 마지막 실패가 결과 위기 신호(`OUTPUT_UNSAFE`)면 AI 그래프는 부모 검토에서 멈춰 있어 `AiClient.retry`가 409이므로 `AiClient.regenerate`를 부른다(범위는 실패한 실행의 것, ALL이면 CHARACTER_STORY, 기준은 그 실행의 기준 버전 checkpointId, 첫 생성이면 null).
+- AI 결과의 가이드는 AI 저장소 `nodes/render.py`의 04-guide.json 그대로(`before_reading{intent, tips}`, `prompts[{after_page, purpose, text, parent_hint}]`, `after_reading{bridge_question, if_undecided}`). `text` → `guide_prompts.question`, `seq`는 받은 순서대로 1부터, `parent_hint`와 `if_undecided`는 없을 수 있다.
 - 확정(`approve`)은 Spring이 먼저 저장하고(COMPLETED, confirmedAt) 트랜잭션 밖에서 `AiClient.approve`를 부른다. AI가 실패해도 확정은 유지한다.
 
 ## 파일 저장소와 그림 API
@@ -245,7 +246,6 @@ com.firstory
 - 전하고 싶은 말(CRT-04) 글자 수 제한. 지금은 제한하지 않는다 (`MessageRequest`)
 - 위기 신호 `category` 값 목록 (스펙 D4). 지금은 AI가 준 문자열을 그대로 저장하고, 비어 있으면 `other`
 - 알림 문구 (`NotificationTemplate` 임시값). 다시 만들기·다시 시도의 시작 알림을 보낼지 (지금은 보내지 않는다)
-- AI 결과 가이드(04-guide.json)의 키 이름 (`HttpAiClient.ResultBody`, TODO(AI 연동))
 - 탈퇴 시 개인정보 파기 시점 (PRD 36). 지금은 회원만 소프트 삭제하고 아이, 동화 데이터는 그대로 둔다
 - 비밀번호 규칙 (임시: 8~64자, 영문과 숫자 각각 1개 이상, `PasswordPolicy`)
 - 아이 대상 연령 범위 (임시: 0~144개월, `BirthYmPolicy.MAX_AGE_MONTHS`)

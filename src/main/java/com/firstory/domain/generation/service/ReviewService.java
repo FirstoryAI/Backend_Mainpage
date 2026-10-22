@@ -182,9 +182,14 @@ public class ReviewService {
     }
 
     /**
-     * 실패 후 다시 시도 (ST-03). 마지막 실패 실행과 같은 범위, 쪽, 기준 버전으로 새 실행을 만든다. 다시 만들기 횟수에 넣지 않는다.
+     * 실패 후 다시 시도 (ST-03). 마지막 실패 실행과 같은 범위, 쪽, 기준 버전으로 새 실행(RETRY)을 만든다.
+     * 다시 만들기 횟수에 넣지 않는다.
+     * <p>
+     * 결과 위기 신호(OUTPUT_UNSAFE)로 실패한 경우 AI 그래프는 부모 검토(parent_review)에서 멈춰 있어 retry가 409다.
+     * 그래서 AiClient.regenerate를 부른다: 실패한 실행의 범위(첫 생성 ALL이면 CHARACTER_STORY)와 쪽,
+     * 메모 없음, 기준은 실패한 실행의 기준 버전 checkpointId (첫 생성이라 없으면 null, AI는 현재 상태에서 다시 만든다).
+     * 그 외 실패(AI 오류, TIMEOUT 등)는 AiClient.retry.
      */
-    // TODO(AI 연동): 결과 위기 신호(OUTPUT_UNSAFE)로 Spring만 실패 처리한 경우 진짜 AI thread는 REVIEWING이라 retry가 409일 수 있다
     public GenerationStatusResponse retry(Long userId, Long storyId) {
         // ①
         RetryPlan plan = transactionTemplate.execute(status -> {
@@ -192,13 +197,22 @@ public class ReviewService {
             GenerationRun last = runRepository.findTopByStoryIdOrderByRunNoDesc(story.getId())
                     .filter(run -> run.getStatus() == RunStatus.FAILED)
                     .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION));
+            StoryVersion base = last.getBaseVersion();
             return new RetryPlan(story, last.getRunNo() + 1, last.getScope(), List.copyOf(last.getTargetPages()),
-                    last.getBaseVersion() == null ? null : last.getBaseVersion().getId(), last.getFeedback());
+                    base == null ? null : base.getId(), base == null ? null : base.getCheckpointId(),
+                    last.getFeedback(), GenerationResultRecorder.OUTPUT_UNSAFE.equals(last.getErrorCode()));
         });
         Story story = plan.story();
         UUID runId = UUID.randomUUID();
+        String outputPrefix = StoryFiles.runPrefix(story.getId(), plan.runNo());
         // ②
-        aiClient.retry(story.getThreadId(), runId, plan.runNo(), StoryFiles.runPrefix(story.getId(), plan.runNo()));
+        if (plan.afterUnsafeOutput()) {
+            RegenerateScope scope = plan.scope() == RegenerateScope.ALL ? RegenerateScope.CHARACTER_STORY : plan.scope();
+            aiClient.regenerate(story.getThreadId(), scope, plan.targetPages(), null, plan.baseCheckpointId(), runId,
+                    plan.runNo(), outputPrefix);
+        } else {
+            aiClient.retry(story.getThreadId(), runId, plan.runNo(), outputPrefix);
+        }
         // ③
         return transactionTemplate.execute(status -> {
             Story locked = loader.lockUnchanged(story);
@@ -260,7 +274,11 @@ public class ReviewService {
                             boolean toneRequired) {
     }
 
+    /**
+     * @param afterUnsafeOutput 마지막 실패가 결과 위기 신호(OUTPUT_UNSAFE)인지
+     */
     private record RetryPlan(Story story, int runNo, RegenerateScope scope, List<Integer> targetPages,
-                             Long baseVersionId, String feedback) {
+                             Long baseVersionId, String baseCheckpointId, String feedback,
+                             boolean afterUnsafeOutput) {
     }
 }

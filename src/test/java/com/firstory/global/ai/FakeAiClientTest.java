@@ -242,6 +242,34 @@ class FakeAiClientTest {
     }
 
     @Test
+    void 기준_checkpoint가_null이면_현재_결과에서_다시_만든다() {
+        generateToReview();
+
+        client.regenerate(THREAD_ID, RegenerateScope.IMAGES, List.of(2), null, null, UUID.randomUUID(), 2,
+                "stories/12/runs/2/");
+        for (int i = 0; i < 3; i++) {
+            client.status(THREAD_ID);
+        }
+
+        AiGenerationResult result = client.result(THREAD_ID);
+        assertThat(result.pages().get(0).imagePath()).isEqualTo("stories/12/runs/1/images/page-01.png");
+        assertThat(result.pages().get(1).imagePath()).isEqualTo("stories/12/runs/2/images/page-02.png");
+        assertThat(client.lastBaseCheckpointId(THREAD_ID)).isNull();
+        assertThat(client.lastRegenerateScope(THREAD_ID)).isEqualTo(RegenerateScope.IMAGES);
+        assertThat(client.regenerateCalls(THREAD_ID)).isOne();
+    }
+
+    @Test
+    void 부모_검토에서_멈춘_상태에서는_retry를_받지_않는다() {
+        generateToReview();
+
+        assertThatThrownBy(() -> client.retry(THREAD_ID, UUID.randomUUID(), 2, "stories/12/runs/2/"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.AI_STATE_MISMATCH);
+    }
+
+    @Test
     void 확정하면_COMPLETED() {
         generateToReview();
 

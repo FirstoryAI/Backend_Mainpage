@@ -75,6 +75,8 @@ public class FakeAiClient implements AiClient {
     private final Map<String, ThreadState> threads = new ConcurrentHashMap<>();
     private final Map<String, AtomicInteger> answerCalls = new ConcurrentHashMap<>();
     private final Map<String, AtomicInteger> statusCalls = new ConcurrentHashMap<>();
+    private final Map<String, AtomicInteger> regenerateCalls = new ConcurrentHashMap<>();
+    private final Map<String, AtomicInteger> retryCalls = new ConcurrentHashMap<>();
     private volatile BusinessException failure;
     private volatile boolean misdirectOutput;
 
@@ -198,9 +200,11 @@ public class FakeAiClient implements AiClient {
                            String baseCheckpointId, UUID runId, int runNo, String outputPrefix) {
         TransactionGuard.requireNoTransaction();
         throwIfFailing();
+        regenerateCalls.computeIfAbsent(threadId, id -> new AtomicInteger()).incrementAndGet();
         ThreadState state = existing(threadId);
         synchronized (state) {
-            AiGenerationResult base = state.byCheckpoint.get(baseCheckpointId);
+            // base_checkpoint_id가 null이면 thread의 현재 상태(마지막 결과)에서 다시 만든다
+            AiGenerationResult base = baseCheckpointId == null ? state.result : state.byCheckpoint.get(baseCheckpointId);
             if (state.runState != AiRunState.REVIEWING || base == null) {
                 throw new BusinessException(ErrorCode.AI_STATE_MISMATCH);
             }
@@ -210,6 +214,7 @@ public class FakeAiClient implements AiClient {
                 case CHARACTER_STORY, ALL -> FULL_NODES;
             };
             state.lastBaseCheckpointId = baseCheckpointId;
+            state.lastRegenerateScope = scope;
             state.start(runNo, outputPrefix, nodes, scope, pages, base, false, false);
         }
     }
@@ -218,10 +223,11 @@ public class FakeAiClient implements AiClient {
     public void retry(String threadId, UUID runId, int runNo, String outputPrefix) {
         TransactionGuard.requireNoTransaction();
         throwIfFailing();
+        retryCalls.computeIfAbsent(threadId, id -> new AtomicInteger()).incrementAndGet();
         ThreadState state = existing(threadId);
         synchronized (state) {
-            // 진짜 AI는 FAILED에서만 받는다. 가짜는 결과 위기 신호로 Spring만 실패 처리한 경우(REVIEWING)도 받는다
-            if (state.runState != AiRunState.FAILED && state.runState != AiRunState.REVIEWING) {
+            // 진짜 AI처럼 FAILED에서만 받는다. 결과 위기 신호로 실패한 경우(AI는 REVIEWING) Spring은 regenerate를 부른다
+            if (state.runState != AiRunState.FAILED) {
                 throw new BusinessException(ErrorCode.AI_STATE_MISMATCH);
             }
             state.start(runNo, outputPrefix, state.nodes, state.scope, state.pages, state.base, false, false);
@@ -268,8 +274,24 @@ public class FakeAiClient implements AiClient {
         return count(statusCalls, threadId);
     }
 
+    public int regenerateCalls(String threadId) {
+        return count(regenerateCalls, threadId);
+    }
+
+    public int retryCalls(String threadId) {
+        return count(retryCalls, threadId);
+    }
+
     /**
-     * 테스트용. 마지막 regenerate에 받은 기준 checkpointId.
+     * 테스트용. 마지막 regenerate에 받은 범위.
+     */
+    public RegenerateScope lastRegenerateScope(String threadId) {
+        ThreadState state = threads.get(threadId);
+        return state == null ? null : state.lastRegenerateScope;
+    }
+
+    /**
+     * 테스트용. 마지막 regenerate에 받은 기준 checkpointId. null이면 현재 상태에서 다시 만든 것.
      */
     public String lastBaseCheckpointId(String threadId) {
         ThreadState state = threads.get(threadId);
@@ -399,6 +421,7 @@ public class FakeAiClient implements AiClient {
         private boolean failThisRun;
         private boolean unsafeOutput;
         private String lastBaseCheckpointId;
+        private RegenerateScope lastRegenerateScope;
 
         private ThreadState(Map<String, Object> context) {
             this.context = new LinkedHashMap<>(context);
