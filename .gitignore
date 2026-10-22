@@ -42,3 +42,6 @@ bin/
 ### Local ###
 .env
 src/main/resources/application-local.yml
+
+### Archives ###
+*.zip
