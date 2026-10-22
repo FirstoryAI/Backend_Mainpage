@@ -2,6 +2,7 @@ package com.firstory.domain.generation.controller;
 
 import com.firstory.domain.generation.service.GenerationPoller;
 import com.firstory.global.ai.FakeAiClient;
+import com.firstory.global.error.ErrorCode;
 import com.firstory.support.Browser;
 import com.firstory.support.IntegrationTest;
 import com.jayway.jsonpath.JsonPath;
@@ -9,11 +10,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -24,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class GenerationIntegrationTest extends IntegrationTest {
 
     static final int POLLS_TO_REVIEW = 5;
+    static final byte[] PNG_SIGNATURE = {(byte) 0x89, 0x50, 0x4E, 0x47};
 
     @Autowired
     FakeAiClient ai;
@@ -74,6 +79,62 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertThat(jdbc.queryForList("""
                 SELECT p.after_page FROM guide_prompts p JOIN reading_guides g ON g.id = p.guide_id
                 WHERE g.version_id = ? ORDER BY p.seq""", Integer.class, version.get("id"))).containsExactly(3, 6);
+    }
+
+    @Test
+    void 그림_API는_PNG와_보안_헤더를_내려준다() throws Exception {
+        long id = reviewingStory();
+        long versionId = currentVersionId(id);
+
+        MvcResult result = parent.get(imageUrl(id, versionId, 1))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "image/png"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "max-age=3600, private"))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "inline"))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsByteArray()).startsWith(PNG_SIGNATURE);
+
+        parent.get(storyUrl(id) + "/versions/" + versionId + "/character-sheet")
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "image/png"));
+    }
+
+    @Test
+    void 그림_API는_내_동화의_버전과_쪽이_아니면_404() throws Exception {
+        long id = reviewingStory();
+        long versionId = currentVersionId(id);
+        long otherStory = reviewingStory();
+        long otherVersionId = currentVersionId(otherStory);
+
+        Browser other = signUp(newEmail(), newPhone());
+        assertError(other.get(imageUrl(id, versionId, 1)), ErrorCode.STORY_NOT_FOUND);
+        // 다른 동화의 버전 id를 이 동화 주소에 넣어도 404
+        assertError(parent.get(imageUrl(id, otherVersionId, 1)), ErrorCode.VERSION_NOT_FOUND);
+        assertError(parent.get(imageUrl(id, versionId, 9)), ErrorCode.IMAGE_NOT_FOUND);
+        assertError(parent.get(imageUrl(id, versionId, 0)), ErrorCode.IMAGE_NOT_FOUND);
+        browser().get(imageUrl(id, versionId, 1)).andExpect(status().isUnauthorized());
+    }
+
+    long reviewingStory() throws Exception {
+        long id = confirmingStory("용기를 주고 싶어요");
+        confirm(id).andExpect(status().isAccepted());
+        pollUntilReview();
+        assertThat(storyStatus(id)).isEqualTo("REVIEWING");
+        return id;
+    }
+
+    long currentVersionId(long id) {
+        return jdbc.queryForObject("SELECT current_version_id FROM stories WHERE id = ?", Long.class, id);
+    }
+
+    static String imageUrl(long id, long versionId, int pageNo) {
+        return storyUrl(id) + "/versions/" + versionId + "/pages/" + pageNo + "/image";
+    }
+
+    static void assertError(ResultActions result, ErrorCode expected) throws Exception {
+        result.andExpect(status().is(expected.getStatus().value()))
+                .andExpect(jsonPath("$.code").value(expected.name()));
     }
 
     void pollUntilReview() {
