@@ -9,11 +9,18 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:55432/firstory
 
-# 쿠키와 출처. 기본값(application.yml)으로 충분하면 지워도 된다
-# firstory:
-#   web:
-#     cookie-secure: false
-#     cookie-domain:
-#     allowed-origins: http://localhost:5173   # 프론트 개발 서버. Vite 프록시로 같은 출처면 비운다
-#   auth:
-#     remember-me-key: local-remember-me-key-change-me
+firstory:
+  # AI 서버(FastAPI) 없이 FakeAiClient로 돈다. 진짜 AI 서버를 붙이려면 http로 바꾸고 internal-token을 넣는다
+  ai:
+    mode: fake
+    # mode: http
+    # base-url: http://localhost:8000
+    # internal-token: local-internal-token
+
+  # 쿠키와 출처. 기본값(application.yml)으로 충분하면 지워도 된다
+  # web:
+  #   cookie-secure: false
+  #   cookie-domain:
+  #   allowed-origins: http://localhost:5173   # 프론트 개발 서버. Vite 프록시로 같은 출처면 비운다
+  # auth:
+  #   remember-me-key: local-remember-me-key-change-me

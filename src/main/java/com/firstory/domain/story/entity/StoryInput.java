@@ -99,6 +99,10 @@ public class StoryInput extends BaseTimeEntity {
     @Column(length = 20)
     private Tone tone;
 
+    // 민감 주제(SENSITIVE)가 감지되면 true. 생성 전에 분위기(tone)를 골라야 한다
+    @Column(name = "tone_required", nullable = false)
+    private boolean toneRequired;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "child_snapshot", columnDefinition = "jsonb")
     private ChildSnapshot childSnapshot;
@@ -171,6 +175,13 @@ public class StoryInput extends BaseTimeEntity {
 
     public void chooseTone(Tone tone) {
         this.tone = Objects.requireNonNull(tone);
+    }
+
+    /**
+     * 민감 주제(SENSITIVE)가 감지됐다. SENSITIVE는 safety_flags에 기록하지 않으므로 여기에만 남긴다.
+     */
+    public void markToneRequired() {
+        this.toneRequired = true;
     }
 
     public void finishInterview(String interviewSummary, InterviewEndReason reason, Map<String, Object> finalContext) {
