@@ -11,4 +11,7 @@ public interface ReadingSessionRepository extends JpaRepository<ReadingSession, 
     Optional<ReadingSession> findTopByStoryIdAndCompletedAtIsNullOrderByStartedAtDesc(Long storyId);
 
     long countByStoryIdAndCompletedAtIsNotNull(Long storyId);
+
+    // 동화 상세의 마지막 읽은 시각
+    Optional<ReadingSession> findTopByStoryIdOrderByStartedAtDesc(Long storyId);
 }

@@ -2,6 +2,7 @@ package com.firstory.domain.story.controller;
 
 import com.firstory.domain.story.dto.HomeResponse;
 import com.firstory.domain.story.dto.LibraryResponse;
+import com.firstory.domain.story.dto.StoryDetailResponse;
 import com.firstory.domain.story.entity.LibraryFilter;
 import com.firstory.domain.story.service.LibraryService;
 import com.firstory.global.error.ApiErrorCodes;
@@ -12,6 +13,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -44,5 +46,14 @@ public class LibraryController {
                                    @RequestParam(defaultValue = "0") int page,
                                    @RequestParam(defaultValue = "" + LibraryService.DEFAULT_SIZE) int size) {
         return libraryService.library(principal.getUserId(), filter, page, size);
+    }
+
+    @Operation(summary = "동화 상세 (LIB-02)",
+            description = "모든 상태에서. 차단된 동화도 상태 그대로 보여준다. readCount는 끝까지 읽은 횟수, "
+                    + "canRead는 COMPLETED일 때만 true")
+    @ApiErrorCodes(ErrorCode.STORY_NOT_FOUND)
+    @GetMapping("/api/stories/{id:\\d+}")
+    public StoryDetailResponse detail(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id) {
+        return libraryService.detail(principal.getUserId(), id);
     }
 }

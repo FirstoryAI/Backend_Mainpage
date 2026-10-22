@@ -55,8 +55,10 @@ public class StoryDraftService {
     private static final Set<StoryStatus> DRAFT = EnumSet.of(StoryStatus.DRAFT);
     private static final Set<StoryStatus> TONE_EDITABLE =
             EnumSet.of(StoryStatus.DRAFT, StoryStatus.INTERVIEWING, StoryStatus.CONFIRMING);
-    private static final Set<StoryStatus> DELETABLE =
-            EnumSet.of(StoryStatus.DRAFT, StoryStatus.INTERVIEWING, StoryStatus.CONFIRMING, StoryStatus.BLOCKED);
+    // 생성 중(REQUESTED, GENERATING_*)에는 지울 수 없다
+    private static final Set<StoryStatus> DELETABLE = EnumSet.of(StoryStatus.DRAFT, StoryStatus.INTERVIEWING,
+            StoryStatus.CONFIRMING, StoryStatus.BLOCKED, StoryStatus.REVIEWING, StoryStatus.COMPLETED,
+            StoryStatus.FAILED);
 
     private final StoryLoader loader;
     private final StoryRepository storyRepository;
@@ -137,8 +139,10 @@ public class StoryDraftService {
     }
 
     /**
-     * 만드는 중에 나가기. 생성 요청 이후의 동화는 서재에서 지운다 (TASK-07).
+     * 만드는 중에 나가기와 서재의 "이 동화 지우기"(LIB-02). 소프트 삭제라 지운 뒤 목록·상세·그림 API가 모두 404다.
+     * 생성 중(REQUESTED, GENERATING_TEXT, GENERATING_IMAGES)에는 INVALID_STATUS_TRANSITION.
      */
+    // TODO(PM): PRD 36 파기 정책. 입력 원문과 그림 파일의 실제 파기 시점 미정. 지금은 소프트 삭제만
     @Transactional
     public void delete(Long userId, Long storyId) {
         Story story = loader.findOwned(userId, storyId);

@@ -103,8 +103,9 @@ public class StoryController {
         return storyDraftService.getDraft(principal.getUserId(), id);
     }
 
-    @Operation(summary = "만들던 동화 지우기 (나가기)",
-            description = "DRAFT, INTERVIEWING, CONFIRMING, BLOCKED에서. 생성 요청 이후는 서재에서 지운다. 응답 204")
+    @Operation(summary = "동화 지우기 (나가기, LIB-02)",
+            description = "생성 중(REQUESTED, GENERATING_TEXT, GENERATING_IMAGES)을 뺀 모든 상태에서. "
+                    + "지운 뒤에는 목록·상세·그림 API에서 모두 404. 응답 204")
     @ApiErrorCodes({ErrorCode.STORY_NOT_FOUND, ErrorCode.INVALID_STATUS_TRANSITION})
     @DeleteMapping("/{id:\\d+}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

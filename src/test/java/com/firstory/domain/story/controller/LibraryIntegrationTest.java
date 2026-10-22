@@ -1,13 +1,16 @@
 package com.firstory.domain.story.controller;
 
 import com.firstory.domain.generation.repository.GenerationRunRepository;
+import com.firstory.domain.generation.service.GenerationPoller;
 import com.firstory.domain.generation.repository.StoryVersionRepository;
 import com.firstory.domain.story.entity.StoryStatus;
 import com.firstory.domain.story.repository.StoryInputRepository;
 import com.firstory.domain.story.repository.StoryRepository;
 import com.firstory.domain.user.repository.UserRepository;
+import com.firstory.global.ai.FakeAiClient;
 import com.firstory.support.Browser;
 import com.firstory.support.IntegrationTest;
+import com.firstory.support.StoryFlow;
 import com.firstory.support.StoryStates;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
@@ -54,6 +57,9 @@ class LibraryIntegrationTest extends IntegrationTest {
 
     @Autowired
     EntityManagerFactory entityManagerFactory;
+
+    @Autowired
+    GenerationPoller poller;
 
     StoryStates states;
     Browser parent;
@@ -215,6 +221,103 @@ class LibraryIntegrationTest extends IntegrationTest {
         parent.get("/api/home").andExpect(jsonPath("$.onboardingSeen").value(true))
                 .andExpect(jsonPath("$.inProgress", hasSize(0)))
                 .andExpect(jsonPath("$.recent", hasSize(0)));
+    }
+
+    @Test
+    void 상세는_읽은_횟수와_마지막_읽은_시각을_보여준다() throws Exception {
+        long id = create(StoryStatus.COMPLETED, true);
+        long versionId = jdbc.queryForObject("SELECT current_version_id FROM stories WHERE id = ?", Long.class, id);
+        jdbc.update("""
+                INSERT INTO reading_sessions (story_id, version_id, last_page, started_at, completed_at, created_at, updated_at)
+                VALUES (?, ?, 8, '2026-10-01T00:00:00Z', '2026-10-01T00:10:00Z', now(), now()),
+                       (?, ?, 8, '2026-10-02T00:00:00Z', '2026-10-02T00:10:00Z', now(), now()),
+                       (?, ?, 3, '2026-10-03T00:00:00Z', NULL, now(), now())""",
+                id, versionId, id, versionId, id, versionId);
+
+        parent.get("/api/stories/" + id)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.title").value("동화 " + id))
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.label").value("함께 읽었어요"))
+                .andExpect(jsonPath("$.coverUrl").isNotEmpty())
+                .andExpect(jsonPath("$.pageCount").value(8))
+                .andExpect(jsonPath("$.confirmedAt").isNotEmpty())
+                .andExpect(jsonPath("$.readCount").value(2))
+                .andExpect(jsonPath("$.lastReadAt").value("2026-10-03T00:00:00Z"))
+                .andExpect(jsonPath("$.canRead").value(true));
+    }
+
+    @Test
+    void 상세는_입력한_상황과_요약을_보여준다() throws Exception {
+        long id = StoryFlow.completed(parent, poller);
+
+        parent.get("/api/stories/" + id)
+                .andExpect(jsonPath("$.situation.category").value("FRIEND_CONFLICT"))
+                .andExpect(jsonPath("$.situation.categoryLabel").value("친구와 다툼"))
+                .andExpect(jsonPath("$.situation.timing").value("PAST"))
+                .andExpect(jsonPath("$.summary").value(FakeAiClient.SUMMARY))
+                .andExpect(jsonPath("$.childDisplayName").value("아이 A"))
+                .andExpect(jsonPath("$.readCount").value(0))
+                .andExpect(jsonPath("$.lastReadAt").value(nullValue()));
+    }
+
+    @Test
+    void 확정_전이나_차단된_동화는_읽을_수_없고_차단도_상태_그대로_보인다() throws Exception {
+        long reviewing = create(StoryStatus.REVIEWING, false);
+        long blocked = create(StoryStatus.BLOCKED, false);
+
+        parent.get("/api/stories/" + reviewing).andExpect(jsonPath("$.canRead").value(false));
+        parent.get("/api/stories/" + blocked)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("BLOCKED"))
+                .andExpect(jsonPath("$.label").value("만들 수 없는 이야기"))
+                .andExpect(jsonPath("$.title").value(nullValue()))
+                .andExpect(jsonPath("$.pageCount").value(nullValue()))
+                .andExpect(jsonPath("$.canRead").value(false));
+    }
+
+    @Test
+    void 다른_회원의_동화_상세는_404() throws Exception {
+        long id = create(StoryStatus.COMPLETED, false);
+        Browser other = signUp(newEmail(), newPhone());
+
+        other.get("/api/stories/" + id).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("STORY_NOT_FOUND"));
+    }
+
+    @Test
+    void 완성된_동화를_지우면_목록_상세_그림이_모두_404() throws Exception {
+        long id = StoryFlow.completed(parent, poller);
+        long versionId = jdbc.queryForObject("SELECT current_version_id FROM stories WHERE id = ?", Long.class, id);
+        String image = "/api/stories/" + id + "/versions/" + versionId + "/pages/1/image";
+        parent.get(image).andExpect(status().isOk());
+
+        parent.delete("/api/stories/" + id).andExpect(status().isNoContent());
+
+        parent.get("/api/stories").andExpect(jsonPath("$.totalElements").value(0));
+        parent.get("/api/stories/" + id).andExpect(status().isNotFound());
+        parent.get(image).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("STORY_NOT_FOUND"));
+        parent.get("/api/stories/" + id + "/guide").andExpect(status().isNotFound());
+    }
+
+    @Test
+    void 확인_중_실패_차단된_동화도_지울_수_있다() throws Exception {
+        for (StoryStatus status : new StoryStatus[]{StoryStatus.REVIEWING, StoryStatus.FAILED, StoryStatus.BLOCKED,
+                StoryStatus.COMPLETED}) {
+            long id = create(status, false);
+            parent.delete("/api/stories/" + id).andExpect(status().isNoContent());
+        }
+    }
+
+    @Test
+    void 생성_중에는_지울_수_없다() throws Exception {
+        for (StoryStatus status : new StoryStatus[]{StoryStatus.REQUESTED, StoryStatus.GENERATING_TEXT,
+                StoryStatus.GENERATING_IMAGES}) {
+            long id = create(status, false);
+            parent.delete("/api/stories/" + id).andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("INVALID_STATUS_TRANSITION"));
+        }
     }
 
     private org.hamcrest.Matcher<Iterable<? extends String>> everyIn(String... statuses) {
