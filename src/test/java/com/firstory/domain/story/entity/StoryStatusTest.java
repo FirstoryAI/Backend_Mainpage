@@ -24,7 +24,7 @@ class StoryStatusTest {
         ALLOWED.put(REQUESTED, EnumSet.of(GENERATING_TEXT, GENERATING_IMAGES, FAILED));
         ALLOWED.put(GENERATING_TEXT, EnumSet.of(GENERATING_IMAGES, FAILED));
         ALLOWED.put(GENERATING_IMAGES, EnumSet.of(REVIEWING, FAILED));
-        ALLOWED.put(REVIEWING, EnumSet.of(REQUESTED, COMPLETED));
+        ALLOWED.put(REVIEWING, EnumSet.of(REQUESTED, COMPLETED, BLOCKED));
         ALLOWED.put(FAILED, EnumSet.of(REQUESTED));
         ALLOWED.put(COMPLETED, EnumSet.noneOf(StoryStatus.class));
         ALLOWED.put(BLOCKED, EnumSet.noneOf(StoryStatus.class));

@@ -29,8 +29,8 @@ public enum StoryStatus {
         TRANSITIONS.put(REQUESTED, EnumSet.of(GENERATING_TEXT, GENERATING_IMAGES, FAILED));
         TRANSITIONS.put(GENERATING_TEXT, EnumSet.of(GENERATING_IMAGES, FAILED));
         TRANSITIONS.put(GENERATING_IMAGES, EnumSet.of(REVIEWING, FAILED));
-        // REVIEWING → REQUESTED: 다시 만들기, → COMPLETED: 확정
-        TRANSITIONS.put(REVIEWING, EnumSet.of(REQUESTED, COMPLETED));
+        // REVIEWING → REQUESTED: 다시 만들기, → COMPLETED: 확정, → BLOCKED: 다시 만들기 메모의 위기 신호
+        TRANSITIONS.put(REVIEWING, EnumSet.of(REQUESTED, COMPLETED, BLOCKED));
         // FAILED → REQUESTED: 다시 시도
         TRANSITIONS.put(FAILED, EnumSet.of(REQUESTED));
         TRANSITIONS.put(COMPLETED, EnumSet.noneOf(StoryStatus.class));
