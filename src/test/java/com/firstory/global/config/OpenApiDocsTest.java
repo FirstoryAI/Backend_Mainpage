@@ -57,6 +57,19 @@ class OpenApiDocsTest extends IntegrationTest {
                         containsString("AI_BUSY")))
                 .andExpect(jsonPath("$.paths['/api/stories/{id}'].delete.responses['204']").exists())
                 .andExpect(jsonPath("$.paths['/api/stories/{id}/confirm'].post.responses['202']").exists())
+                .andExpect(jsonPath("$.paths['/api/home'].get.summary").value("홈 (HOME-01)"))
+                .andExpect(jsonPath("$.paths['/api/stories'].get.summary").value("서재 목록 (LIB-01)"))
+                .andExpect(jsonPath("$.paths['/api/stories/{id}'].get.responses['404'].description",
+                        containsString("STORY_NOT_FOUND")))
+                .andExpect(jsonPath("$.paths['/api/stories/{id}/guide'].get.responses['409'].description",
+                        containsString("INVALID_STATUS_TRANSITION")))
+                .andExpect(jsonPath("$.paths['/api/stories/{id}/reading-sessions'].post.responses['201']").exists())
+                .andExpect(jsonPath("$.paths['/api/stories/{id}/reading-sessions/resume'].get.responses['204']")
+                        .exists())
+                .andExpect(jsonPath("$.paths['/api/reading-sessions/{sessionId}/dialogue/{promptId}']"
+                        + ".put.responses['404'].description", containsString("PROMPT_NOT_FOUND")))
+                .andExpect(jsonPath("$.paths['/api/reading-sessions/{sessionId}/complete'].post.responses['204']")
+                        .exists())
                 .andExpect(jsonPath("$.paths['/api/stories/{id}/confirm'].post.responses['400'].description",
                         containsString("TONE_REQUIRED")))
                 .andExpect(jsonPath("$.paths['/api/stories/{id}/regenerate'].post.responses['202']").exists())

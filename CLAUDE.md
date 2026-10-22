@@ -175,6 +175,18 @@ com.firstory
 - STORY_STARTED는 처음 만들기(INITIAL)에만, STORY_COMPLETED와 STORY_FAILED는 모든 실행에. 확정 때는 보내지 않는다(PRD 33). 문구는 `NotificationTemplate`(code가 `template_code`).
 - 문자에 아이 정보, 동화 제목, 부모 입력을 넣지 않는다.
 
+## 서재와 함께 읽기 (HOME-01, LIB-01~02, GDE-01, RD-01~03)
+
+- 서재(`GET /api/stories`) filter: ALL(BLOCKED 뺀 전부), CREATING(DRAFT~GENERATING_IMAGES), REVIEWING, UNREAD(COMPLETED + 함께 읽은 적 없음), READ(COMPLETED + 읽은 적 있음), FAILED (`LibraryFilter`). 정렬은 `updated_at DESC, id DESC`, size 1~50(기본 20).
+- **BLOCKED 동화는 서재와 홈 어디에도 보이지 않는다.** 상세(`GET /api/stories/{id}`)에서는 상태 그대로 보여준다(차단 화면 재진입용).
+- **서재·홈 목록은 현재 버전과 아이를 페치 조인한다** (`StoryRepository.findLibrary`). 목록 크기와 무관하게 목록 1번 + 개수 1번. 카드에 연관 엔티티를 더 쓰면 조인도 함께 늘린다.
+- 카드의 `title`, `coverUrl`(캐릭터 시트 그림 API)은 버전이 있을 때만. `label`은 `Story.libraryLabel()`.
+- 삭제(`DELETE /api/stories/{id}`)는 생성 중(REQUESTED, GENERATING_TEXT, GENERATING_IMAGES)을 뺀 모든 상태에서. 소프트 삭제라 목록·상세·가이드·읽기·그림 API가 모두 404. 입력 원문과 그림 파일의 실제 파기는 아직 없다(TODO(PM) PRD 36).
+- 가이드와 읽기는 **COMPLETED일 때만** (아니면 `INVALID_STATUS_TRANSITION`). 확정된 현재 버전을 쓴다.
+- 읽기 세션: 시작 `201`, 이어 읽기는 가장 최근의 끝나지 않은 세션(없으면 `204`), 쪽 넘김은 1~page-count(`PAGE_OUT_OF_RANGE`), 끝난 세션의 쪽 넘김은 `INVALID_STATUS_TRANSITION`. 끝(complete)은 두 번 불러도 `204`이고 `Story.firstReadCompletedAt`은 처음 한 번만 남는다.
+- **세션 id로 들어오는 API는 세션 → 동화 → 회원까지 확인한다** (`ReadingSessionRepository.findOwnedForUpdate`, 다른 회원이면 404 `READING_SESSION_NOT_FOUND`). 세션 행을 잠가 같은 세션의 동시 요청을 차례로 처리한다.
+- 대화 버튼(`TALKED`, `SKIPPED`)은 그 세션 버전의 가이드 질문일 때만(`GuidePromptRepository.findInVersion`, 아니면 404 `PROMPT_NOT_FOUND`). 같은 질문에 다시 누르면 마지막 값으로 바꾼다(`DialogueAction.change`). North Star(대화 발생)는 TALKED 수로 센다.
+
 ## 위기 신호 처리 흐름
 
 - 글을 받는 곳(CRT-01~04 폼, 인터뷰 답변, 다시 만들기 메모)은 `SafetyGuard.check`를 부른다. 빈 글은 빼고, 남은 글이 없으면 AI를 부르지 않는다. 버려질 직접 입력(OTHER를 고르지 않았을 때)은 검사하지 않는다.
@@ -231,6 +243,7 @@ com.firstory
 - Repository 테스트는 jsonb와 부분 인덱스가 있어 H2를 쓰지 않는다. Testcontainers PostgreSQL을 쓴다.
 - API 통합 테스트는 `com.firstory.support.IntegrationTest`를 상속한다(`@SpringBootTest` + MockMvc + Testcontainers, `test` 프로필). `Browser`가 기기 하나의 쿠키와 CSRF 헤더를 들고 다니고, `MutableClock`으로 시간을 옮기고, `RecordingSmsSender`에서 인증번호를 읽는다. AI는 `FakeAiClient` 빈을 주입받아 쓴다(장애 설정은 `@AfterEach`에서 `clearFailure()`).
 - `HttpAiClient`는 `MockRestServiceServer`로 경로, 헤더, 요청 JSON 키 구조, 오류 변환을 확인한다.
+- 확정된 동화가 필요한 테스트는 `StoryFlow.completed(browser, poller)`(가입한 브라우저로 만들기 → 생성 → 확정)를, 상태별 동화가 많이 필요한 서재 테스트는 `StoryStates`(DB에 바로 만든다)를 쓴다. 쿼리 수는 Hibernate `Statistics.getPrepareStatementCount()`로 센다(쪽이 가득 차야 개수 쿼리가 나가므로 가득 찬 쪽끼리 비교한다).
 - 생성 통합 테스트는 `GenerationPoller.pollOnce()`를 직접 부른다(처음 만들기·다시 시도 5번, 글 다시 4번, 그림만 다시 3번이면 REVIEWING). 시간 초과는 `MutableClock`을 옮긴다. 문자 알림은 `RecordingSmsSender.lastText`로 본다.
 
 ## 아직 정해지지 않은 것
@@ -246,6 +259,7 @@ com.firstory
 - 전하고 싶은 말(CRT-04) 글자 수 제한. 지금은 제한하지 않는다 (`MessageRequest`)
 - 위기 신호 `category` 값 목록 (스펙 D4). 지금은 AI가 준 문자열을 그대로 저장하고, 비어 있으면 `other`
 - 알림 문구 (`NotificationTemplate` 임시값). 다시 만들기·다시 시도의 시작 알림을 보낼지 (지금은 보내지 않는다)
+- 삭제한 동화의 입력 원문과 그림 파일 실제 파기 (PRD 36). 지금은 소프트 삭제만
 - 탈퇴 시 개인정보 파기 시점 (PRD 36). 지금은 회원만 소프트 삭제하고 아이, 동화 데이터는 그대로 둔다
 - 비밀번호 규칙 (임시: 8~64자, 영문과 숫자 각각 1개 이상, `PasswordPolicy`)
 - 아이 대상 연령 범위 (임시: 0~144개월, `BirthYmPolicy.MAX_AGE_MONTHS`)
@@ -261,4 +275,5 @@ com.firstory
 - `docs/tasks/TASK-04-align-ai-input.md`: AI 입력 형식 맞추기 (V3, enum 값 이름, 직접 입력 규칙, 위기 신호 3단계, `AiContextMapper`)
 - `docs/tasks/TASK-05-story-creation.md`: 동화 만들기 (V4, AI 클라이언트, `SafetyGuard`, 입력 API CRT-01~04·ST-04, 인터뷰 API CRT-05)
 - `docs/tasks/TASK-06-generation-and-review.md`: 생성과 검토 (V5, 파일 저장소, 생성 진행 스케줄러, 결과 저장, 검토 API, 그림 API, 문자 알림)
+- `docs/tasks/TASK-07-home-library-reading.md`: 홈, 서재, 동화 상세·삭제, 대화 가이드, 함께 읽기 (TASK-06 TODO 정리 포함)
 - `docs/FIRSTORY-AI-API-SPEC-v0.3.md`: AI 서비스(FastAPI) API 스펙
