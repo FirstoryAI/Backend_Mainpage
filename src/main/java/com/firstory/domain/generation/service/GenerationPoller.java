@@ -6,6 +6,7 @@ import com.firstory.domain.generation.repository.GenerationRunRepository;
 import com.firstory.domain.story.entity.Story;
 import com.firstory.domain.story.entity.StoryStatus;
 import com.firstory.global.ai.AiClient;
+import com.firstory.global.ai.AiGenerationResult;
 import com.firstory.global.ai.AiGenerationStatus;
 import com.firstory.global.config.FirstoryProperties;
 import com.firstory.global.error.BusinessException;
@@ -42,14 +43,17 @@ public class GenerationPoller {
 
     private final GenerationRunRepository runRepository;
     private final AiClient aiClient;
+    private final GenerationResultRecorder recorder;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
     private final Duration timeout;
 
     public GenerationPoller(GenerationRunRepository runRepository, AiClient aiClient,
-                            TransactionTemplate transactionTemplate, Clock clock, FirstoryProperties properties) {
+                            GenerationResultRecorder recorder, TransactionTemplate transactionTemplate, Clock clock,
+                            FirstoryProperties properties) {
         this.runRepository = runRepository;
         this.aiClient = aiClient;
+        this.recorder = recorder;
         this.transactionTemplate = transactionTemplate;
         this.clock = clock;
         this.timeout = properties.generation().timeout();
@@ -114,8 +118,15 @@ public class GenerationPoller {
                 }));
     }
 
-    // TODO: 4장 결과 저장 (GenerationResultRecorder)
     private void record(Long runId, String threadId) {
+        AiGenerationResult result;
+        try {
+            result = aiClient.result(threadId);
+        } catch (BusinessException e) {
+            log.info("AI 결과를 받지 못해 다음에 다시 확인해요: run_id={}, code={}", runId, e.getErrorCode());
+            return;
+        }
+        recorder.record(runId, result);
     }
 
     /**

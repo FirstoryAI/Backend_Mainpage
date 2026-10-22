@@ -201,6 +201,20 @@ class SafetyGuardTest {
     }
 
     @Test
+    void 결과_위기_신호는_REVISE_횟수에_넣지_않고_순번은_이어서_센다() {
+        // 부모 REVISE 0번, 결과(OUTPUT) REVISE 1번
+        when(flags.countByStoryIdAndLevel(any(), eq(SafetyLevel.REVISE))).thenReturn(1L);
+        when(flags.countByStoryIdAndLevelAndSourceNot(any(), eq(SafetyLevel.REVISE), eq(SafetySource.OUTPUT)))
+                .thenReturn(0L);
+        ai.next = revise();
+
+        SafetyOutcome outcome = check("혼내 주고 싶어요");
+
+        assertThat(outcome.action()).isEqualTo(SafetyAction.ASK_REVISE);
+        assertThat(savedFlag().getOccurrenceNo()).isEqualTo(2);
+    }
+
+    @Test
     void 남은_글이_없으면_AI를_부르지_않고_진행() {
         SafetyOutcome outcome = check("", null, "   ");
 
@@ -238,6 +252,8 @@ class SafetyGuardTest {
 
     private void reviseCountBefore(int count) {
         when(flags.countByStoryIdAndLevel(any(), eq(SafetyLevel.REVISE))).thenReturn((long) count);
+        when(flags.countByStoryIdAndLevelAndSourceNot(any(), eq(SafetyLevel.REVISE), eq(SafetySource.OUTPUT)))
+                .thenReturn((long) count);
     }
 
     private static SafetyResult revise() {

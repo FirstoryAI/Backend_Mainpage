@@ -30,10 +30,11 @@ import java.util.List;
  * level      기록                                       action
  * OK         없음                                       PROCEED
  * SENSITIVE  storyInput.markToneRequired()               tone이 있으면 PROCEED, 없으면 CHOOSE_TONE
- * REVISE     SafetyFlag (occurrenceNo = REVISE 수 + 1)   SafetyPolicy.decide → ASK_REVISE 또는 BLOCK
+ * REVISE     SafetyFlag                                 SafetyPolicy.decide → ASK_REVISE 또는 BLOCK
  * CRISIS     SafetyFlag                                 BLOCK
  * </pre>
  * BLOCK이면 story.block(). helpKind는 CRISIS면 CHILD_SAFETY, REVISE로 차단이면 PARENTING.
+ * 차단 판단의 REVISE 횟수에는 AI가 만든 결과(OUTPUT)의 위기 신호를 넣지 않는다 (부모 책임이 아니다).
  * <p>
  * 트랜잭션 밖에서 불러야 한다. AI 호출은 트랜잭션 밖에서 하고, 기록은 새 트랜잭션에서 한다.
  * 그 사이에 동화 상태가 바뀌었으면 INVALID_STATUS_TRANSITION.
@@ -102,14 +103,17 @@ public class SafetyGuard {
     }
 
     /**
-     * @return 이번 것을 포함한 이 동화의 같은 level 횟수
+     * @return 이번 것을 포함한 이 동화의 같은 level 횟수 (결과 위기 신호 OUTPUT은 빼고 센다)
      */
     private int saveFlag(Story story, SafetySource source, SafetyResult result, InterviewTurn turn) {
+        int parentCount = (int) safetyFlagRepository.countByStoryIdAndLevelAndSourceNot(story.getId(), result.level(),
+                SafetySource.OUTPUT) + 1;
+        // 순번은 OUTPUT까지 포함해 센다 (UNIQUE story, level, occurrence_no)
         int occurrenceNo = (int) safetyFlagRepository.countByStoryIdAndLevel(story.getId(), result.level()) + 1;
         String category = result.category() == null || result.category().isBlank()
                 ? UNKNOWN_CATEGORY : result.category();
         safetyFlagRepository.save(SafetyFlag.record(story, source, result.level(), turn, category, result.reason(),
                 occurrenceNo, clock.instant()));
-        return occurrenceNo;
+        return parentCount;
     }
 }
