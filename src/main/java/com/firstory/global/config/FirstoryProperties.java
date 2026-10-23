@@ -31,9 +31,10 @@ public record FirstoryProperties(Crypto crypto, Story story, Policy policy, Ai a
      *
      * @param mode          http: 진짜 AI 서버를 부른다. fake: 서버 없이 고정된 응답 (local, test)
      * @param internalToken X-Internal-Token 헤더 값. http인데 비어 있으면 기동하지 않는다
+     * @param fake          fake일 때 FakeAiClient의 속도와 질문 수
      */
     public record Ai(AiMode mode, String baseUrl, String internalToken, Duration connectTimeout,
-                     Duration readTimeout) {
+                     Duration readTimeout, Fake fake) {
 
         public enum AiMode {
             HTTP,
@@ -45,6 +46,35 @@ public record FirstoryProperties(Crypto crypto, Story story, Policy policy, Ai a
             if (mode == AiMode.HTTP && (internalToken == null || internalToken.isBlank())) {
                 throw new IllegalStateException(
                         "firstory.ai.mode=http이면 AI_INTERNAL_TOKEN이 필요해요. AI 서버 없이 띄우려면 AI_MODE=fake로 실행해요.");
+            }
+            fake = fake == null ? Fake.INSTANT : fake;
+        }
+
+        /**
+         * 가짜 AI를 진짜처럼 느리게 하고 질문 수를 바꾼다. 모두 0과 2면 지금처럼 바로 응답한다 (test).
+         *
+         * @param interviewDelay 인터뷰 시작, 답변 응답 전에 기다리는 시간
+         * @param safetyDelay    위기 신호 검사 응답 전에 기다리는 시간
+         * @param stageDuration  생성 한 단계(노드)에 걸리는 시간. 0이면 status를 부를 때마다 한 단계씩
+         * @param turns          첫 질문 뒤에 더 묻는 질문 수 (2면 질문 3개). 0이면 thread_id로 질문 수 1~5개를 정한다
+         */
+        public record Fake(Duration interviewDelay, Duration safetyDelay, Duration stageDuration, Integer turns) {
+
+            public static final int MAX_QUESTIONS = 5;
+            public static final Fake INSTANT = new Fake(null, null, null, null);
+
+            public Fake {
+                interviewDelay = interviewDelay == null ? Duration.ZERO : interviewDelay;
+                safetyDelay = safetyDelay == null ? Duration.ZERO : safetyDelay;
+                stageDuration = stageDuration == null ? Duration.ZERO : stageDuration;
+                turns = turns == null ? 2 : turns;
+                if (turns < 0 || turns >= MAX_QUESTIONS) {
+                    throw new IllegalStateException("firstory.ai.fake.turns는 0~" + (MAX_QUESTIONS - 1) + "이어야 해요: " + turns);
+                }
+            }
+
+            public boolean timedStages() {
+                return stageDuration.isPositive();
             }
         }
     }

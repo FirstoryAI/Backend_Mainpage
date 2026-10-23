@@ -8,6 +8,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Clock;
+
 /**
  * firstory.ai.mode로 AI 클라이언트를 고른다. http(기본)는 진짜 AI 서버, fake는 서버 없이 고정 응답 (local, test).
  */
@@ -22,7 +24,7 @@ public class AiClientConfig {
 
     @Bean
     @ConditionalOnProperty(name = "firstory.ai.mode", havingValue = "fake")
-    public FakeAiClient fakeAiClient(FileStorage fileStorage, FirstoryProperties properties) {
-        return new FakeAiClient(fileStorage, properties.story().pageCount());
+    public FakeAiClient fakeAiClient(FileStorage fileStorage, FirstoryProperties properties, Clock clock) {
+        return new FakeAiClient(fileStorage, properties.story().pageCount(), properties.ai().fake(), clock);
     }
 }

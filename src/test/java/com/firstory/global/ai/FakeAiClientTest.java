@@ -4,9 +4,11 @@ import com.firstory.domain.generation.entity.RegenerateScope;
 import com.firstory.domain.safety.entity.SafetyLevel;
 import com.firstory.domain.safety.entity.SafetySource;
 import com.firstory.domain.story.entity.InterviewEndReason;
+import com.firstory.global.config.FirstoryProperties.Ai.Fake;
 import com.firstory.global.error.BusinessException;
 import com.firstory.global.error.ErrorCode;
 import com.firstory.global.storage.LocalFileStorage;
+import com.firstory.support.MutableClock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -14,9 +16,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -144,11 +152,14 @@ class FakeAiClientTest {
         assertThat(client.statusCalls(THREAD_ID)).isEqualTo(6);
 
         AiGenerationResult result = client.result(THREAD_ID);
-        assertThat(result.title()).isEqualTo("가짜 동화 1");
+        assertThat(result.title()).isEqualTo("공룡 아로의 첫 인사");
         assertThat(result.checkpointId()).isEqualTo("fake-cp-1");
         assertThat(result.pages()).hasSize(PAGE_COUNT);
-        assertThat(result.pages().getFirst().text()).isEqualTo("1쪽 이야기 (실행 1)");
-        assertThat(result.guide().prompts()).extracting(AiGenerationResult.Prompt::afterPage).containsExactly(3, 6);
+        assertThat(result.pages().getFirst().text()).isEqualTo("아로는 작은 초록 공룡이에요. 오늘은 새 어린이집에 가는 날이에요.");
+        assertThat(result.pages().get(1).text()).contains("**콩닥콩닥**");
+        assertThat(result.guide().prompts()).extracting(AiGenerationResult.Prompt::afterPage).containsExactly(4, 7);
+        assertThat(result.guide().prompts().get(1).parentHint()).isNull();
+        assertThat(result.guide().ifUndecided()).isNotBlank();
         assertThat(result.safety()).isEqualTo(SafetyResult.ok());
         // 실제 PNG 파일이 저장소에 있다
         for (AiGenerationResult.Page page : result.pages()) {
@@ -276,6 +287,139 @@ class FakeAiClientTest {
         client.approve(THREAD_ID);
 
         assertThat(client.status(THREAD_ID).state()).isEqualTo(AiRunState.COMPLETED);
+    }
+
+    @Test
+    void 다시_만들기면_제목_뒤에_다시_n() {
+        AiGenerationResult first = generateToReview();
+
+        client.regenerate(THREAD_ID, RegenerateScope.TEXT, List.of(), null, first.checkpointId(),
+                UUID.randomUUID(), 2, "stories/12/runs/2/");
+        for (int i = 0; i < 4; i++) {
+            client.status(THREAD_ID);
+        }
+
+        assertThat(client.result(THREAD_ID).title()).isEqualTo("공룡 아로의 첫 인사 (다시 1)");
+    }
+
+    @Test
+    void stage_duration이_있으면_시작_후_지난_시간으로_단계를_정한다() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-10-01T00:00:00Z"));
+        client = new FakeAiClient(storage, PAGE_COUNT, new Fake(null, null, Duration.ofSeconds(40), 2), clock);
+        startGeneration(context());
+
+        assertThat(client.status(THREAD_ID).currentNode()).as("0초").isEqualTo("design_story");
+        assertThat(client.status(THREAD_ID).currentNode()).as("다시 불러도 그대로").isEqualTo("design_story");
+        clock.advance(Duration.ofSeconds(39));
+        assertThat(client.status(THREAD_ID).currentNode()).isEqualTo("design_story");
+        clock.advance(Duration.ofSeconds(1));
+        assertThat(client.status(THREAD_ID).currentNode()).as("40초").isEqualTo("write_story");
+        clock.advance(Duration.ofSeconds(80));
+        assertThat(client.status(THREAD_ID)).as("120초").isEqualTo(
+                new AiGenerationStatus(AiRunState.RUNNING, 1, "render", 4, null));
+        clock.advance(Duration.ofSeconds(40));
+        assertThat(client.status(THREAD_ID).state()).as("160초").isEqualTo(AiRunState.REVIEWING);
+    }
+
+    @Test
+    void stage_duration이_있어도_FAIL이면_write_story에서_실패() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-10-01T00:00:00Z"));
+        client = new FakeAiClient(storage, PAGE_COUNT, new Fake(null, null, Duration.ofSeconds(40), 2), clock);
+        startGeneration(contextWithMessage(FakeAiClient.FAIL_MARKER));
+
+        clock.advance(Duration.ofMinutes(10));
+
+        assertThat(client.status(THREAD_ID)).isEqualTo(
+                new AiGenerationStatus(AiRunState.FAILED, 1, "write_story", 2, FakeAiClient.FAILURE_CODE));
+    }
+
+    @Test
+    void turns가_0이면_thread_id로_질문_수_1에서_5개를_정하고_같은_thread는_항상_같다() {
+        client = new FakeAiClient(storage, PAGE_COUNT, new Fake(null, null, null, 0), Clock.systemUTC());
+
+        Set<Integer> counts = new HashSet<>();
+        for (int i = 0; i < 50; i++) {
+            String threadId = "story-" + i;
+            int questions = questionCount(threadId);
+            assertThat(questions).isBetween(1, Fake.MAX_QUESTIONS);
+            assertThat(questionCount(threadId)).isEqualTo(questions);
+            counts.add(questions);
+        }
+        assertThat(counts).hasSizeGreaterThan(1);
+    }
+
+    @Test
+    void 질문은_샘플_순서대로() {
+        client = new FakeAiClient(storage, PAGE_COUNT, new Fake(null, null, null, 4), Clock.systemUTC());
+        client.startInterview(THREAD_ID, UUID.randomUUID(), context(), null);
+
+        List<String> questions = new ArrayList<>(List.of(FakeAiClient.FIRST_QUESTION));
+        InterviewReply reply;
+        while (!(reply = client.answerInterview(THREAD_ID, "답변")).isConfirm()) {
+            questions.add(reply.question());
+        }
+
+        assertThat(questions).isEqualTo(FakeAiClient.SAMPLE.questions());
+    }
+
+    @Test
+    void PAGE_FAIL이_답변에_있으면_5쪽_그림만_failed() {
+        client.startInterview(THREAD_ID, UUID.randomUUID(), context(), null);
+        client.answerInterview(THREAD_ID, "답변 " + FakeAiClient.PAGE_FAIL_MARKER);
+        client.answerInterview(THREAD_ID, null);
+        client.generate(THREAD_ID, UUID.randomUUID(), 1, "stories/12/runs/1/", null);
+        for (int i = 0; i < 5; i++) {
+            client.status(THREAD_ID);
+        }
+
+        AiGenerationResult result = client.result(THREAD_ID);
+        assertThat(result.pages()).filteredOn(page -> !page.imageDone())
+                .extracting(AiGenerationResult.Page::pageNo).containsExactly(FakeAiClient.FAILED_PAGE);
+        assertThat(result.pages().get(FakeAiClient.FAILED_PAGE - 1).imagePath()).isNull();
+
+        // 그 쪽만 다시 그리면 성공한다
+        client.regenerate(THREAD_ID, RegenerateScope.IMAGES, List.of(FakeAiClient.FAILED_PAGE), null,
+                result.checkpointId(), UUID.randomUUID(), 2, "stories/12/runs/2/");
+        for (int i = 0; i < 3; i++) {
+            client.status(THREAD_ID);
+        }
+        assertThat(client.result(THREAD_ID).pages()).allMatch(AiGenerationResult.Page::imageDone);
+    }
+
+    @Test
+    void AI_DOWN을_처음_보면_그다음_호출_한_번만_AI_UNAVAILABLE() {
+        String message = "용기 " + FakeAiClient.AI_DOWN_MARKER;
+        assertThat(client.checkSafety(SafetySource.FORM, List.of(message), null)).isEqualTo(SafetyResult.ok());
+
+        assertThatThrownBy(() -> client.startInterview(THREAD_ID, UUID.randomUUID(), context(), null))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.AI_UNAVAILABLE);
+        assertThat(client.startInterview(THREAD_ID, UUID.randomUUID(), context(), null).turn()).isEqualTo(1);
+
+        // 같은 글로 다시 보내면 성공한다
+        client.checkSafety(SafetySource.FORM, List.of(message), null);
+        assertThat(client.answerInterview(THREAD_ID, "답변").turn()).isEqualTo(2);
+    }
+
+    @Test
+    void AI_DOWN은_생성_진행_확인에는_쓰이지_않는다() {
+        startGeneration(context());
+        client.checkSafety(SafetySource.INTERVIEW, List.of(FakeAiClient.AI_DOWN_MARKER), "질문");
+
+        assertThat(client.status(THREAD_ID).state()).isEqualTo(AiRunState.RUNNING);
+        assertThatThrownBy(() -> client.approve(THREAD_ID))
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.AI_UNAVAILABLE);
+    }
+
+    private int questionCount(String threadId) {
+        client.startInterview(threadId, UUID.randomUUID(), context(), null);
+        int questions = 1;
+        while (!client.answerInterview(threadId, "답변").isConfirm()) {
+            questions++;
+        }
+        return questions;
     }
 
     private void startGeneration(Map<String, Object> context) {

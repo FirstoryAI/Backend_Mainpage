@@ -10,6 +10,7 @@ import com.firstory.domain.story.repository.StoryInputRepository;
 import com.firstory.domain.story.repository.StoryRepository;
 import com.firstory.domain.user.repository.UserRepository;
 import com.firstory.global.ai.AiGenerationResult;
+import com.firstory.global.ai.FakeAiClient;
 import com.firstory.support.Browser;
 import com.firstory.support.Fixtures;
 import com.firstory.support.IntegrationTest;
@@ -76,14 +77,14 @@ class ReadingIntegrationTest extends IntegrationTest {
         guide(id)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.storyId").value(id))
-                .andExpect(jsonPath("$.title").value("가짜 동화 1"))
+                .andExpect(jsonPath("$.title").value(FakeAiClient.SAMPLE.title(0)))
                 .andExpect(jsonPath("$.beforeReading.intent").isNotEmpty())
                 .andExpect(jsonPath("$.beforeReading.tips", hasSize(2)))
                 .andExpect(jsonPath("$.prompts[*].seq", contains(1, 2)))
-                .andExpect(jsonPath("$.prompts[*].afterPage", contains(3, 6)))
+                .andExpect(jsonPath("$.prompts[*].afterPage", contains(4, 7)))
                 .andExpect(jsonPath("$.prompts[0].id").isNumber())
-                .andExpect(jsonPath("$.prompts[0].question").value("아로는 지금 어떤 마음일까?"))
-                .andExpect(jsonPath("$.prompts[0].purpose").value("emotion"))
+                .andExpect(jsonPath("$.prompts[0].question").value("아로는 왜 혼자 앉았을까?"))
+                .andExpect(jsonPath("$.prompts[0].purpose").value("감정 알아차리기"))
                 .andExpect(jsonPath("$.prompts[0].parentHint").isNotEmpty())
                 .andExpect(jsonPath("$.afterReading.bridgeQuestion").isNotEmpty());
     }
@@ -145,7 +146,7 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.storyId").value(id))
                 .andExpect(jsonPath("$.versionId").value(versionId))
-                .andExpect(jsonPath("$.title").value("가짜 동화 1"))
+                .andExpect(jsonPath("$.title").value(FakeAiClient.SAMPLE.title(0)))
                 .andExpect(jsonPath("$.coverUrl").value("/api/stories/" + id + "/versions/" + versionId
                         + "/character-sheet"))
                 .andExpect(jsonPath("$.pageCount").value(8))
@@ -153,7 +154,7 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.pages[0].imageUrl").value("/api/stories/" + id + "/versions/" + versionId
                         + "/pages/1/image"))
                 .andExpect(jsonPath("$.pages[0].imageStatus").value("DONE"))
-                .andExpect(jsonPath("$.prompts[*].afterPage", contains(3, 6)))
+                .andExpect(jsonPath("$.prompts[*].afterPage", contains(4, 7)))
                 .andExpect(jsonPath("$.prompts[0].question").isNotEmpty())
                 .andExpect(jsonPath("$.prompts[0].parentHint").isNotEmpty());
 

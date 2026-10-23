@@ -68,7 +68,7 @@ class HttpAiClientTest {
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
         client = new HttpAiClient(builder, new FirstoryProperties.Ai(AiMode.HTTP, BASE_URL, TOKEN,
-                Duration.ofSeconds(3), Duration.ofSeconds(35)));
+                Duration.ofSeconds(3), Duration.ofSeconds(35), null));
     }
 
     @Test

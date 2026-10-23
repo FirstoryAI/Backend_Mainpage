@@ -16,6 +16,12 @@ firstory:
     # mode: http
     # base-url: http://localhost:8000
     # internal-token: local-internal-token
+    # 가짜 AI를 진짜처럼 느리게 한다. 프론트가 로딩, 진행 화면, 질문 수 변화를 미리 겪어 보게 하는 값이다
+    fake:
+      interview-delay: 2s     # 인터뷰 시작, 답변마다 2초 기다렸다가 응답 (진짜는 수 초)
+      safety-delay: 1s        # 글을 받는 API(상황, 아이, 전하고 싶은 말, 답변, 다시 만들기)마다 1초 더 걸림
+      stage-duration: 40s     # 생성 한 단계 40초. 4단계라 약 2분 40초 뒤 검토(REVIEWING) (진짜는 3~4분)
+      turns: 0                # 0이면 동화마다 질문 수가 1~5개로 달라진다 (같은 동화는 항상 같은 수). 2면 항상 3개
 
   # 쿠키와 출처. 기본값(application.yml)으로 충분하면 지워도 된다
   # web:

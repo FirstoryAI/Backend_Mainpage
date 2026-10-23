@@ -94,16 +94,16 @@ class GenerationIntegrationTest extends IntegrationTest {
         Map<String, Object> version = jdbc.queryForMap("SELECT * FROM story_versions WHERE story_id = ?", id);
         assertThat(version.get("version_no")).isEqualTo(1);
         assertThat(version.get("parent_version_id")).isNull();
-        assertThat(version.get("title")).isEqualTo("가짜 동화 1");
+        assertThat(version.get("title")).isEqualTo(FakeAiClient.SAMPLE.title(0));
         assertThat(version.get("checkpoint_id")).isEqualTo("fake-cp-1");
         assertThat(currentVersionId(id)).isEqualTo(((Number) version.get("id")).longValue());
         assertThat(jdbc.queryForObject("SELECT title FROM stories WHERE id = ?", String.class, id))
-                .isEqualTo("가짜 동화 1");
+                .isEqualTo(FakeAiClient.SAMPLE.title(0));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM story_pages WHERE version_id = ? AND image_status = 'DONE'",
                 Integer.class, version.get("id"))).isEqualTo(8);
         assertThat(jdbc.queryForList("""
                 SELECT p.after_page FROM guide_prompts p JOIN reading_guides g ON g.id = p.guide_id
-                WHERE g.version_id = ? ORDER BY p.seq""", Integer.class, version.get("id"))).containsExactly(3, 6);
+                WHERE g.version_id = ? ORDER BY p.seq""", Integer.class, version.get("id"))).containsExactly(4, 7);
     }
 
     @Test
@@ -164,11 +164,11 @@ class GenerationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.status").value("REVIEWING"))
                 .andExpect(jsonPath("$.version.id").value(versionId))
                 .andExpect(jsonPath("$.version.versionNo").value(1))
-                .andExpect(jsonPath("$.version.title").value("가짜 동화 1"))
+                .andExpect(jsonPath("$.version.title").value(FakeAiClient.SAMPLE.title(0)))
                 .andExpect(jsonPath("$.characterSheetUrl")
                         .value(storyUrl(id) + "/versions/" + versionId + "/character-sheet"))
                 .andExpect(jsonPath("$.pages", hasSize(8)))
-                .andExpect(jsonPath("$.pages[0].text").value("1쪽 이야기 (실행 1)"))
+                .andExpect(jsonPath("$.pages[0].text").value(FakeAiClient.SAMPLE.pageText(1)))
                 .andExpect(jsonPath("$.pages[*].imageStatus", everyItem(org.hamcrest.Matchers.is("DONE"))))
                 .andExpect(jsonPath("$.pages[*].imageUrl", everyItem(matchesPattern(
                         "/api/stories/" + id + "/versions/" + versionId + "/pages/\\d+/image"))))
@@ -373,7 +373,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM story_versions WHERE story_id = ?", Integer.class, id))
                 .isEqualTo(3);
         // 그림만 다시는 v1의 글을 쓴다 (v2의 글이 아님)
-        parent.get(storyUrl(id) + "/preview").andExpect(jsonPath("$.pages[0].text").value("1쪽 이야기 (실행 1)"));
+        parent.get(storyUrl(id) + "/preview").andExpect(jsonPath("$.pages[0].text").value(FakeAiClient.SAMPLE.pageText(1)));
     }
 
     @Test
@@ -578,7 +578,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertThat(jdbc.queryForList("SELECT template_code FROM notifications WHERE story_id = ?", String.class, id))
                 .containsExactlyInAnyOrder("STORY_STARTED_V1", "STORY_COMPLETED_V1");
         String text = sms.lastText(phone);
-        assertThat(text).contains("완성됐어요").doesNotContain("가짜 동화").doesNotContain(MESSAGE);
+        assertThat(text).contains("완성됐어요").doesNotContain(FakeAiClient.SAMPLE.title(0)).doesNotContain(MESSAGE);
 
         // 같은 실행의 같은 알림은 다시 보내지 않는다
         long runId = jdbc.queryForObject("SELECT id FROM generation_runs WHERE story_id = ?", Long.class, id);

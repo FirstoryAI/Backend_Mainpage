@@ -354,8 +354,9 @@ public class HttpAiClient implements AiClient {
                             safety.reason()));
         }
 
+        // FakeAiClient도 샘플 가이드를 같은 구조로 읽는다
         @SuppressWarnings("unchecked")
-        private static AiGenerationResult.Guide guide(Map<String, Object> guide) {
+        static AiGenerationResult.Guide guide(Map<String, Object> guide) {
             if (guide == null) {
                 return null;
             }
