@@ -3,3 +3,6 @@ gradlew text eol=lf
 *.bat text eol=crlf
 *.jar binary
 *.sh text eol=lf
+
+# 개발용 스크립트는 GitHub 언어 통계(Shell)에서 뺀다. 파일과 동작은 그대로
+scripts/** linguist-detectable=false
