@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${SERVER_PORT:${PORT:8080}}   # SERVER_PORT가 없으면 PORT(Railway가 넣어 준다), 둘 다 없으면 8080
 
 spring:
   application:
@@ -66,11 +66,11 @@ firstory:
     remember-me-key: ${REMEMBER_ME_KEY:local-remember-me-key-change-me}
 
 ---
-# local 프로필 전용: Swagger UI (/swagger-ui/index.html), API 문서 (/v3/api-docs)
+# local, dev 프로필 전용: Swagger UI (/swagger-ui/index.html), API 문서 (/v3/api-docs)
 spring:
   config:
     activate:
-      on-profile: local
+      on-profile: local | dev
 springdoc:
   api-docs:
     enabled: true

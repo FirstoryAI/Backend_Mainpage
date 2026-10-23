@@ -22,7 +22,7 @@ docker compose up -d          # 로컬 PostgreSQL
 
 빌드 결과로 커밋할 때는 `./gradlew build && git commit ...`처럼 `&&`로 잇고 **빌드 명령에 파이프(`| tail`, `| grep` 등)를 붙이지 않는다.** 파이프가 있으면 종료 코드가 마지막 명령 것이 되어 `&&`가 빌드 실패를 잡지 못한다.
 
-`SmsSender` 구현은 아직 `LoggingSmsSender`(`local`, `test` 프로필 전용)뿐이다. 프로필 없이 띄우면 `SmsSender` 빈이 없어 기동이 실패한다 (의도된 동작. 실제 문자 대행사 연동은 아직 없다).
+`SmsSender` 구현은 아직 `LoggingSmsSender`(`local`, `test`, `dev` 프로필 전용)뿐이다. 프로필 없이 띄우면 `SmsSender` 빈이 없어 기동이 실패한다 (의도된 동작. 실제 문자 대행사 연동은 아직 없다).
 
 ### 로컬 실행 (포트가 겹치는 개발 PC)
 
@@ -41,13 +41,17 @@ docker compose up -d                                                        # .e
 
 전체 흐름 실제 확인(smoke): 서버를 `FIRSTORY_AI_FAKE_STAGE_DURATION=5s ./gradlew bootRun --args='--spring.profiles.active=local'`로 띄우고 다른 창에서 `bash scripts/smoke-local.sh`(Git Bash, curl만 필요). `docs/frontend/firstory.http`, `FullJourneyIntegrationTest`와 같은 순서로 35단계를 돌고 그림이 실제 PNG인지도 본다. API 흐름을 바꾸면 세 곳을 함께 고친다. Windows에서 curl로 한글 본문을 보낼 때는 인자가 아니라 파일(`--data-binary @file`)로 보낸다(코드 페이지 때문에 깨진다).
 
+### 개발 서버 (dev 프로필, Railway)
+
+`application-dev.yml`(커밋함). 루트 `Dockerfile`(Gradle bootJar → temurin 21 JRE, root 아닌 사용자)로 빌드하고 `SPRING_PROFILES_ACTIVE=dev`로 띄운다. Swagger 켬, 가짜 AI(local 예시값과 같은 속도), 고정 인증번호 `000000`, `LoggingSmsSender`, `COOKIE_SECURE` 기본 true. DB 주소와 키 세 개(`PHONE_AES_KEY`, `PHONE_HMAC_KEY`, `REMEMBER_ME_KEY`)는 기본값 없이 받아 비면 기동하지 않는다. 포트는 `SERVER_PORT` → `PORT`(Railway) → 8080. 헬스체크는 `GET /api/health`(로그인 불필요, `{"status":"ok"}`). 환경 변수 전체는 `docs/deploy/railway.md`. 환경 변수를 추가하면 그 표도 고친다.
+
 ### 프론트 전달 문서 (`docs/frontend/`)
 
 프론트 담당자가 이 문서만 보고 화면을 붙인다. README(시작하기), auth, screens(화면별 API), errors, fake-ai, firstory.http, status. API·오류 코드·가짜 AI 동작을 바꾸면 해당 문서도 고친다. `errors.md`의 표는 `FrontendErrorsDocTest`가 `ErrorCode`(이름, HTTP 상태, 메시지)와 비교하므로 코드를 추가하면 문서에 행을 넣어야 빌드가 통과한다.
 
-### Swagger (local 프로필 전용)
+### Swagger (local, dev 프로필 전용)
 
-`local` 프로필로 띄우면 http://localhost:8081/swagger-ui/index.html 에서 열린다(API 문서 JSON은 `/v3/api-docs`). 다른 프로필(운영, test)에서는 꺼져 있어 404가 난다. 켜고 끄는 설정은 `application.yml`의 `springdoc`과 그 아래 `on-profile: local` 문서에 있다.
+`local` 프로필로 띄우면 http://localhost:8081/swagger-ui/index.html 에서 열린다(API 문서 JSON은 `/v3/api-docs`). dev(개발 서버)도 켜진다. 다른 프로필(운영, test)에서는 꺼져 있어 404가 난다. 켜고 끄는 설정은 `application.yml`의 `springdoc`과 그 아래 `on-profile: local | dev` 문서에 있다.
 
 로그인은 세션 쿠키, 상태를 바꾸는 요청은 CSRF 헤더가 필요해서 순서가 있다.
 
@@ -233,13 +237,15 @@ com.firstory
 | `ALLOWED_ORIGINS` | `http://localhost:5173` | (비움) 또는 프론트 출처 | CORS. 쉼표로 구분. 비우면 CORS 설정을 등록하지 않음 |
 | `REMEMBER_ME_KEY` | 로컬용 임의값 | 비밀값 | remember-me 서명 키 |
 | `PHONE_AES_KEY`, `PHONE_HMAC_KEY` | 로컬용 값 | 비밀값 | 휴대폰 번호 암호화, 해시 |
-| `AI_MODE` | `http` (local, test 프로필은 `fake`) | `http` | AI 클라이언트 구현 |
+| `AI_MODE` | `http` (local, test, dev 프로필은 `fake`) | `http` | AI 클라이언트 구현 |
 | `AI_BASE_URL` | `http://localhost:8000` | AI 서버 주소 | FastAPI 기본 주소 |
 | `AI_INTERNAL_TOKEN` | (비움) | 비밀값 | `X-Internal-Token`. `http`면 필수 |
 | `STORAGE_LOCAL_ROOT` | `./data/storage` | 그림 파일 폴더 | 로컬 파일 저장소 루트 (S3 전까지) |
+| `SERVER_PORT` (없으면 `PORT`) | `8080` | 플랫폼이 넣는 값 | 서버 포트. Railway는 `PORT`를 넣어 준다 |
+| `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | 로컬 docker compose | 비밀번호는 비밀값 | JDBC 주소, DB 계정. dev는 기본값 없음 |
 | `FIRSTORY_AI_FAKE_STAGE_DURATION` | (local 40s) | 쓰지 않음 | 가짜 AI 생성 단계 시간. smoke 때 `5s`로 덮어쓴다 |
 
-고정 인증번호 `firstory.sms.local-fixed-code`는 `LocalFixedVerificationCode`(`@Profile("local")`)만 읽는다. 다른 프로필에 이 값이 있으면 `LocalFixedVerificationCode.Guard`가 기동을 막는다. 번호 생성만 바꾸고 해시 저장·만료·시도 횟수 규칙은 그대로다.
+고정 인증번호 `firstory.sms.local-fixed-code`는 `LocalFixedVerificationCode`(`@Profile({"local", "dev"})`)만 읽는다. 그 밖의 프로필(prod 등, 프로필 없음 포함)에 이 값이 있으면 `LocalFixedVerificationCode.Guard`가 기동을 막는다. 번호 생성만 바꾸고 해시 저장·만료·시도 횟수 규칙은 그대로다.
 
 ## 개인정보 규칙 (반드시 지킬 것)
 
@@ -289,4 +295,5 @@ com.firstory
 
 - `docs/FIRSTORY-AI-API-SPEC-v0.3.md`: AI 서비스(FastAPI) API 스펙
 - `docs/frontend/`: 프론트 담당자용 문서 (위 "프론트 전달 문서")
+- `docs/deploy/railway.md`: 개발 서버(Railway) 배포와 환경 변수 목록
 - TASK-01~08 작업 문서는 끝나서 지웠다. 규칙은 이 파일에 모두 옮겼고, 원문은 git 기록(태그 `v0.1.0-frontend`)에 있다. 코드 주석의 `TASK-0n`은 그 작업에서 만든 것이라는 표시다.

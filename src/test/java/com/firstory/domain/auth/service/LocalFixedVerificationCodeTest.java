@@ -23,6 +23,21 @@ class LocalFixedVerificationCodeTest {
     }
 
     @Test
+    void dev도_고정_인증번호를_쓴다() {
+        runner.withPropertyValues("spring.profiles.active=dev", "firstory.sms.local-fixed-code=000000")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBean(LocalFixedVerificationCode.class).code()).contains("000000");
+                });
+    }
+
+    @Test
+    void prod에_설정하면_기동_실패() {
+        runner.withPropertyValues("spring.profiles.active=prod", "firstory.sms.local-fixed-code=000000")
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
     void local이어도_비어_있으면_무작위() {
         runner.withPropertyValues("spring.profiles.active=local")
                 .run(context -> assertThat(context.getBean(LocalFixedVerificationCode.class).code()).isEmpty());
@@ -40,7 +55,7 @@ class LocalFixedVerificationCodeTest {
                 .run(context -> {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure()).rootCause()
-                            .hasMessageContaining("local 프로필에서만");
+                            .hasMessageContaining("local, dev 프로필에서만");
                 });
         runner.withPropertyValues("firstory.sms.local-fixed-code=000000")
                 .run(context -> assertThat(context).as("프로필 없음(운영)").hasFailed());
