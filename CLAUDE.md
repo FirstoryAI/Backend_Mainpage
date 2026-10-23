@@ -35,9 +35,15 @@ docker compose up -d                                                        # .e
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-`application-local.yml`은 `firstory.ai.mode: fake`라서 AI 서버 없이 뜬다(아래 "AI 호출 규칙"). 가짜 AI가 만든 그림 파일은 `./data/storage`(`STORAGE_LOCAL_ROOT`)에 쌓인다. `data/`는 커밋하지 않는다. 지워도 되지만 지우면 이미 만든 동화의 그림은 404가 난다.
+`application-local.yml`은 `firstory.ai.mode: fake`라서 AI 서버 없이 뜬다(아래 "AI 호출 규칙"). 가짜 AI는 local 예시값(`firstory.ai.fake.*`)으로 진짜처럼 느리다: 인터뷰 2초, 글 검사 1초, 생성 단계당 40초(약 2분 40초), 질문 수는 동화마다 1~5개. 인증번호는 `firstory.sms.local-fixed-code`로 항상 `000000`이다. 가짜 AI가 만든 그림 파일은 `./data/storage`(`STORAGE_LOCAL_ROOT`)에 쌓인다. `data/`는 커밋하지 않는다. 지워도 되지만 지우면 이미 만든 동화의 그림은 404가 난다.
 
 `.env`와 `application-local.yml`은 커밋하지 않는다. 설정을 바꾸면 `.example` 파일도 함께 고친다.
+
+전체 흐름 실제 확인(smoke): 서버를 `FIRSTORY_AI_FAKE_STAGE_DURATION=5s ./gradlew bootRun --args='--spring.profiles.active=local'`로 띄우고 다른 창에서 `bash scripts/smoke-local.sh`(Git Bash, curl만 필요). `docs/frontend/firstory.http`, `FullJourneyIntegrationTest`와 같은 순서로 35단계를 돌고 그림이 실제 PNG인지도 본다. API 흐름을 바꾸면 세 곳을 함께 고친다. Windows에서 curl로 한글 본문을 보낼 때는 인자가 아니라 파일(`--data-binary @file`)로 보낸다(코드 페이지 때문에 깨진다).
+
+### 프론트 전달 문서 (`docs/frontend/`)
+
+프론트 담당자가 이 문서만 보고 화면을 붙인다. README(시작하기), auth, screens(화면별 API), errors, fake-ai, firstory.http, status. API·오류 코드·가짜 AI 동작을 바꾸면 해당 문서도 고친다. `errors.md`의 표는 `FrontendErrorsDocTest`가 `ErrorCode`(이름, HTTP 상태, 메시지)와 비교하므로 코드를 추가하면 문서에 행을 넣어야 빌드가 통과한다.
 
 ### Swagger (local 프로필 전용)
 
@@ -47,10 +53,10 @@ docker compose up -d                                                        # .e
 
 1. `GET /api/auth/csrf`를 먼저 실행한다. 브라우저에 `XSRF-TOKEN` 쿠키가 생긴다.
 2. POST/PUT/PATCH/DELETE는 Swagger UI가 이 쿠키 값을 `X-XSRF-TOKEN` 헤더로 자동으로 붙인다(`springdoc.swagger-ui.csrf.enabled=true`). 따로 입력할 것은 없다.
-3. 가입하려면 `send-code` → 서버 로그의 `[SMS] 010-****-1234 ← [FIRSTORY] 인증번호 123456`에서 번호 확인 → `verify` → `signup` 순서로 같은 브라우저에서 실행한다. 가입하면 바로 로그인된다.
+3. 가입하려면 `send-code` → `verify`(local은 고정 인증번호 `000000`. 설정을 지우면 서버 로그의 `[SMS] 010-****-1234 ← [FIRSTORY] 인증번호 123456`에서 확인) → `signup` 순서로 같은 브라우저에서 실행한다. 가입하면 바로 로그인된다.
 4. 로그인하면 `FSESSION` 쿠키로 인증된다. 이후 `/api/me`, `/api/children` 등을 바로 실행할 수 있다.
-5. 동화 만들기(CRT-01~05)는 `POST /api/stories` → `situation` → `child` → `message` → `interview/start` → `interview/answer` 순서다. local은 FakeAiClient라 답변 3번째나 `{"skip": true}`에서 인터뷰가 끝난다(CONFIRMING). 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`를 넣으면 그 위기 신호로 판단한다.
-   이어서 `confirm` → `generation`(스케줄러가 5초마다 한 단계씩 진행, 약 25초면 REVIEWING) → `preview` → 그림 API(`imageUrl`을 브라우저에서 연다) → `regenerate` → `current-version` → `approve` 순서로 확정까지 해 볼 수 있다. 전하고 싶은 말에 `[[FAIL]]`을 넣으면 첫 생성이 실패하고(`retry`로 다시 시도), `[[OUTPUT_REVISE]]`를 넣으면 결과 위기 신호로 실패한다.
+5. 동화 만들기(CRT-01~05)는 `POST /api/stories` → `situation` → `child` → `message` → `interview/start` → `interview/answer` 순서다. local은 FakeAiClient라 동화마다 정해진 1~5번째 답변이나 `{"skip": true}`에서 인터뷰가 끝난다(CONFIRMING). 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`를 넣으면 그 위기 신호로 판단한다.
+   이어서 `confirm` → `generation`(local 예시값은 단계당 40초라 약 2분 40초면 REVIEWING. `FIRSTORY_AI_FAKE_STAGE_DURATION=5s`로 띄우면 약 25초) → `preview` → 그림 API(`imageUrl`을 브라우저에서 연다) → `regenerate` → `current-version` → `approve` 순서로 확정까지 해 볼 수 있다. 전하고 싶은 말이나 답변에 `[[FAIL]]`을 넣으면 첫 생성이 실패하고(`retry`로 다시 시도), `[[OUTPUT_REVISE]]`는 결과 위기 신호로 실패, `[[PAGE_FAIL]]`은 5쪽 그림만 실패, `[[AI_DOWN]]`은 다음 AI 호출 한 번이 `AI_UNAVAILABLE`이다(`docs/frontend/fake-ai.md`).
 6. 로그아웃하면 `XSRF-TOKEN`도 지워진다. 다시 쓰려면 1번부터 한다. 403 `FORBIDDEN`이 나오면 대부분 1번을 빠뜨린 것이다.
 
 API를 추가할 때는 `@Operation(summary = "한국어 요약")`과 `@ApiErrorCodes({ErrorCode...})`를 단다. `OpenApiConfig`가 `ErrorCode`의 상태와 메시지로 오류 응답 설명을 만든다. 로그인이 필요한 컨트롤러는 클래스에 `@ApiErrorCodes(ErrorCode.UNAUTHORIZED)`를 달고, 상태를 바꾸는 요청의 403(CSRF)은 자동으로 붙는다. 성공 상태가 200이 아니면 `@ResponseStatus`로 적는다(`ResponseEntity`로는 문서에 나타나지 않는다).
@@ -139,7 +145,12 @@ com.firstory
 
 - AI 서비스(FastAPI) 스펙은 `docs/FIRSTORY-AI-API-SPEC-v0.3.md`. 호출은 `global.ai.AiClient` 하나로 한다.
 - `firstory.ai.mode`로 구현을 고른다(`AiClientConfig`). `http`(기본)는 `HttpAiClient`(RestClient, `X-Internal-Token`, 연결 3초·응답 35초), `fake`는 `FakeAiClient`. local, test 프로필은 `fake`. `http`인데 `AI_INTERNAL_TOKEN`이 비어 있으면 기동하지 않는다.
-- `FakeAiClient`는 고정 동작이다. 위기 신호는 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`가 있으면 그 level, 없으면 OK. 인터뷰는 질문 1 → 답변 2번까지 다음 질문 → 3번째 답변이나 skip이면 CONFIRM. 생성은 `status`를 부를 때마다 한 단계씩(design_story → write_story → illustrate → render → REVIEWING, 글 다시는 write_story부터, 그림만 다시는 illustrate_only → render) 나아가고, REVIEWING이 될 때 8쪽 결과와 실제 PNG를 `FileStorage`에 쓴다. 전하고 싶은 말에 `[[FAIL]]`이면 첫 생성 실패, `[[OUTPUT_REVISE]]`면 첫 생성 결과의 safety가 REVISE. thread 상태는 메모리에만 있어 서버를 다시 띄우면 진행 중인 인터뷰와 생성은 이어갈 수 없다. 테스트에서는 `failWith(ErrorCode)`로 장애를, `misdirectOutput()`으로 다른 동화 경로를 흉내 내고(`clearFailure()`로 둘 다 되돌린다), `answerCalls`, `statusCalls`, `lastBaseCheckpointId`로 호출을 본다.
+- `FakeAiClient`는 고정 동작이고 속도와 질문 수만 `firstory.ai.fake.*`(`FirstoryProperties.Ai.Fake`)로 바꾼다. **test 프로필은 기본값(지연 0, `stage-duration` 0, `turns` 2)이라 아래 동작 그대로다. 테스트가 기대는 동작을 바꾸지 않는다.**
+  - 위기 신호는 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`가 있으면 그 level, 없으면 OK.
+  - 인터뷰는 질문 1 → 답변 `turns`번까지 다음 질문 → 그다음 답변이나 skip이면 CONFIRM (`turns` 2면 3번째 답변). `turns` 0이면 thread_id 해시로 질문 1~5개. 질문 문장은 `fake-ai/sample-story.json` 순서대로.
+  - 생성은 design_story → write_story → illustrate → render → REVIEWING (글 다시는 write_story부터, 그림만 다시는 illustrate_only → render). `stage-duration` 0이면 `status`를 부를 때마다 한 단계씩, 0보다 크면 시작 후 지난 시간(`Clock`) / `stage-duration`으로 단계를 정한다. REVIEWING이 될 때 `fake-ai/sample-story.json`(제목, 8쪽 글, 가이드)으로 결과를 만들고 실제 PNG(512×512)를 `FileStorage`에 쓴다. 다시 만들기면 제목 뒤에 `(다시 n)`.
+  - 전하고 싶은 말이나 인터뷰 답변의 표시: `[[FAIL]]` 첫 생성 실패, `[[OUTPUT_REVISE]]` 첫 생성 결과의 safety가 REVISE, `[[PAGE_FAIL]]` 첫 생성 결과의 5쪽 그림만 failed, `[[AI_DOWN]]` 위기 신호 검사에서 처음 본 글이면 다음 AI 호출 한 번이 `AI_UNAVAILABLE`(생성 진행 확인 `status`, `result`는 세지 않는다).
+  - 지연(`interview-delay`, `safety-delay`)은 `Thread.sleep`이다. local 전용이라 허용한다. thread 상태는 메모리에만 있어 서버를 다시 띄우면 진행 중인 인터뷰와 생성은 이어갈 수 없다. 테스트에서는 `failWith(ErrorCode)`로 장애를, `misdirectOutput()`으로 다른 동화 경로를 흉내 내고(`clearFailure()`로 둘 다 되돌린다), `answerCalls`, `statusCalls`, `lastBaseCheckpointId`로 호출을 본다.
 - **DB 트랜잭션 안에서 AI를 부르지 않는다**(응답이 35초까지 걸려 커넥션을 붙잡는다). ① 트랜잭션으로 조회·검증 → ② 트랜잭션 밖에서 AI 호출 → ③ 새 트랜잭션으로 저장. ③에서 동화를 `StoryRepository.findByIdForUpdate`로 다시 읽어 상태가 바뀌었으면 `INVALID_STATUS_TRANSITION`. AI를 부르는 서비스 메서드에는 `@Transactional`을 달지 않고 `TransactionTemplate`을 쓴다. `AiClient` 구현은 트랜잭션 안에서 불리면 `IllegalStateException`을 던진다(`TransactionGuard`).
 - 문자 발송(`SmsSender.send`)도 같은 이유로 트랜잭션 밖에서 한다.
 - AI 오류는 `AI_UNAVAILABLE`(연결 실패, 타임아웃, 5xx, 422, 응답 형식 오류), `AI_BUSY`(409 THREAD_BUSY), `AI_STATE_MISMATCH`(409 INVALID_STATE, 404 THREAD_NOT_FOUND)로 바꾼다. AI 호출이 실패하면 아무것도 저장하지 않는다.
@@ -224,6 +235,9 @@ com.firstory
 | `AI_BASE_URL` | `http://localhost:8000` | AI 서버 주소 | FastAPI 기본 주소 |
 | `AI_INTERNAL_TOKEN` | (비움) | 비밀값 | `X-Internal-Token`. `http`면 필수 |
 | `STORAGE_LOCAL_ROOT` | `./data/storage` | 그림 파일 폴더 | 로컬 파일 저장소 루트 (S3 전까지) |
+| `FIRSTORY_AI_FAKE_STAGE_DURATION` | (local 40s) | 쓰지 않음 | 가짜 AI 생성 단계 시간. smoke 때 `5s`로 덮어쓴다 |
+
+고정 인증번호 `firstory.sms.local-fixed-code`는 `LocalFixedVerificationCode`(`@Profile("local")`)만 읽는다. 다른 프로필에 이 값이 있으면 `LocalFixedVerificationCode.Guard`가 기동을 막는다. 번호 생성만 바꾸고 해시 저장·만료·시도 횟수 규칙은 그대로다.
 
 ## 개인정보 규칙 (반드시 지킬 것)
 
@@ -244,6 +258,7 @@ com.firstory
 - API 통합 테스트는 `com.firstory.support.IntegrationTest`를 상속한다(`@SpringBootTest` + MockMvc + Testcontainers, `test` 프로필). `Browser`가 기기 하나의 쿠키와 CSRF 헤더를 들고 다니고, `MutableClock`으로 시간을 옮기고, `RecordingSmsSender`에서 인증번호를 읽는다. AI는 `FakeAiClient` 빈을 주입받아 쓴다(장애 설정은 `@AfterEach`에서 `clearFailure()`).
 - `HttpAiClient`는 `MockRestServiceServer`로 경로, 헤더, 요청 JSON 키 구조, 오류 변환을 확인한다.
 - 확정된 동화가 필요한 테스트는 `StoryFlow.completed(browser, poller)`(가입한 브라우저로 만들기 → 생성 → 확정)를, 상태별 동화가 많이 필요한 서재 테스트는 `StoryStates`(DB에 바로 만든다)를 쓴다. 쿼리 수는 Hibernate `Statistics.getPrepareStatementCount()`로 센다(쪽이 가득 차야 개수 쿼리가 나가므로 가득 찬 쪽끼리 비교한다).
+- `FullJourneyIntegrationTest`가 가입부터 함께 읽기, 로그아웃까지 실제 사용 순서를 한 번에 확인한다.
 - 생성 통합 테스트는 `GenerationPoller.pollOnce()`를 직접 부른다(처음 만들기·다시 시도 5번, 글 다시 4번, 그림만 다시 3번이면 REVIEWING). 시간 초과는 `MutableClock`을 옮긴다. 문자 알림은 `RecordingSmsSender.lastText`로 본다.
 
 ## 아직 정해지지 않은 것
@@ -276,4 +291,6 @@ com.firstory
 - `docs/tasks/TASK-05-story-creation.md`: 동화 만들기 (V4, AI 클라이언트, `SafetyGuard`, 입력 API CRT-01~04·ST-04, 인터뷰 API CRT-05)
 - `docs/tasks/TASK-06-generation-and-review.md`: 생성과 검토 (V5, 파일 저장소, 생성 진행 스케줄러, 결과 저장, 검토 API, 그림 API, 문자 알림)
 - `docs/tasks/TASK-07-home-library-reading.md`: 홈, 서재, 동화 상세·삭제, 대화 가이드, 함께 읽기 (TASK-06 TODO 정리 포함)
+- `docs/tasks/TASK-08-frontend-handoff.md`: 프론트 전달 준비 (가짜 AI를 진짜처럼, 고정 인증번호, 전체 흐름 테스트, `docs/frontend/`, smoke 스크립트)
+- `docs/frontend/`: 프론트 담당자용 문서 (위 "프론트 전달 문서")
 - `docs/FIRSTORY-AI-API-SPEC-v0.3.md`: AI 서비스(FastAPI) API 스펙
