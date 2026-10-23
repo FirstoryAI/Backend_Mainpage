@@ -6,12 +6,22 @@
 { "code": "STORY_NOT_FOUND", "message": "동화를 찾을 수 없어요." }
 ```
 
-- `VALIDATION_FAILED`만 `fields`가 더 있다. 입력란별 안내에 쓴다. 본문 JSON 자체가 깨졌거나 enum 값이 틀리면 `fields`가 빈 배열이다.
+- `VALIDATION_FAILED`만 `fields`가 더 있다. 입력란별 안내에 쓴다. `field`는 요청 JSON의 필드 경로(`email`, `profile.gender`, `traits[1]`)다. 보낸 값은 응답에 담지 않는다.
 
 ```json
 { "code": "VALIDATION_FAILED", "message": "입력값을 다시 확인해 주세요.",
   "fields": [ { "field": "email", "message": "이메일 형식으로 입력해 주세요." } ] }
 ```
+
+본문을 읽지 못했을 때의 `fields`:
+
+| 경우 | `field` | `message` |
+|---|---|---|
+| 모르는 Map 키 (예: `consents`에 없는 동의 항목) | Map 필드 이름 (`consents`). 키는 넣지 않는다 | 알 수 없는 항목이 있어요. |
+| 없는 enum 값 (예: `gender: "X"`, `traits: ["SHY", "X"]`) | `profile.gender`, `traits[1]` | 고를 수 없는 값이에요. |
+| 타입이 틀림 (숫자 자리에 문자, Map 값 형식 오류 등) | 그 필드 (Map 안이면 Map 필드까지) | 형식이 맞지 않아요. |
+| 깨진 JSON | 깨진 곳의 필드. 모르면 `body` | JSON 형식이 맞지 않아요. |
+| 본문 없음 | `body` | 요청 내용이 없어요. |
 
 - **분기는 `code`로 한다.** HTTP 상태는 같은 401이라도 `UNAUTHORIZED`(로그인 화면으로)와 `INVALID_CREDENTIALS`(로그인 실패 안내)처럼 뜻이 다르다.
 - `message`는 사용자에게 그대로 보여 줘도 되는 한국어 문장이다. 문구는 바뀔 수 있으니 `message`로 분기하지 않는다.

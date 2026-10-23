@@ -3,6 +3,7 @@ package com.firstory.domain.child.dto;
 import com.firstory.domain.child.entity.Gender;
 import com.firstory.domain.child.entity.InterestCode;
 import com.firstory.domain.child.entity.Trait;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -14,7 +15,7 @@ import java.util.List;
  * customTrait는 traits에 OTHER가 있을 때만 쓰고, 없으면 버린다.
  */
 public record ChildProfileRequest(
-        @NotBlank(message = "생년월을 입력해 주세요.") String birthYm,
+        @NotBlank(message = "생년월을 입력해 주세요.") @Schema(description = "yyyy-MM", example = "2021-03") String birthYm,
         @NotNull(message = "성별을 선택해 주세요.") Gender gender,
         List<Trait> traits,
         String customTrait,

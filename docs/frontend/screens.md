@@ -152,7 +152,7 @@
 
 | 때 | API |
 |---|---|
-| 고르기 | `PUT /api/stories/{id}/tone` `{tone: "WARM"}` 또는 `"PLAIN"` → 200 (safety는 null) |
+| 고르기 | `PUT /api/stories/{id}/tone` `{tone: "WARM"}` (`PLAIN`, `WARM`, `UNDECIDED`(정하지 못함) 중 하나) → 200 (safety는 null) |
 
 분위기를 고르지 않고 CRT-06에서 확인하면 400 `TONE_REQUIRED`. `GET /draft`의 `toneRequired`, `tone`으로 다시 확인할 수 있다.
 

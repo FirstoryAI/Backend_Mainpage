@@ -59,6 +59,8 @@ docker compose up -d                                                        # .e
    이어서 `confirm` → `generation`(local 예시값은 단계당 40초라 약 2분 40초면 REVIEWING. `FIRSTORY_AI_FAKE_STAGE_DURATION=5s`로 띄우면 약 25초) → `preview` → 그림 API(`imageUrl`을 브라우저에서 연다) → `regenerate` → `current-version` → `approve` 순서로 확정까지 해 볼 수 있다. 전하고 싶은 말이나 답변에 `[[FAIL]]`을 넣으면 첫 생성이 실패하고(`retry`로 다시 시도), `[[OUTPUT_REVISE]]`는 결과 위기 신호로 실패, `[[PAGE_FAIL]]`은 5쪽 그림만 실패, `[[AI_DOWN]]`은 다음 AI 호출 한 번이 `AI_UNAVAILABLE`이다(`docs/frontend/fake-ai.md`).
 6. 로그아웃하면 `XSRF-TOKEN`도 지워진다. 다시 쓰려면 1번부터 한다. 403 `FORBIDDEN`이 나오면 대부분 1번을 빠뜨린 것이다.
 
+요청·응답 DTO의 `Map` 필드에는 `@Schema(example = "{...}")`를 단다(없으면 Swagger가 `additionalProp1`을 보여 준다. `OpenApiDocsTest`가 검사한다). 받지 않는 enum 값이 있으면 `allowableValues`로 줄이고, 형식이 정해진 문자열(휴대폰, 생년월 등)에는 실제로 통과하는 `example`을 단다.
+
 API를 추가할 때는 `@Operation(summary = "한국어 요약")`과 `@ApiErrorCodes({ErrorCode...})`를 단다. `OpenApiConfig`가 `ErrorCode`의 상태와 메시지로 오류 응답 설명을 만든다. 로그인이 필요한 컨트롤러는 클래스에 `@ApiErrorCodes(ErrorCode.UNAUTHORIZED)`를 달고, 상태를 바꾸는 요청의 403(CSRF)은 자동으로 붙는다. 성공 상태가 200이 아니면 `@ResponseStatus`로 적는다(`ResponseEntity`로는 문서에 나타나지 않는다).
 
 ## 패키지 구조 (도메인별)
@@ -249,6 +251,7 @@ com.firstory
 ## 에러와 문구
 
 - 비즈니스 오류는 `BusinessException(ErrorCode)`로 던진다. `GlobalExceptionHandler`가 `{code, message}`로 응답한다.
+- `VALIDATION_FAILED`는 `fields[{field, message}]`를 함께 준다. 본문을 읽지 못한 경우(깨진 JSON, 없는 enum 값, 모르는 Map 키, 타입 불일치)도 `RequestBodyErrors`가 Jackson 경로로 필드를 찾는다. 경로에는 DTO 필드 이름과 목록 순번만 쓰고 **Map 키와 받은 값, Jackson 예외 메시지는 응답에도 로그에도 넣지 않는다**(`UnreadableBodyIntegrationTest`).
 - 사용자에게 보이는 메시지는 한국어 해요체. 무엇이 잘못됐고 어떻게 고치는지 쓴다. 사과하지 않는다.
 
 ## 테스트

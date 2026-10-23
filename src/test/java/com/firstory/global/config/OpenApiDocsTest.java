@@ -7,6 +7,7 @@ import org.springframework.test.context.TestPropertySource;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -87,6 +88,64 @@ class OpenApiDocsTest extends IntegrationTest {
     /**
      * 문서 안의 모든 $ref가 components에 실제로 있는지 본다. 없으면 Swagger UI가 "Could not resolve reference"를 낸다.
      */
+    @Test
+    void 가입_동의_예시는_실제_동의_항목_키다() throws Exception {
+        JsonNode consents = schemas().path("SignupRequest").path("properties").path("consents");
+
+        assertThat(consents.path("example").isObject()).as("문자열이 아닌 JSON 객체 예시").isTrue();
+        assertThat(names(consents.path("example"))).containsExactly("GUARDIAN", "TERMS", "PRIVACY", "SMS_NOTIFY");
+        assertThat(consents.path("description").asString()).contains("GUARDIAN", "SMS_NOTIFY");
+    }
+
+    /**
+     * Map 필드에 예시가 없으면 Swagger UI가 additionalProp1, additionalProp2…를 만들어 보여 준다.
+     */
+    @Test
+    void Map_필드는_모두_예시가_있다() throws Exception {
+        List<String> missing = new ArrayList<>();
+        for (String schema : names(schemas())) {
+            JsonNode properties = schemas().path(schema).path("properties");
+            for (String property : names(properties)) {
+                JsonNode node = properties.path(property);
+                if (node.has("additionalProperties") && !node.path("example").isObject()) {
+                    missing.add(schema + "." + property);
+                }
+            }
+        }
+
+        assertThat(missing).isEmpty();
+    }
+
+    @Test
+    void 받지_않는_enum_값과_형식이_정해진_값은_예시가_실제로_쓸_수_있는_값이다() throws Exception {
+        JsonNode schemas = schemas();
+
+        JsonNode scope = schemas.path("RegenerateRequest").path("properties").path("scope");
+        assertThat(scope.path("enum").valueStream().map(JsonNode::asString).toList())
+                .as("다시 만들기는 ALL을 받지 않는다").containsExactly("CHARACTER_STORY", "TEXT", "IMAGES");
+        assertThat(schemas.path("RegenerateRequest").path("properties").path("pages").path("example").isArray()).isTrue();
+        assertThat(example(schemas, "ChildProfileRequest", "birthYm")).isEqualTo("2021-03");
+        for (String request : List.of("SendCodeRequest", "VerifyCodeRequest", "SignupRequest", "ChangePhoneRequest")) {
+            assertThat(example(schemas, request, "phone")).as(request).isEqualTo("010-1234-5678");
+        }
+        assertThat(example(schemas, "VerifyCodeRequest", "code")).isEqualTo("000000");
+        assertThat(example(schemas, "SignupRequest", "password")).isEqualTo("firstory123");
+        assertThat(schemas.path("ProgressRequest").path("properties").path("page").path("example").asInt()).isEqualTo(1);
+    }
+
+    private JsonNode schemas() throws Exception {
+        String docs = browser().get("/v3/api-docs").andReturn().getResponse().getContentAsString();
+        return jsonMapper.readTree(docs).path("components").path("schemas");
+    }
+
+    private static String example(JsonNode schemas, String schema, String property) {
+        return schemas.path(schema).path("properties").path(property).path("example").asString();
+    }
+
+    private static List<String> names(JsonNode object) {
+        return object.propertyNames().stream().toList();
+    }
+
     @Test
     void 모든_ref가_components에_있다() throws Exception {
         String docs = browser().get("/v3/api-docs").andExpect(status().isOk())

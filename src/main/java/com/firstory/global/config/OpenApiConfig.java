@@ -60,7 +60,7 @@ public class OpenApiConfig {
                         1. `GET /api/auth/csrf`를 먼저 실행해 XSRF-TOKEN 쿠키를 받는다 (로그아웃한 뒤에도 다시 실행).
                         2. 가입하거나 `POST /api/auth/login`으로 로그인한다. 이후 요청은 브라우저 쿠키로 인증된다.
                         3. POST/PUT/PATCH/DELETE는 Swagger UI가 X-XSRF-TOKEN 헤더를 자동으로 붙인다.
-                        local 프로필에서는 인증번호가 서버 로그에 `[SMS] 010-****-1234 ← ...`로 찍힌다."""))
+                        local 프로필에서는 인증번호가 항상 `000000`이다 (firstory.sms.local-fixed-code)."""))
                 .components(components);
     }
 

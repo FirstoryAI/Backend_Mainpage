@@ -5,6 +5,7 @@ import com.firstory.domain.safety.entity.SafetyOutcome;
 import com.firstory.domain.story.entity.StoryStatus;
 import com.firstory.global.ai.InterviewReply;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Map;
 
 /**
@@ -19,7 +20,10 @@ import java.util.Map;
  * @param safety 답변의 위기 신호 검사 결과. 검사하지 않았으면(시작, 건너뛰기) null
  */
 public record InterviewResponse(Long storyId, StoryStatus status, InterviewReply.Type type, Integer turn,
-                                String question, String summary, Map<String, Object> contextUpdate,
+                                String question, String summary,
+                                @Schema(description = "AI가 이번 답변까지 정리한 내용. 형식이 정해져 있지 않아 화면에 쓰지 않는다",
+                                        example = "{\"answered_turns\": 1}")
+                                Map<String, Object> contextUpdate,
                                 SafetyResponse safety, boolean toneRequired) {
 
     public static InterviewResponse question(Long storyId, StoryStatus status, int turn, String question,

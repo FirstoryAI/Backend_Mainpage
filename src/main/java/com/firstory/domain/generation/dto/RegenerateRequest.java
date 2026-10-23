@@ -1,6 +1,7 @@
 package com.firstory.domain.generation.dto;
 
 import com.firstory.domain.generation.entity.RegenerateScope;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
@@ -13,8 +14,9 @@ import java.util.List;
  * @param feedback 요청 메모 (300자까지). 위기 신호를 먼저 검사한다
  */
 public record RegenerateRequest(
-        @NotNull(message = "다시 만들 범위를 골라 주세요.") RegenerateScope scope,
-        List<Integer> pages,
+        @NotNull(message = "다시 만들 범위를 골라 주세요.")
+        @Schema(allowableValues = {"CHARACTER_STORY", "TEXT", "IMAGES"}, example = "IMAGES") RegenerateScope scope,
+        @Schema(description = "IMAGES일 때만. 1~8, 비우면 전체", example = "[3]") List<Integer> pages,
         String feedback) {
 
     // 부모 입력이 로그에 남지 않게 한다
