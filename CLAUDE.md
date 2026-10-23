@@ -22,7 +22,7 @@ docker compose up -d          # 로컬 PostgreSQL
 
 빌드 결과로 커밋할 때는 `./gradlew build && git commit ...`처럼 `&&`로 잇고 **빌드 명령에 파이프(`| tail`, `| grep` 등)를 붙이지 않는다.** 파이프가 있으면 종료 코드가 마지막 명령 것이 되어 `&&`가 빌드 실패를 잡지 못한다.
 
-`SmsSender` 구현은 아직 `LoggingSmsSender`(`local`, `test` 프로필 전용)뿐이다. 프로필 없이 띄우면 `SmsSender` 빈이 없어 기동이 실패한다 (의도된 동작. 실제 문자 대행사 연동은 TASK-07).
+`SmsSender` 구현은 아직 `LoggingSmsSender`(`local`, `test` 프로필 전용)뿐이다. 프로필 없이 띄우면 `SmsSender` 빈이 없어 기동이 실패한다 (의도된 동작. 실제 문자 대행사 연동은 아직 없다).
 
 ### 로컬 실행 (포트가 겹치는 개발 PC)
 
@@ -282,15 +282,8 @@ com.firstory
 - 웹 푸시(PUSH_SUBSCRIPTIONS)는 2차 범위. 지금 만들지 않는다.
 - 카카오 로그인은 하지 않는다. 이메일 + 비밀번호 + 문자 인증 휴대폰 번호로만 가입한다.
 
-## 작업 문서
+## 문서
 
-- `docs/tasks/TASK-01-setup-and-entities.md`: 프로젝트 세팅과 JPA 엔티티
-- `docs/tasks/TASK-02-auth-and-member.md`: 인증과 회원 (세션, remember-me, CSRF, 문자 인증, 가입, 로그인, 내 정보)
-- `docs/tasks/TASK-03-child-profile.md`: 아이 프로필 API와 동화 만들기용 `ChildProfileResolver`
-- `docs/tasks/TASK-04-align-ai-input.md`: AI 입력 형식 맞추기 (V3, enum 값 이름, 직접 입력 규칙, 위기 신호 3단계, `AiContextMapper`)
-- `docs/tasks/TASK-05-story-creation.md`: 동화 만들기 (V4, AI 클라이언트, `SafetyGuard`, 입력 API CRT-01~04·ST-04, 인터뷰 API CRT-05)
-- `docs/tasks/TASK-06-generation-and-review.md`: 생성과 검토 (V5, 파일 저장소, 생성 진행 스케줄러, 결과 저장, 검토 API, 그림 API, 문자 알림)
-- `docs/tasks/TASK-07-home-library-reading.md`: 홈, 서재, 동화 상세·삭제, 대화 가이드, 함께 읽기 (TASK-06 TODO 정리 포함)
-- `docs/tasks/TASK-08-frontend-handoff.md`: 프론트 전달 준비 (가짜 AI를 진짜처럼, 고정 인증번호, 전체 흐름 테스트, `docs/frontend/`, smoke 스크립트)
-- `docs/frontend/`: 프론트 담당자용 문서 (위 "프론트 전달 문서")
 - `docs/FIRSTORY-AI-API-SPEC-v0.3.md`: AI 서비스(FastAPI) API 스펙
+- `docs/frontend/`: 프론트 담당자용 문서 (위 "프론트 전달 문서")
+- TASK-01~08 작업 문서는 끝나서 지웠다. 규칙은 이 파일에 모두 옮겼고, 원문은 git 기록(태그 `v0.1.0-frontend`)에 있다. 코드 주석의 `TASK-0n`은 그 작업에서 만든 것이라는 표시다.
