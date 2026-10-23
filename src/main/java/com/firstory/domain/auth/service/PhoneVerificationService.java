@@ -13,6 +13,7 @@ import com.firstory.global.error.ErrorCode;
 import com.firstory.global.sms.SmsSender;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +40,8 @@ public class PhoneVerificationService {
     private final PhoneCrypto phoneCrypto;
     private final SmsSender smsSender;
     private final Clock clock;
+    // local 프로필에서만 빈이 있다
+    private final ObjectProvider<LocalFixedVerificationCode> localFixedCode;
     private final SecureRandom random = new SecureRandom();
 
     /**
@@ -60,11 +63,17 @@ public class PhoneVerificationService {
             throw new BusinessException(ErrorCode.SMS_RESEND_TOO_SOON);
         }
 
-        String code = PhoneVerification.newCode(random);
+        String code = newCode();
         session.setAttribute(VERIFICATION_ATTRIBUTE, PhoneVerification.issue(phone, purpose, code, now));
         smsSendLogRepository.save(SmsSendLog.record(phoneHash, purpose));
         smsSender.send(phone, "[FIRSTORY] 인증번호 " + code + " (3분 안에 입력해 주세요)");
         return PhoneVerification.VALIDITY;
+    }
+
+    private String newCode() {
+        LocalFixedVerificationCode fixed = localFixedCode.getIfAvailable();
+        return fixed == null ? PhoneVerification.newCode(random)
+                : fixed.code().orElseGet(() -> PhoneVerification.newCode(random));
     }
 
     public void verify(HttpSession session, PhoneNumber phone, String code) {
