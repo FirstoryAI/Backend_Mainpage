@@ -48,4 +48,6 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // FrontendErrorsDocTest가 docs/frontend/errors.md를 읽는다. 문서만 바뀌어도 테스트를 다시 돌린다
+    inputs.dir('docs/frontend').withPathSensitivity(PathSensitivity.RELATIVE)
 }
