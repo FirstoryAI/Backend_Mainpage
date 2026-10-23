@@ -58,6 +58,13 @@ docker compose up -d
 | Swagger UI | http://localhost:8081/swagger-ui/index.html |
 | API 문서 JSON | http://localhost:8081/v3/api-docs |
 
+전체 흐름을 한 번에 확인하려면 서버를 생성 단계 5초로 띄우고 smoke 스크립트를 돌린다(약 1~2분, 35단계).
+
+```bash
+FIRSTORY_AI_FAKE_STAGE_DURATION=5s ./gradlew bootRun --args='--spring.profiles.active=local'   # 창 1
+bash scripts/smoke-local.sh                                                                     # 창 2 (Git Bash)
+```
+
 Swagger에서 직접 눌러 볼 때는 먼저 `GET /api/auth/csrf`를 실행한다. 이후 POST/PUT/PATCH/DELETE에는 Swagger가 CSRF 헤더를 알아서 붙인다.
 
 ## 4. 고정 인증번호 `000000`
@@ -107,4 +114,5 @@ export default {
 | 상태를 바꾸는 요청이 403 `FORBIDDEN` | CSRF 헤더가 없다. 앱을 열 때와 로그아웃 뒤 `GET /api/auth/csrf`를 불렀는지 확인 |
 | 모든 요청이 401 | 쿠키가 안 붙는다. 프록시를 쓰거나 `credentials: 'include'` |
 | 서버를 다시 띄웠더니 만들던 동화의 인터뷰·생성이 `AI_STATE_MISMATCH` | 가짜 AI는 진행 상태를 메모리에만 둔다. 새 동화를 만든다 ([fake-ai.md](fake-ai.md)) |
+| Windows에서 curl로 한글 본문을 보내면 400 `VALIDATION_FAILED` | Git Bash·PowerShell이 인자의 한글을 시스템 코드 페이지로 바꾼다. 본문을 UTF-8 파일로 저장해 `--data-binary @body.json`으로 보낸다 (`scripts/smoke-local.sh` 참고) |
 | 예전에 만든 동화의 그림이 404 | `data/storage` 폴더를 지웠다. 새로 만든다 |

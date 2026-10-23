@@ -6,6 +6,13 @@
 { "code": "STORY_NOT_FOUND", "message": "동화를 찾을 수 없어요." }
 ```
 
+- `VALIDATION_FAILED`만 `fields`가 더 있다. 입력란별 안내에 쓴다. 본문 JSON 자체가 깨졌거나 enum 값이 틀리면 `fields`가 빈 배열이다.
+
+```json
+{ "code": "VALIDATION_FAILED", "message": "입력값을 다시 확인해 주세요.",
+  "fields": [ { "field": "email", "message": "이메일 형식으로 입력해 주세요." } ] }
+```
+
 - **분기는 `code`로 한다.** HTTP 상태는 같은 401이라도 `UNAUTHORIZED`(로그인 화면으로)와 `INVALID_CREDENTIALS`(로그인 실패 안내)처럼 뜻이 다르다.
 - `message`는 사용자에게 그대로 보여 줘도 되는 한국어 문장이다. 문구는 바뀔 수 있으니 `message`로 분기하지 않는다.
 - 그림 API도 오류는 JSON으로 온다(`<img>`에서는 그냥 깨진 그림으로 보인다).
