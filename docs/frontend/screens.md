@@ -76,7 +76,7 @@
 | 카드 누름 | 카드 `status`로 화면을 고른다(위 표). 완성된 동화는 LIB-02 | |
 | 새 동화 만들기 | CRT-01로 | |
 
-카드(`StoryCardResponse`): `id, title, status, label, coverUrl, childDisplayName, createdAt, updatedAt`. `title`, `coverUrl`은 그림이 나오기 전엔 null. **차단된 동화(BLOCKED)는 홈과 서재에 나오지 않는다.**
+카드(`StoryCardResponse`): `id, title, status, label, categoryLabel, coverUrl, childDisplayName, createdAt, updatedAt`. `categoryLabel`은 상황 분류 문구("기타"를 골랐으면 직접 입력한 분류)이고, 상황을 아직 입력하지 않았으면 null. `title`, `coverUrl`은 그림이 나오기 전엔 null. **차단된 동화(BLOCKED)는 홈과 서재에 나오지 않는다.**
 
 ---
 
@@ -213,6 +213,7 @@
 |---|---|---|
 | 들어올 때 | `GET /api/stories/{id}/preview` | `version{id, versionNo, title}`, `characterSheetUrl`, `pages[]{pageNo, text, imageStatus, imageUrl}`, `regenerateRemaining` |
 | 다시 만들기 | REV-02 | |
+| 동화 설명과 부모용 가이드 | GDE-01 (`GET .../guide`, REVIEWING에서도 된다) | 동화 설명은 `beforeReading.intent` |
 | 버전 목록 | 아래 "버전 목록" | |
 | 이대로 확정 | REV-04 | |
 
@@ -236,7 +237,7 @@
 - `scope` 3가지: `CHARACTER_STORY`(이야기·인물부터 다시), `TEXT`(글 다시), `IMAGES`(그림만 다시).
 - `IMAGES`일 때만 `pages`로 쪽을 고른다(1~10, 비우면 전체). 다른 범위에서 `pages`를 보내면 400 `INVALID_PAGE_SELECTION`.
 - `feedback`(요청 메모)은 300자. 위기 신호를 먼저 검사한다: `ASK_REVISE`면 `saved: false`이고 다시 만들지 않으며 횟수도 그대로(메모를 고치게 안내). `BLOCK`이면 ST-05.
-- `regenerateRemaining`(남은 횟수, 지금 임시 3번)이 0이면 버튼을 막는다. 넘기면 409 `REGENERATION_LIMIT_REACHED`.
+- `regenerateRemaining`(남은 횟수, 처음 1번)이 0이면 버튼을 막는다. 넘기면 409 `REGENERATION_LIMIT_REACHED`.
 - 다시 만들면 **지금 보고 있는 버전**에서 갈라진다.
 
 ## 버전 목록
@@ -273,7 +274,7 @@
 |---|---|---|
 | 들어올 때 | `GET /api/stories/{id}` | `title, status, label, coverUrl, childDisplayName, situation{category, categoryLabel, timing}, summary, pageCount, createdAt, confirmedAt, readCount, lastReadAt, canRead` |
 | 함께 읽기 | `canRead`가 true일 때 RD-01 | |
-| 대화 가이드 | GDE-01 (COMPLETED만) | |
+| 대화 가이드 | GDE-01 (REVIEWING·COMPLETED) | |
 | 이 동화 지우기 | `DELETE /api/stories/{id}` → 204 → 서재로 | |
 
 - 지우기는 만드는 중(`REQUESTED`, `GENERATING_TEXT`, `GENERATING_IMAGES`)에는 안 된다(409 `INVALID_STATUS_TRANSITION`).
@@ -286,7 +287,7 @@
 |---|---|---|
 | 들어올 때 | `GET /api/stories/{id}/guide` | `beforeReading{intent, tips[]}`, `prompts[]{id, seq, afterPage, question, purpose, parentHint}`, `afterReading{bridgeQuestion, ifUndecided}` |
 
-`parentHint`, `ifUndecided`는 null일 수 있다. COMPLETED가 아니면 409 `INVALID_STATUS_TRANSITION`.
+`parentHint`, `ifUndecided`는 null일 수 있다. 미리보기(REVIEWING)와 확정 뒤(COMPLETED)에 지금 보여 주는 버전의 가이드를 준다. 그 밖의 상태면 409 `INVALID_STATUS_TRANSITION`. 함께 읽기(RD-01~03)는 확정 뒤에만 된다.
 
 ## RD-01 함께 읽기
 
