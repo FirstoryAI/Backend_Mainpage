@@ -172,7 +172,7 @@ class GenerationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.pages[*].imageStatus", everyItem(org.hamcrest.Matchers.is("DONE"))))
                 .andExpect(jsonPath("$.pages[*].imageUrl", everyItem(matchesPattern(
                         "/api/stories/" + id + "/versions/" + versionId + "/pages/\\d+/image"))))
-                .andExpect(jsonPath("$.regenerateRemaining").value(3))
+                .andExpect(jsonPath("$.regenerateRemaining").value(1))
                 .andReturn().getResponse().getContentAsString();
 
         assertThat(body).doesNotContain("stories/" + id + "/runs").doesNotContain("page-01.png")
@@ -263,7 +263,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertThat(run.get("scope")).isEqualTo("IMAGES");
         assertThat(run.get("target_pages").toString()).isEqualTo("[3]");
         assertThat(((Number) run.get("base_version_id")).longValue()).isEqualTo(v1);
-        parent.get(storyUrl(id) + "/preview").andExpect(jsonPath("$.regenerateRemaining").value(2))
+        parent.get(storyUrl(id) + "/preview").andExpect(jsonPath("$.regenerateRemaining").value(0))
                 .andExpect(jsonPath("$.version.versionNo").value(2));
         parent.get(storyUrl(id) + "/versions")
                 .andExpect(jsonPath("$", hasSize(2)))
@@ -311,18 +311,16 @@ class GenerationIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void 다시_만들기는_3번까지() throws Exception {
+    void 다시_만들기는_1번까지() throws Exception {
         long id = reviewingStory();
-        for (int i = 0; i < 3; i++) {
-            regenerate(id, """
-                    {"scope": "IMAGES", "pages": [1]}""").andExpect(status().isAccepted());
-            pollTimes(POLLS_TO_REVIEW_IMAGES);
-            assertThat(storyStatus(id)).isEqualTo("REVIEWING");
-        }
+        regenerate(id, """
+                {"scope": "IMAGES", "pages": [1]}""").andExpect(status().isAccepted());
+        pollTimes(POLLS_TO_REVIEW_IMAGES);
+        assertThat(storyStatus(id)).isEqualTo("REVIEWING");
 
         assertError(regenerate(id, """
                 {"scope": "IMAGES", "pages": [1]}"""), ErrorCode.REGENERATION_LIMIT_REACHED);
-        assertThat(regenerateCount(id)).isEqualTo(3);
+        assertThat(regenerateCount(id)).isOne();
         parent.get(storyUrl(id) + "/preview").andExpect(jsonPath("$.regenerateRemaining").value(0));
     }
 
@@ -362,6 +360,8 @@ class GenerationIntegrationTest extends IntegrationTest {
         parent.put(storyUrl(id) + "/current-version", """
                 {"versionId": %d}""".formatted(v1)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.version.versionNo").value(1));
+        // 다시 만들기는 1회지만(firstory.policy.max-regenerations), 횟수를 늘렸을 때의 버전 나무를 보려고 되돌린다
+        jdbc.update("UPDATE stories SET regenerate_count = 0 WHERE id = ?", id);
         regenerate(id, """
                 {"scope": "IMAGES", "pages": [2]}""").andExpect(status().isAccepted());
         pollTimes(POLLS_TO_REVIEW_IMAGES);
