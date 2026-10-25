@@ -90,8 +90,19 @@ class ReadingIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void 확정_전에는_가이드를_볼_수_없다() throws Exception {
+    void 가이드는_미리보기_REVIEWING에서도_보이고_함께_읽기는_확정_뒤에만() throws Exception {
         long id = StoryFlow.reviewing(parent, poller);
+
+        guide(id).andExpect(status().isOk())
+                .andExpect(jsonPath("$.beforeReading.intent").isNotEmpty())
+                .andExpect(jsonPath("$.prompts", hasSize(2)));
+        parent.get("/api/stories/" + id + "/book")
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("INVALID_STATUS_TRANSITION"));
+    }
+
+    @Test
+    void 만들기_전에는_가이드를_볼_수_없다() throws Exception {
+        long id = StoryFlow.confirming(parent, "괜찮다고 말해 주고 싶어요");
 
         guide(id).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("INVALID_STATUS_TRANSITION"));
     }
