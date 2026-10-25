@@ -13,6 +13,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 | 오류 code | 6장 표 6개 | `NOT_FOUND`(404), `METHOD_NOT_ALLOWED`(405), `NOT_IMPLEMENTED`(501) 추가 |
 | G0, G1, G3, G4, G5, G6 | 요청 | AI 저장소에 반영 (3장) |
 | 이전 버전에서 다시 만들기 | `Command(resume)` | `update_state(as_node="parent_review")`로 새 갈래 (8장) |
+| confirm의 `summary`, generate 요청 | 생성기용 정리 | 부모에게 보여 줄 문장. generate에 `context`, `summary` 추가 (7-3, 7-4) |
 | 결과물 파일 이름 | `story.json` 등 | AI가 실제로 쓰는 이름 (9장) |
 
 쪽수 이유: 실제 그림책이 9–17 펼침면이라 8쪽은 적었다. AI 프롬프트의 이야기 구조(기 1–2 / 승 3–5 / 전 6–8 / 결 9–10)와 예시가 10쪽 기준이다.
@@ -218,12 +219,13 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 ```json
 {
   "type": "confirm",
-  "summary": "아이가 친구에게 다가갔다가 거절당한 경험…",
+  "summary": "속상했던 마음을 먼저 알아주고 싶어요. 친구를 나쁘게 말하지는 않고 싶어요.",
   "end_reason": "sufficient",
   "context": { "...": "인터뷰가 채운 parent 값까지 포함한 최종 StoryInputContext" }
 }
 ```
 
+- `summary`: 생성 전 확인 화면(CRT-06)에 "이번 이야기에서 나누고 싶은 것"으로 **부모에게 그대로 보이는** 해요체 1~2문장. 부모가 고칠 수 있다. 동화 생성기가 읽는 정리("이 부모는 ~")는 AI 안에만 둔다
 - `end_reason`: `sufficient` | `max_turns` | `user_skip` (코드의 `interview_done_by`)
 - 위기 신호는 이 API가 판단하지 않는다. Spring이 보내기 전에 `/safety/check`로 검사한다.
 - Spring은 `context`를 `story_inputs.final_context`에 저장한다
@@ -231,11 +233,15 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 ### 7-4. POST /v1/threads/{thread_id}/generate
 
 ```json
-{ "run_id": "…", "run_no": 1, "output_prefix": "stories/123/runs/1/", "tone": "warm" }
+{ "run_id": "…", "run_no": 1, "output_prefix": "stories/123/runs/1/", "tone": "warm",
+  "context": { "...": "지금 입력 전체 (StoryInputContext)" }, "summary": "부모가 확인한 '나누고 싶은 것'" }
 ```
 
-→ `202 { "accepted": true }`. G1 멈춤 지점을 `{"action": "generate", "tone": ...}`로 재개.
+→ `202 { "accepted": true }`. G1 멈춤 지점을 `{"action": "generate", "tone", "output_prefix", "context", "summary"}`로 재개.
 - `tone`: 인터뷰 중 민감 주제가 나와 부모가 분위기를 고른 경우. design_story에 전달 (D5)
+- `context`, `summary`(선택): 생성 전 확인에서 부모가 고쳤을 수 있는 입력과 '나누고 싶은 것'. AI가 인터뷰 결과와 합친다
+  - `child`는 Spring 것, `situation`은 바뀌었을 때만 `moment`와 함께 Spring 것 (안 바뀌었으면 인터뷰가 보충한 `moment`를 지킨다), `parent.message`는 Spring 것, 나머지 `parent`는 인터뷰가 채운 그대로
+  - `summary`가 confirm 때 준 문장과 다르면 고쳐 쓴 것으로 보고 동화 생성기가 읽는 정리 뒤에 덧붙인다
 
 ### 7-5. GET /v1/threads/{thread_id}/status
 
