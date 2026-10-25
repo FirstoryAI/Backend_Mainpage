@@ -142,6 +142,13 @@ X-XSRF-TOKEN: {{xsrf}}
 ### 3-9. 만들기 전 확인 내용 (CRT-06)
 GET {{host}}/api/stories/{{storyId}}/draft
 
+### 3-10. (선택) 확인 화면에서 "이번 이야기에서 나누고 싶은 것" 고치기. 아이·상황·전하고 싶은 말도 3-3~3-5와 같은 API로 고칠 수 있다
+PUT {{host}}/api/stories/{{storyId}}/summary
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrf}}
+
+{"summary": "속상했던 마음을 먼저 알아주고 싶어요. 친구를 나쁘게 말하지는 않고 싶어요."}
+
 ### 4-1. 동화 만들기 시작 → 202 REQUESTED
 POST {{host}}/api/stories/{{storyId}}/confirm
 X-XSRF-TOKEN: {{xsrf}}
