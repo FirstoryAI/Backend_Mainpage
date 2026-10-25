@@ -54,7 +54,11 @@ public class HttpAiClient implements AiClient {
     }
 
     public static HttpAiClient create(FirstoryProperties.Ai ai) {
-        HttpClient httpClient = HttpClient.newBuilder().connectTimeout(ai.connectTimeout()).build();
+        // HTTP/1.1 고정: 기본값(HTTP/2)이면 평문 HTTP에 Upgrade: h2c를 붙이는데, uvicorn 기본 파서는 그 요청의 본문을 버린다
+        HttpClient httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
+                .connectTimeout(ai.connectTimeout())
+                .build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(ai.readTimeout());
         return new HttpAiClient(RestClient.builder().requestFactory(requestFactory), ai);
