@@ -61,7 +61,7 @@ public class ReadingController {
                 .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
-    @Operation(summary = "쪽 넘김", description = "page는 1~8. 끝난 세션은 INVALID_STATUS_TRANSITION. 응답 204")
+    @Operation(summary = "쪽 넘김", description = "page는 1~10. 끝난 세션은 INVALID_STATUS_TRANSITION. 응답 204")
     @ApiErrorCodes({ErrorCode.READING_SESSION_NOT_FOUND, ErrorCode.PAGE_OUT_OF_RANGE, ErrorCode.VALIDATION_FAILED})
     @PutMapping("/api/reading-sessions/{sessionId:\\d+}/progress")
     @ResponseStatus(HttpStatus.NO_CONTENT)

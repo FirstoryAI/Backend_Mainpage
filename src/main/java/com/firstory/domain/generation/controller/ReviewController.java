@@ -41,7 +41,7 @@ public class ReviewController {
     private final ReviewService reviewService;
 
     @Operation(summary = "미리보기 (REV-01)",
-            description = "REVIEWING, COMPLETED에서. 지금 보여 주는 버전의 8쪽. 그림은 imageUrl(그림 API)로 받는다. "
+            description = "REVIEWING, COMPLETED에서. 지금 보여 주는 버전의 10쪽. 그림은 imageUrl(그림 API)로 받는다. "
                     + "그림이 실패한 쪽은 imageStatus FAILED, imageUrl null")
     @ApiErrorCodes({ErrorCode.STORY_BLOCKED, ErrorCode.INVALID_STATUS_TRANSITION, ErrorCode.VERSION_NOT_FOUND})
     @GetMapping("/preview")

@@ -116,7 +116,7 @@ class FullJourneyIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.status").value("REVIEWING"))
                 .andExpect(jsonPath("$.version.versionNo").value(1))
                 .andExpect(jsonPath("$.version.title").value(FakeAiClient.SAMPLE.title(0)))
-                .andExpect(jsonPath("$.pages", hasSize(8)))
+                .andExpect(jsonPath("$.pages", hasSize(10)))
                 .andExpect(jsonPath("$.pages[1].text").value(FakeAiClient.SAMPLE.pageText(2)))
                 .andExpect(jsonPath("$.regenerateRemaining").value(3))
                 .andReturn().getResponse().getContentAsString();
@@ -173,7 +173,7 @@ class FullJourneyIntegrationTest extends IntegrationTest {
         // 7. 읽기 시작 → 쪽 넘김 → 대화 버튼 → 다 읽음 → 서재 READ
         parent.get(story + "/book")
                 .andExpect(jsonPath("$.versionId").value(version1))
-                .andExpect(jsonPath("$.pages", hasSize(8)));
+                .andExpect(jsonPath("$.pages", hasSize(10)));
         long sessionId = id(parent.post(story + "/reading-sessions", null)
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.lastPage").value(0)), "$.sessionId");
@@ -187,7 +187,7 @@ class FullJourneyIntegrationTest extends IntegrationTest {
         parent.get(story + "/reading-sessions/resume")
                 .andExpect(jsonPath("$.sessionId").value(sessionId))
                 .andExpect(jsonPath("$.lastPage").value(4));
-        for (int page = 5; page <= 8; page++) {
+        for (int page = 5; page <= 10; page++) {
             parent.put(session + "/progress", """
                     {"page": %d}""".formatted(page)).andExpect(status().isNoContent());
         }

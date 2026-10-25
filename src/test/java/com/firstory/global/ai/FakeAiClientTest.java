@@ -33,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class FakeAiClientTest {
 
     static final String THREAD_ID = "thread-1";
-    static final int PAGE_COUNT = 8;
+    static final int PAGE_COUNT = 10;
     static final byte[] PNG_SIGNATURE = {(byte) 0x89, 0x50, 0x4E, 0x47};
 
     @TempDir
@@ -157,7 +157,7 @@ class FakeAiClientTest {
         assertThat(result.pages()).hasSize(PAGE_COUNT);
         assertThat(result.pages().getFirst().text()).isEqualTo("아로는 작은 초록 공룡이에요. 오늘은 새 어린이집에 가는 날이에요.");
         assertThat(result.pages().get(1).text()).contains("**콩닥콩닥**");
-        assertThat(result.guide().prompts()).extracting(AiGenerationResult.Prompt::afterPage).containsExactly(4, 7);
+        assertThat(result.guide().prompts()).extracting(AiGenerationResult.Prompt::afterPage).containsExactly(4, 8);
         assertThat(result.guide().prompts().get(1).parentHint()).isNull();
         assertThat(result.guide().ifUndecided()).isNotBlank();
         assertThat(result.safety()).isEqualTo(SafetyResult.ok());
