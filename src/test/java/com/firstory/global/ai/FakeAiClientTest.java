@@ -367,7 +367,7 @@ class FakeAiClientTest {
         client.startInterview(THREAD_ID, UUID.randomUUID(), context(), null);
         client.answerInterview(THREAD_ID, "답변 " + FakeAiClient.PAGE_FAIL_MARKER);
         client.answerInterview(THREAD_ID, null);
-        client.generate(THREAD_ID, UUID.randomUUID(), 1, "stories/12/runs/1/", null);
+        client.generate(THREAD_ID, UUID.randomUUID(), 1, "stories/12/runs/1/", null, null, null);
         for (int i = 0; i < 5; i++) {
             client.status(THREAD_ID);
         }
@@ -425,7 +425,7 @@ class FakeAiClientTest {
     private void startGeneration(Map<String, Object> context) {
         client.startInterview(THREAD_ID, UUID.randomUUID(), context, null);
         client.answerInterview(THREAD_ID, null);
-        client.generate(THREAD_ID, UUID.randomUUID(), 1, "stories/12/runs/1/", null);
+        client.generate(THREAD_ID, UUID.randomUUID(), 1, "stories/12/runs/1/", null, null, null);
     }
 
     private AiGenerationResult generateToReview() {

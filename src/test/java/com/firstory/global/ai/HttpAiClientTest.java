@@ -251,11 +251,14 @@ class HttpAiClientTest {
                 .andExpect(header(HttpAiClient.TOKEN_HEADER, TOKEN))
                 .andExpect(content().json("""
                         {"run_id": "6c1f0f7e-2b8a-4f53-9a6e-0f5b8f0c2d11", "run_no": 1,
-                         "output_prefix": "stories/123/runs/1/", "tone": "warm"}""", JsonCompareMode.STRICT))
+                         "output_prefix": "stories/123/runs/1/", "tone": "warm",
+                         "context": {"situation": {"description": "친구가 밀쳤어요"}},
+                         "summary": "속상한 마음을 먼저 알아주고 싶어요."}""", JsonCompareMode.STRICT))
                 .andRespond(withStatus(HttpStatus.ACCEPTED).contentType(MediaType.APPLICATION_JSON)
                         .body("{\"accepted\": true}"));
 
-        client.generate(THREAD_ID, runId, 1, "stories/123/runs/1/", Tone.WARM);
+        client.generate(THREAD_ID, runId, 1, "stories/123/runs/1/", Tone.WARM,
+                Map.of("situation", Map.of("description", "친구가 밀쳤어요")), "속상한 마음을 먼저 알아주고 싶어요.");
 
         server.verify();
     }
@@ -399,7 +402,7 @@ class HttpAiClientTest {
                 .andRespond(withStatus(HttpStatus.CONFLICT).contentType(MediaType.APPLICATION_JSON).body("""
                         {"error": {"code": "THREAD_BUSY", "message": "busy"}}"""));
 
-        assertError(() -> client.generate(THREAD_ID, UUID.randomUUID(), 1, "stories/1/runs/1/", null),
+        assertError(() -> client.generate(THREAD_ID, UUID.randomUUID(), 1, "stories/1/runs/1/", null, null, null),
                 ErrorCode.AI_BUSY);
     }
 
