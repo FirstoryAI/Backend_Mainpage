@@ -12,6 +12,7 @@ import com.firstory.domain.story.entity.Story;
 import com.firstory.domain.story.entity.StoryInput;
 import com.firstory.domain.story.entity.StoryStatus;
 import com.firstory.domain.story.entity.Tone;
+import com.firstory.domain.story.service.AiContextMapper;
 import com.firstory.domain.story.service.StoryLoader;
 import com.firstory.global.ai.AiClient;
 import com.firstory.global.error.BusinessException;
@@ -24,6 +25,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Clock;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -44,7 +46,8 @@ public class GenerationService {
 
     /**
      * 생성 전 확인(CRT-06)의 "만들기". 민감 주제가 감지됐으면 분위기를 먼저 골라야 한다.
-     * finalContext는 AI 쪽 thread에 이미 있으므로 tone만 보낸다.
+     * 확인 화면에서 아이·상황·전하고 싶은 말·나누고 싶은 것을 고쳤을 수 있어 지금 입력 전체(context)와 summary를 함께 보낸다.
+     * AI가 인터뷰 결과와 합친다 (상황을 안 고쳤으면 인터뷰가 보충한 값을 지킨다).
      */
     public GenerationStatusResponse confirm(Long userId, Long storyId) {
         // ①
@@ -54,13 +57,15 @@ public class GenerationService {
             if (input.isToneRequired() && input.getTone() == null) {
                 throw new BusinessException(ErrorCode.TONE_REQUIRED);
             }
-            return new Prepared(story, nextRunNo(story), input.getTone());
+            return new Prepared(story, nextRunNo(story), input.getTone(), AiContextMapper.toContext(input),
+                    input.getInterviewSummary());
         });
         Story story = prepared.story();
         UUID runId = UUID.randomUUID();
         // ②
         aiClient.generate(story.getThreadId(), runId, prepared.runNo(),
-                StoryFiles.runPrefix(story.getId(), prepared.runNo()), prepared.tone());
+                StoryFiles.runPrefix(story.getId(), prepared.runNo()), prepared.tone(), prepared.context(),
+                prepared.summary());
         // ③
         Started started = transactionTemplate.execute(status -> {
             Story locked = loader.lockUnchanged(story);
@@ -88,7 +93,7 @@ public class GenerationService {
         return runRepository.findTopByStoryIdOrderByRunNoDesc(story.getId()).map(GenerationRun::getRunNo).orElse(0) + 1;
     }
 
-    private record Prepared(Story story, int runNo, Tone tone) {
+    private record Prepared(Story story, int runNo, Tone tone, Map<String, Object> context, String summary) {
     }
 
     private record Started(Long runId, GenerationStatusResponse response) {

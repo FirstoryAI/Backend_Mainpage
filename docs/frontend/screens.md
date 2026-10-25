@@ -84,7 +84,7 @@
 
 ### 위기 신호 분기 (모든 만들기 응답 공통)
 
-글을 받는 API(상황, 아이, 전하고 싶은 말, 인터뷰 답변, 다시 만들기 메모)의 응답에는 `safety`가 있다.
+글을 받는 API(상황, 아이, 전하고 싶은 말, 나누고 싶은 것, 인터뷰 답변, 다시 만들기 메모)의 응답에는 `safety`가 있다.
 
 ```json
 { "storyId": 12, "status": "DRAFT", "saved": true, "toneRequired": false,
@@ -167,7 +167,7 @@
 답변 응답(`InterviewResponse`): `status, type, turn, question, summary, safety, toneRequired`
 
 - `type: "QUESTION"` → `question`을 다음 질문으로 보여 준다. `turn`이 질문 번호.
-- `type: "CONFIRM"` → 인터뷰 끝. `status`가 `CONFIRMING`, `summary`(정리한 내용) → CRT-06.
+- `type: "CONFIRM"` → 인터뷰 끝. `status`가 `CONFIRMING`, `summary`("이번 이야기에서 나누고 싶은 것", 부모에게 보여 줄 해요체 문장) → CRT-06.
 - **질문 수는 1~5개로 정해져 있지 않다.** "3/5" 같은 고정 진행 표시를 하지 않는다.
 - 응답이 수 초 걸린다(가짜 AI도 2초). 로딩 표시와 **중복 클릭 방지** 필수. 두 번 보내면 409 `AI_BUSY`.
 - `ASK_REVISE`면 `question`에 같은 질문이 다시 온다. `CHOOSE_TONE`이면 진행하면서 `toneRequired: true`(CRT-06 전에 ST-04).
@@ -178,7 +178,14 @@
 | 때 | API | 볼 것 |
 |---|---|---|
 | 들어올 때 / 이어서 만들기 | `GET /api/stories/{id}/draft` | `situation`, `child`, `parent.message`, `interview.turns[]{turnNo, question, answer}`, `interview.summary`, `tone`, `toneRequired` |
+| 아이 수정하기 | `PUT /api/stories/{id}/child` (CRT-03과 같은 본문) | `{saved, status: "CONFIRMING", safety, toneRequired}` |
+| 상황 수정하기 | `PUT /api/stories/{id}/situation` (CRT-01·02와 같은 본문) | 같음 |
+| 전하고 싶은 말 수정하기 | `PUT /api/stories/{id}/message` | 같음. 인터뷰가 채운 다른 값(방향 등)은 그대로 |
+| 나누고 싶은 것 수정하기 | `PUT /api/stories/{id}/summary` `{summary}` (1~300자) | 같음. `GET /draft`의 `interview.summary`가 바뀐다 |
 | 동화 만들기 버튼 | `POST /api/stories/{id}/confirm` | 202 `{status: "REQUESTED", runNo, stage, ...}` → GEN-01 |
+
+- 수정은 `CONFIRMING`에서 된다(아이·상황·전하고 싶은 말은 `DRAFT`에서도). 인터뷰를 다시 하지 않고, 고친 내용은 "동화 만들기"를 누를 때 AI에 함께 간다. **지우고 다시 만들어 답변을 재생하는 우회는 필요 없다.**
+- 고친 글도 위기 신호를 검사한다. 응답의 `safety`는 위 "위기 신호 분기" 표대로 처리한다(`ASK_REVISE`면 저장되지 않으니 같은 카드에서 다시 쓰게, `CHOOSE_TONE`이면 만들기 전에 ST-04).
 
 `GET /draft`는 모든 상태에서 되므로 "만들던 이야기" 카드에서 이어서 만들 때도 쓴다. `status`를 보고 CRT-01~06 중 어디로 갈지 정한다.
 

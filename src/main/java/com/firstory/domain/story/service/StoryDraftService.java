@@ -15,6 +15,7 @@ import com.firstory.domain.story.dto.StoryChildRequest;
 import com.firstory.domain.story.dto.StoryCreatedResponse;
 import com.firstory.domain.story.dto.StoryDraftResponse;
 import com.firstory.domain.story.dto.StoryStepResponse;
+import com.firstory.domain.story.dto.SummaryRequest;
 import com.firstory.domain.story.entity.Story;
 import com.firstory.domain.story.entity.StoryInput;
 import com.firstory.domain.story.entity.StoryStatus;
@@ -52,7 +53,9 @@ import java.util.function.Consumer;
 @RequiredArgsConstructor
 public class StoryDraftService {
 
-    private static final Set<StoryStatus> DRAFT = EnumSet.of(StoryStatus.DRAFT);
+    // 생성 전 확인(CRT-06)에서도 아이, 상황, 전하고 싶은 말을 고칠 수 있다
+    private static final Set<StoryStatus> INPUT_EDITABLE = EnumSet.of(StoryStatus.DRAFT, StoryStatus.CONFIRMING);
+    private static final Set<StoryStatus> CONFIRMING = EnumSet.of(StoryStatus.CONFIRMING);
     private static final Set<StoryStatus> TONE_EDITABLE =
             EnumSet.of(StoryStatus.DRAFT, StoryStatus.INTERVIEWING, StoryStatus.CONFIRMING);
     // 생성 중(REQUESTED, GENERATING_*)에는 지울 수 없다
@@ -116,8 +119,16 @@ public class StoryDraftService {
      */
     public StoryStepResponse writeMessage(Long userId, Long storyId, MessageRequest request) {
         String message = CustomText.strip(request.message());
-        return checkThenSave(userId, storyId, Collections.singletonList(message),
-                input -> input.writeParent(null, null, message, null));
+        return checkThenSave(userId, storyId, Collections.singletonList(message), input -> input.writeMessage(message));
+    }
+
+    /**
+     * CRT-06 "이번 이야기에서 나누고 싶은 것" 고치기. 인터뷰가 끝난 뒤(CONFIRMING)에만 있다.
+     */
+    public StoryStepResponse editSummary(Long userId, Long storyId, SummaryRequest request) {
+        String summary = CustomText.strip(request.summary());
+        return checkThenSave(userId, storyId, CONFIRMING, Collections.singletonList(summary), () -> {
+        }, (story, input) -> input.editSummary(summary));
     }
 
     /**
@@ -159,9 +170,14 @@ public class StoryDraftService {
 
     private StoryStepResponse checkThenSave(Long userId, Long storyId, List<String> texts, Runnable verify,
                                             Writer write) {
+        return checkThenSave(userId, storyId, INPUT_EDITABLE, texts, verify, write);
+    }
+
+    private StoryStepResponse checkThenSave(Long userId, Long storyId, Set<StoryStatus> editable, List<String> texts,
+                                            Runnable verify, Writer write) {
         // ① 조회·검증
         Loaded loaded = transactionTemplate.execute(status -> {
-            Story story = loader.findEditable(userId, storyId, DRAFT);
+            Story story = loader.findEditable(userId, storyId, editable);
             verify.run();
             return new Loaded(story, loader.input(story).isToneRequired());
         });

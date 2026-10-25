@@ -112,9 +112,11 @@ public class HttpAiClient implements AiClient {
     }
 
     @Override
-    public void generate(String threadId, UUID runId, int runNo, String outputPrefix, Tone tone) {
+    public void generate(String threadId, UUID runId, int runNo, String outputPrefix, Tone tone,
+                         Map<String, Object> context, String summary) {
         TransactionGuard.requireNoTransaction();
-        RunRequest request = new RunRequest(runId, runNo, outputPrefix, tone == null ? null : tone.aiValue());
+        RunRequest request = new RunRequest(runId, runNo, outputPrefix, tone == null ? null : tone.aiValue(), context,
+                summary);
         call(threadId, () -> restClient.post()
                 .uri("/v1/threads/{threadId}/generate", threadId)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -176,7 +178,7 @@ public class HttpAiClient implements AiClient {
     @Override
     public void retry(String threadId, UUID runId, int runNo, String outputPrefix) {
         TransactionGuard.requireNoTransaction();
-        RunRequest request = new RunRequest(runId, runNo, outputPrefix, null);
+        RunRequest request = new RunRequest(runId, runNo, outputPrefix, null, null, null);
         call(threadId, () -> restClient.post()
                 .uri("/v1/threads/{threadId}/retry", threadId)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -313,8 +315,17 @@ public class HttpAiClient implements AiClient {
                          Map<String, Object> context) {
     }
 
+    // context, summary는 generate만 보낸다 (retry는 비워서 키를 빼고 보낸다)
     record RunRequest(@JsonProperty("run_id") UUID runId, @JsonProperty("run_no") int runNo,
-                      @JsonProperty("output_prefix") String outputPrefix, String tone) {
+                      @JsonProperty("output_prefix") String outputPrefix, String tone,
+                      @JsonInclude(JsonInclude.Include.NON_NULL) Map<String, Object> context,
+                      @JsonInclude(JsonInclude.Include.NON_NULL) String summary) {
+
+        // 부모 입력이 로그에 남지 않게 한다
+        @Override
+        public String toString() {
+            return "RunRequest[runNo=" + runNo + "]";
+        }
     }
 
     record RegenerateRequest(String action, String scope, List<Integer> pages, String feedback,

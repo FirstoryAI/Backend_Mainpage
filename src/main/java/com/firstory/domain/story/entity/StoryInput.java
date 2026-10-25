@@ -208,6 +208,20 @@ public class StoryInput extends BaseTimeEntity {
         this.toneRequired = true;
     }
 
+    /**
+     * 전하고 싶은 말만 바꾼다 (CRT-04, 생성 전 확인에서 고치기). 인터뷰가 채운 나머지 parent 칸은 그대로 둔다.
+     */
+    public void writeMessage(String message) {
+        this.parentMessage = message;
+    }
+
+    /**
+     * 생성 전 확인(CRT-06)에서 부모가 "이번 이야기에서 나누고 싶은 것"을 고쳤을 때. 생성할 때 AI에 함께 보낸다.
+     */
+    public void editSummary(String summary) {
+        this.interviewSummary = summary;
+    }
+
     public void finishInterview(String interviewSummary, InterviewEndReason reason, Map<String, Object> finalContext) {
         this.interviewSummary = interviewSummary;
         this.interviewEndReason = Objects.requireNonNull(reason);

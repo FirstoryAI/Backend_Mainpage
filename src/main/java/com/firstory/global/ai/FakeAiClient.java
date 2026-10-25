@@ -167,12 +167,15 @@ public class FakeAiClient implements AiClient {
     }
 
     @Override
-    public void generate(String threadId, UUID runId, int runNo, String outputPrefix, Tone tone) {
+    public void generate(String threadId, UUID runId, int runNo, String outputPrefix, Tone tone,
+                         Map<String, Object> context, String summary) {
         TransactionGuard.requireNoTransaction();
         throwIfFailing();
         // 서버를 다시 띄워 인터뷰 기록이 없어도 local에서 생성은 해 볼 수 있게 빈 context로 시작한다
         ThreadState state = threads.computeIfAbsent(threadId, id -> new ThreadState(Map.of(), followUps(id)));
         synchronized (state) {
+            state.lastGenerateContext = context;
+            state.lastGenerateSummary = summary;
             String input = state.parentInput();
             state.start(runNo, outputPrefix, FULL_NODES, RegenerateScope.ALL, List.of(), null, 0,
                     new Mishaps(input.contains(FAIL_MARKER), input.contains(OUTPUT_REVISE_MARKER),
@@ -316,6 +319,22 @@ public class FakeAiClient implements AiClient {
     public RegenerateScope lastRegenerateScope(String threadId) {
         ThreadState state = threads.get(threadId);
         return state == null ? null : state.lastRegenerateScope;
+    }
+
+    /**
+     * 테스트용. 마지막 generate에 받은 context (생성 전 확인에서 고친 입력이 들어 있다).
+     */
+    public Map<String, Object> lastGenerateContext(String threadId) {
+        ThreadState state = threads.get(threadId);
+        return state == null ? null : state.lastGenerateContext;
+    }
+
+    /**
+     * 테스트용. 마지막 generate에 받은 "이번 이야기에서 나누고 싶은 것".
+     */
+    public String lastGenerateSummary(String threadId) {
+        ThreadState state = threads.get(threadId);
+        return state == null ? null : state.lastGenerateSummary;
     }
 
     /**
@@ -567,6 +586,8 @@ public class FakeAiClient implements AiClient {
         // 결과 제목의 (다시 n). 다시 시도는 실패한 실행의 n을 이어 간다
         private int titleNo;
         private String lastBaseCheckpointId;
+        private Map<String, Object> lastGenerateContext;
+        private String lastGenerateSummary;
         private RegenerateScope lastRegenerateScope;
 
         private ThreadState(Map<String, Object> context, int followUps) {

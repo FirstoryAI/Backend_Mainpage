@@ -294,7 +294,8 @@ class SafetyGuardTest {
         }
 
         @Override
-        public void generate(String threadId, UUID runId, int runNo, String outputPrefix, Tone tone) {
+        public void generate(String threadId, UUID runId, int runNo, String outputPrefix, Tone tone,
+                             Map<String, Object> context, String summary) {
             throw new UnsupportedOperationException();
         }
 
