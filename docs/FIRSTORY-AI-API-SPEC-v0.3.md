@@ -5,6 +5,16 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 
 - 표시: **[확정]** 코드로 확인했거나 팀이 정한 것, **[요청]** AI 쪽 수정이 필요한 것, **[결정 필요]** 팀이 정해야 하는 것
 
+## v0.3 이후 바뀐 점 (2026-10-26)
+
+| 항목 | 전 | 지금 |
+|---|---|---|
+| 동화 쪽수 | 8쪽 | **10쪽** (AI는 10/7부터, Spring `firstory.story.page-count`도 10) |
+| 오류 code | 6장 표 6개 | `NOT_FOUND`(404), `METHOD_NOT_ALLOWED`(405), `NOT_IMPLEMENTED`(501) 추가 |
+| G0, G1, G6 | 요청 | AI 저장소에 반영 (3장) |
+
+쪽수 이유: 실제 그림책이 9–17 펼침면이라 8쪽은 적었다. AI 프롬프트의 이야기 구조(기 1–2 / 승 3–5 / 전 6–8 / 결 9–10)와 예시가 10쪽 기준이다.
+
 ## v0.2 → v0.3 바뀐 점
 
 | 항목 | v0.2 | v0.3 |
@@ -59,13 +69,13 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 
 | # | 변경 | 상태 |
 |---|---|---|
-| G0 | 다시 만들기 메모 반영 버그 2개 (character feedback 무시, "3페이지" 인식) | **PR 올라감** (`fix/피드백-반영-누락`) |
-| G1 | `interview_finish` 다음에 **생성 전 확인 멈춤 지점** 추가 | [요청] 작업 예정 |
+| G0 | 다시 만들기 메모 반영 버그 2개 (character feedback 무시, "3페이지" 인식) | **반영** (FirstoryAI/FIRSTORY_AI_worker#1. 쪽 번호는 쪽·페이지·p가 붙은 숫자와 숫자만 쓴 메모만: FirstoryAI/FIRSTORY_AI_worker#3) |
+| G1 | `interview_finish` 다음에 **생성 전 확인 멈춤 지점** 추가 | **반영** (FirstoryAI/FIRSTORY_AI_worker#2, 노드 `confirm_generate`). 재개 값이 비어 있어도 FastAPI가 그래프에는 `{"action": "generate"}`로 보낸다 |
 | G2 | **위기 신호 판단** 추가 (4장) | [요청] **현재 코드에 전혀 없음.** 프롬프트 설계가 핵심 |
 | G3 | **실행별 결과물 경로** (`runs/{run_no}/`) | [요청] 작업 예정. 지금은 다시 만들면 덮어써짐 |
 | G4 | 그림만 다시 그릴 때 안 바뀐 쪽은 이전 파일 경로 유지 | [요청] G3와 함께 |
 | G5 | `parent_review` 멈춤 시점의 checkpoint_id를 결과에 포함 | [요청] FastAPI에서 `get_state`로 가능 |
-| G6 | mock 모드를 환경 변수로 켜기 (5장) | [요청] |
+| G6 | mock 모드를 환경 변수로 켜기 (5장) | **반영** (FirstoryAI/FIRSTORY_AI_worker#5, `FIRSTORY_MOCK=true`. FastAPI 뼈대와 `/health`, `/v1/safety/check` 포함) |
 | G7 | 운영 전 `SqliteSaver` → `PostgresSaver` | [요청] 출시 전 |
 
 ## 4. 위기 신호 판단 (G2)
@@ -123,6 +133,11 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 | 409 | INVALID_STATE | 멈춤 지점과 맞지 않는 요청 |
 | 422 | VALIDATION_ERROR | `StoryInputContext` 검증 실패 포함 |
 | 500 | INTERNAL_ERROR | |
+| 404 | NOT_FOUND | 없는 경로 (연동 버그) |
+| 405 | METHOD_NOT_ALLOWED | 경로는 맞는데 메서드가 다름 (연동 버그) |
+| 501 | NOT_IMPLEMENTED | 아직 없는 기능. 지금은 mock이 아닐 때 `/v1/safety/check` (G2 전까지) |
+
+- Spring은 404를 code가 `THREAD_NOT_FOUND`일 때만 상태 불일치(`AI_STATE_MISMATCH`)로 보고, `NOT_FOUND`·405·501은 `AI_UNAVAILABLE`과 경고 로그로 처리한다 (`HttpAiClient`)
 
 - 응답 시간: 인터뷰·확인 API는 30초 이내 동기, 생성 API는 즉시 202
 
@@ -265,7 +280,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 }
 ```
 
-- `pages`는 **8개**
+- `pages`는 **10개** (`firstory.story.page-count`)
 - review interrupt payload에는 이미지 정보가 없으므로 `graph.get_state(cfg).values["illustrations"]`에서 읽어 합친다
 - `checkpoint_id`: `parent_review`에서 멈춘 시점 (`get_state(cfg).config["configurable"]["checkpoint_id"]`)
 - `safety`: 완성 본문 판단 (4장)
@@ -333,7 +348,7 @@ graph.invoke(Command(resume={...}), config)
 {output_prefix}
 ├── images/
 │   ├── sheet-{role}-{name}.png
-│   └── page-01.png … page-08.png
+│   └── page-01.png … page-10.png
 ├── story.json      (03-story.json)
 ├── guide.json      (04-guide.json)
 ├── design.json     (02-design.json)
@@ -368,7 +383,7 @@ Spring                                        AI
   │   [CRT-06 부모 확인]
   │ POST /generate  ────────────────────────▶  202
   │ GET /status (3초마다)  ─────────────────▶  stage 1→4
-  │ GET /result  ───────────────────────────▶  8쪽, 가이드, 경로, checkpoint_id, safety
+  │ GET /result  ───────────────────────────▶  10쪽, 가이드, 경로, checkpoint_id, safety
   │   [REV-01 부모 검토]
   │ POST /review approve   또는
   │ POST /safety/check (메모) → POST /review regenerate → 다시 status 폴링
