@@ -11,7 +11,8 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 |---|---|---|
 | 동화 쪽수 | 8쪽 | **10쪽** (AI는 10/7부터, Spring `firstory.story.page-count`도 10) |
 | 오류 code | 6장 표 6개 | `NOT_FOUND`(404), `METHOD_NOT_ALLOWED`(405), `NOT_IMPLEMENTED`(501) 추가 |
-| G0, G1, G6 | 요청 | AI 저장소에 반영 (3장) |
+| G0, G1, G3, G4, G6 | 요청 | AI 저장소에 반영 (3장) |
+| 결과물 파일 이름 | `story.json` 등 | AI가 실제로 쓰는 이름 (9장) |
 
 쪽수 이유: 실제 그림책이 9–17 펼침면이라 8쪽은 적었다. AI 프롬프트의 이야기 구조(기 1–2 / 승 3–5 / 전 6–8 / 결 9–10)와 예시가 10쪽 기준이다.
 
@@ -72,8 +73,8 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 | G0 | 다시 만들기 메모 반영 버그 2개 (character feedback 무시, "3페이지" 인식) | **반영** (FirstoryAI/FIRSTORY_AI_worker#1. 쪽 번호는 쪽·페이지·p가 붙은 숫자와 숫자만 쓴 메모만: FirstoryAI/FIRSTORY_AI_worker#3) |
 | G1 | `interview_finish` 다음에 **생성 전 확인 멈춤 지점** 추가 | **반영** (FirstoryAI/FIRSTORY_AI_worker#2, 노드 `confirm_generate`). 재개 값이 비어 있어도 FastAPI가 그래프에는 `{"action": "generate"}`로 보낸다 |
 | G2 | **위기 신호 판단** 추가 (4장) | [요청] **현재 코드에 전혀 없음.** 프롬프트 설계가 핵심 |
-| G3 | **실행별 결과물 경로** (`runs/{run_no}/`) | [요청] 작업 예정. 지금은 다시 만들면 덮어써짐 |
-| G4 | 그림만 다시 그릴 때 안 바뀐 쪽은 이전 파일 경로 유지 | [요청] G3와 함께 |
+| G3 | **실행별 결과물 경로** (`runs/{run_no}/`) | **반영** (FirstoryAI/FIRSTORY_AI_worker#7. 실행마다 `output_prefix` 아래에 쓴다, 9장) |
+| G4 | 그림만 다시 그릴 때 안 바뀐 쪽은 이전 파일 경로 유지 | **반영** (FirstoryAI/FIRSTORY_AI_worker#7. 캐릭터 시트도 이전 key 유지, 파일 복사 없음) |
 | G5 | `parent_review` 멈춤 시점의 checkpoint_id를 결과에 포함 | [요청] FastAPI에서 `get_state`로 가능 |
 | G6 | mock 모드를 환경 변수로 켜기 (5장) | **반영** (FirstoryAI/FIRSTORY_AI_worker#5, `FIRSTORY_MOCK=true`. FastAPI 뼈대와 `/health`, `/v1/safety/check` 포함) |
 | G7 | 운영 전 `SqliteSaver` → `PostgresSaver` | [요청] 출시 전 |
@@ -340,7 +341,7 @@ graph.invoke(Command(resume={...}), config)
 ```
 
 - 버전 사이를 오가는 것(되돌리기, 앞으로 가기)은 **Spring만** 처리하고 AI는 호출하지 않는다
-- 결과물 파일은 G3 전까지 덮어써지므로, **G3가 이 기능의 전제**
+- 결과물 파일은 실행마다 다른 `output_prefix` 아래에 남으므로(G3), 이전 버전의 그림도 그대로 볼 수 있다
 
 ## 9. 결과물 저장 경로 (G3, G4)
 
@@ -349,14 +350,22 @@ graph.invoke(Command(resume={...}), config)
 ├── images/
 │   ├── sheet-{role}-{name}.png
 │   └── page-01.png … page-10.png
-├── story.json      (03-story.json)
-├── guide.json      (04-guide.json)
-├── design.json     (02-design.json)
-└── cost.json       (99-cost.json)
+├── 00-context.json        최종 StoryInputContext
+├── 01-interview.json      인터뷰 턴, 끝난 이유, 요약
+├── 02-design.json         이야기 설계
+├── 02-strategy.json       프롬프트 전략 (실험용)
+├── 03-draft.json          문장 다듬기 전 원고
+├── 03-story.json          최종 원고
+├── 04-guide.json          독서 가이드
+├── 05-illustrations.json  그림 key와 상태
+├── 99-cost.json           호출별 토큰·이미지 수
+└── book.html              확인용 미리보기
 ```
 
-- 파일 쓰는 곳을 함수 하나로 모아 두면 나중에 S3로 바꾸기 쉽다
-- `book.html`은 운영에서 필요 없다 (프론트가 JSON으로 그림)
+- AI는 파일을 모두 저장소 루트(`FIRSTORY_OUTPUT_ROOT`) 기준 key로 읽고 쓴다. 쓰는 곳은 AI 저장소 `storage.py` 하나라 S3로 바꿀 때 그 파일만 바꾼다
+- Spring은 이 JSON 파일을 읽지 않는다. 결과는 `/result`로 받고, 그림은 결과에 든 key로만 찾는다
+- 그림만 다시 그린 실행은 새로 그린 쪽만 이 폴더에 있고, 안 바뀐 쪽과 캐릭터 시트는 이전 실행의 key를 가리킨다 (G4)
+- `book.html`은 운영에서 필요 없다 (프론트가 JSON으로 그림). 이전 실행 폴더의 그림도 상대 경로로 이어서 보인다
 
 ## 10. LangSmith
 
