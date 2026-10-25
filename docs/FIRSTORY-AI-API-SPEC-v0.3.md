@@ -11,7 +11,8 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 |---|---|---|
 | 동화 쪽수 | 8쪽 | **10쪽** (AI는 10/7부터, Spring `firstory.story.page-count`도 10) |
 | 오류 code | 6장 표 6개 | `NOT_FOUND`(404), `METHOD_NOT_ALLOWED`(405), `NOT_IMPLEMENTED`(501) 추가 |
-| G0, G1, G3, G4, G6 | 요청 | AI 저장소에 반영 (3장) |
+| G0, G1, G3, G4, G5, G6 | 요청 | AI 저장소에 반영 (3장) |
+| 이전 버전에서 다시 만들기 | `Command(resume)` | `update_state(as_node="parent_review")`로 새 갈래 (8장) |
 | 결과물 파일 이름 | `story.json` 등 | AI가 실제로 쓰는 이름 (9장) |
 
 쪽수 이유: 실제 그림책이 9–17 펼침면이라 8쪽은 적었다. AI 프롬프트의 이야기 구조(기 1–2 / 승 3–5 / 전 6–8 / 결 9–10)와 예시가 10쪽 기준이다.
@@ -75,7 +76,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 | G2 | **위기 신호 판단** 추가 (4장) | [요청] **현재 코드에 전혀 없음.** 프롬프트 설계가 핵심 |
 | G3 | **실행별 결과물 경로** (`runs/{run_no}/`) | **반영** (FirstoryAI/FIRSTORY_AI_worker#7. 실행마다 `output_prefix` 아래에 쓴다, 9장) |
 | G4 | 그림만 다시 그릴 때 안 바뀐 쪽은 이전 파일 경로 유지 | **반영** (FirstoryAI/FIRSTORY_AI_worker#7. 캐릭터 시트도 이전 key 유지, 파일 복사 없음) |
-| G5 | `parent_review` 멈춤 시점의 checkpoint_id를 결과에 포함 | [요청] FastAPI에서 `get_state`로 가능 |
+| G5 | `parent_review` 멈춤 시점의 checkpoint_id를 결과에 포함 | **반영** (FirstoryAI/FIRSTORY_AI_worker#12, `result.checkpoint_id`) |
 | G6 | mock 모드를 환경 변수로 켜기 (5장) | **반영** (FirstoryAI/FIRSTORY_AI_worker#5, `FIRSTORY_MOCK=true`. FastAPI 뼈대와 `/health`, `/v1/safety/check` 포함) |
 | G7 | 운영 전 `SqliteSaver` → `PostgresSaver` | [요청] 출시 전 |
 
@@ -329,15 +330,19 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 
 ## 8. 버전 되돌리기와 fork [확정]
 
-실험으로 확인한 동작:
+AI 서버 구현(FirstoryAI/FIRSTORY_AI_worker#13)에서 확인한 동작:
 
-- `parent_review`에서 멈춘 v1 → 다시 만들기로 v2 → **v1의 checkpoint_id를 지정해 `Command(resume=regenerate)`** → v1에서 갈라진 v3가 생김. **v2 체크포인트도 그대로 남음**
+- `parent_review`에서 멈춘 v1 → 다시 만들기로 v2 → v1의 checkpoint_id에서 다시 만들기 → v1에서 갈라진 v3가 생긴다. **v2 체크포인트와 파일도 그대로 남는다**
+- 갈래는 멈춘 interrupt를 `Command(resume=...)`로 풀어서 만들지 **않는다.** LangGraph(1.2)는 한 번 재개한 체크포인트를 다시 재개하면 처음 재개 값을 그대로 다시 쓴다. 그래서 v1에서 두 번째로 다시 만들면 첫 번째 다시 만들기(v2)가 되풀이된다
+- 대신 `update_state(..., as_node="parent_review")`로 "부모 검토가 이 값을 돌려줬다"는 새 체크포인트를 그 버전에서 만들고, `invoke(None)`으로 거기서부터 돌린다. 확정(approve)도 같은 방식이다
 - checkpoint_id 없이 `get_state(thread)`를 부르면 **마지막에 실행한 가지**가 나온다
 - 가지는 step 번호가 아니라 `parent_checkpoint_id`로 구분된다 (두 가지가 같은 step 번호를 씀)
 
 ```python
-config = {"configurable": {"thread_id": tid, "checkpoint_id": base_checkpoint_id}}
-graph.invoke(Command(resume={...}), config)
+base = {"configurable": {"thread_id": tid, "checkpoint_ns": "", "checkpoint_id": base_checkpoint_id}}  # checkpoint_ns 필수
+branch = graph.update_state(base, review_update({"action": "regenerate", "scope": ..., "feedback": ...,
+                                                 "output_prefix": ...}), as_node="parent_review")
+graph.invoke(None, branch)   # 실제로는 백그라운드에서 stream으로 돌린다
 ```
 
 - 버전 사이를 오가는 것(되돌리기, 앞으로 가기)은 **Spring만** 처리하고 AI는 호출하지 않는다

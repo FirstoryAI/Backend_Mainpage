@@ -118,7 +118,7 @@ class FullJourneyIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.version.title").value(FakeAiClient.SAMPLE.title(0)))
                 .andExpect(jsonPath("$.pages", hasSize(10)))
                 .andExpect(jsonPath("$.pages[1].text").value(FakeAiClient.SAMPLE.pageText(2)))
-                .andExpect(jsonPath("$.regenerateRemaining").value(3))
+                .andExpect(jsonPath("$.regenerateRemaining").value(1))
                 .andReturn().getResponse().getContentAsString();
         long version1 = ((Number) JsonPath.read(preview, "$.version.id")).longValue();
         String imageUrl = JsonPath.read(preview, "$.pages[0].imageUrl");
@@ -137,7 +137,7 @@ class FullJourneyIntegrationTest extends IntegrationTest {
         parent.get(story + "/preview")
                 .andExpect(jsonPath("$.version.versionNo").value(2))
                 .andExpect(jsonPath("$.version.title").value(FakeAiClient.SAMPLE.title(1)))
-                .andExpect(jsonPath("$.regenerateRemaining").value(2));
+                .andExpect(jsonPath("$.regenerateRemaining").value(0));
         parent.get(story + "/versions")
                 .andExpect(jsonPath("$[*].versionNo", contains(1, 2)))
                 .andExpect(jsonPath("$[*].current", contains(false, true)));

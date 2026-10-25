@@ -39,7 +39,7 @@ docker compose up -d                                                        # .e
 
 `.env`와 `application-local.yml`은 커밋하지 않는다. 설정을 바꾸면 `.example` 파일도 함께 고친다.
 
-전체 흐름 실제 확인(smoke): 서버를 `FIRSTORY_AI_FAKE_STAGE_DURATION=5s ./gradlew bootRun --args='--spring.profiles.active=local'`로 띄우고 다른 창에서 `bash scripts/smoke-local.sh`(Git Bash, curl만 필요). `docs/frontend/firstory.http`, `FullJourneyIntegrationTest`와 같은 순서로 35단계를 돌고 그림이 실제 PNG인지도 본다. API 흐름을 바꾸면 세 곳을 함께 고친다. Windows에서 curl로 한글 본문을 보낼 때는 인자가 아니라 파일(`--data-binary @file`)로 보낸다(코드 페이지 때문에 깨진다).
+전체 흐름 실제 확인(smoke): 서버를 `FIRSTORY_AI_FAKE_STAGE_DURATION=5s ./gradlew bootRun --args='--spring.profiles.active=local'`로 띄우고 다른 창에서 `bash scripts/smoke-local.sh`(Git Bash, curl만 필요). `docs/frontend/firstory.http`, `FullJourneyIntegrationTest`와 같은 순서로 35단계를 돌고 그림이 실제 PNG인지도 본다. 진짜 AI 서버와 붙였으면(`FIRSTORY_AI_MODE=http`, AI 서버의 `FIRSTORY_OUTPUT_ROOT`와 `STORAGE_LOCAL_ROOT`를 같은 폴더로) `AI_MODE=http bash scripts/smoke-local.sh`로 돌린다. 가짜 AI만 만드는 샘플 제목과 `(다시 n)`은 확인하지 않는다. API 흐름을 바꾸면 세 곳을 함께 고친다. Windows에서 curl로 한글 본문을 보낼 때는 인자가 아니라 파일(`--data-binary @file`)로 보낸다(코드 페이지 때문에 깨진다).
 
 ### 개발 서버 (dev 프로필, Railway)
 
@@ -127,7 +127,7 @@ com.firstory
 
 - 동화 상태는 반드시 `Story.changeStatus()`로만 바꾼다. 허용된 전이는 `StoryStatus`에 정의되어 있다.
 - 버전은 지우지 않는다. 되돌리기와 앞으로 가기는 `Story.currentVersion`만 바꾼다. 버전 전환은 다시 만들기 횟수에 포함하지 않는다.
-- 다시 만들기(`Story.requestRegeneration`)는 `REVIEWING`에서만 할 수 있고 `regenerateCount`를 1 올린다. 실패 후 다시 시도(`Story.retry`, `FAILED → REQUESTED`)는 다시 만들기 횟수에 포함하지 않는다. 한도를 다 써도 재시도는 할 수 있다.
+- 다시 만들기(`Story.requestRegeneration`)는 `REVIEWING`에서만 할 수 있고 `regenerateCount`를 1 올린다. 최대 횟수는 `firstory.policy.max-regenerations`(1, 기획 확정). 실패 후 다시 시도(`Story.retry`, `FAILED → REQUESTED`)는 다시 만들기 횟수에 포함하지 않는다. 한도를 다 써도 재시도는 할 수 있다.
 - `PhoneNumber.toString()`은 번호를 가린다(`PhoneNumber[***]`). 로그에 실수로 찍혀도 번호가 남지 않게 하기 위함이다. 번호가 필요하면 `digits()`나 `display()`를 명시적으로 쓰고, 그 값은 로그에 남기지 않는다.
 - 위기 신호는 AI가 4단계(`SafetyLevel`: OK, SENSITIVE, REVISE, CRISIS)로 판단하고, 대응은 `SafetyPolicy`(컴포넌트)가 정한다. OK는 진행, SENSITIVE는 분위기 선택(ST-04, tone을 이미 골랐으면 진행), REVISE는 `firstory.policy.safety-revise-limit`(2)번째 전까지 다시 쓰기 안내·그 횟수째에 차단, CRISIS는 1번만에 차단(ST-05). 기록(`SafetyFlag`)은 REVISE, CRISIS만 하고, 횟수와 `occurrenceNo`는 동화 단위·단계별로 센다(`countByStoryIdAndLevel`). 차단 판단에는 REVISE 횟수만 쓴다.
 - 동화 쪽수는 `firstory.story.page-count`(10)다. DB와 엔티티는 쪽 번호 1 이상만 검사하고 상한은 이 설정값으로 본다.
@@ -196,10 +196,10 @@ com.firstory
 
 - 서재(`GET /api/stories`) filter: ALL(BLOCKED 뺀 전부), CREATING(DRAFT~GENERATING_IMAGES), REVIEWING, UNREAD(COMPLETED + 함께 읽은 적 없음), READ(COMPLETED + 읽은 적 있음), FAILED (`LibraryFilter`). 정렬은 `updated_at DESC, id DESC`, size 1~50(기본 20).
 - **BLOCKED 동화는 서재와 홈 어디에도 보이지 않는다.** 상세(`GET /api/stories/{id}`)에서는 상태 그대로 보여준다(차단 화면 재진입용).
-- **서재·홈 목록은 현재 버전과 아이를 페치 조인한다** (`StoryRepository.findLibrary`). 목록 크기와 무관하게 목록 1번 + 개수 1번. 카드에 연관 엔티티를 더 쓰면 조인도 함께 늘린다.
-- 카드의 `title`, `coverUrl`(캐릭터 시트 그림 API)은 버전이 있을 때만. `label`은 `Story.libraryLabel()`.
+- **서재·홈 목록은 현재 버전과 아이를 페치 조인한다** (`StoryRepository.findLibrary`). 카드의 상황 분류(`categoryLabel`)는 Story에서 StoryInput으로 가는 연관이 없어 목록의 동화 id로 한 번에 읽는다(`LibraryService.cards`). 목록 크기와 무관하게 목록 1번 + 개수 1번 + 상황 분류 1번. 카드에 연관 엔티티를 더 쓰면 조인이나 한 번에 읽는 쿼리를 함께 늘린다.
+- 카드의 `title`, `coverUrl`(캐릭터 시트 그림 API)은 버전이 있을 때만. `label`은 `Story.libraryLabel()`, `categoryLabel`은 `StoryInput.categoryLabel()`(기타면 직접 입력한 분류).
 - 삭제(`DELETE /api/stories/{id}`)는 생성 중(REQUESTED, GENERATING_TEXT, GENERATING_IMAGES)을 뺀 모든 상태에서. 소프트 삭제라 목록·상세·가이드·읽기·그림 API가 모두 404. 입력 원문과 그림 파일의 실제 파기는 아직 없다(TODO(PM) PRD 36).
-- 가이드와 읽기는 **COMPLETED일 때만** (아니면 `INVALID_STATUS_TRANSITION`). 확정된 현재 버전을 쓴다.
+- 가이드는 **REVIEWING·COMPLETED**에서 지금 보여 주는 버전의 것(미리보기에서 동화 설명과 가이드를 보여 주려고). 읽기는 **COMPLETED일 때만**이고 확정된 현재 버전을 쓴다. 아니면 `INVALID_STATUS_TRANSITION`.
 - 읽기 세션: 시작 `201`, 이어 읽기는 가장 최근의 끝나지 않은 세션(없으면 `204`), 쪽 넘김은 1~page-count(`PAGE_OUT_OF_RANGE`), 끝난 세션의 쪽 넘김은 `INVALID_STATUS_TRANSITION`. 끝(complete)은 두 번 불러도 `204`이고 `Story.firstReadCompletedAt`은 처음 한 번만 남는다.
 - **세션 id로 들어오는 API는 세션 → 동화 → 회원까지 확인한다** (`ReadingSessionRepository.findOwnedForUpdate`, 다른 회원이면 404 `READING_SESSION_NOT_FOUND`). 세션 행을 잠가 같은 세션의 동시 요청을 차례로 처리한다.
 - 대화 버튼(`TALKED`, `SKIPPED`)은 그 세션 버전의 가이드 질문일 때만(`GuidePromptRepository.findInVersion`, 아니면 404 `PROMPT_NOT_FOUND`). 같은 질문에 다시 누르면 마지막 값으로 바꾼다(`DialogueAction.change`). North Star(대화 발생)는 TALKED 수로 센다.
@@ -274,7 +274,6 @@ com.firstory
 
 추측해서 구현하지 말고 `// TODO(PM): 설명` 주석과 함께 가장 단순한 형태로 남긴다.
 
-- 다시 만들기 최대 횟수 (임시값 3, `firstory.policy.max-regenerations`)
 - 화면 문구(label) 임시값: `InterestCode`, `SituationCategory`, `MomentReaction`, `Emotion`, `MessageDirection` (enum에 `TODO(PM)`)
 - CRT-01 "알려주고 싶은 주제" 유형
 - 확정 후 사용하지 않는 버전 보관 정책

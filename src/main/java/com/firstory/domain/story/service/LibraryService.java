@@ -18,6 +18,7 @@ import com.firstory.global.config.FirstoryProperties;
 import com.firstory.global.error.BusinessException;
 import com.firstory.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -26,11 +27,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 서재(LIB-01)와 홈(HOME-01). BLOCKED 동화는 서재와 홈 어디에도 보이지 않는다.
- * 목록은 현재 버전과 아이를 페치 조인해서 목록 크기와 무관하게 쿼리 수가 일정하다.
+ * 목록은 현재 버전과 아이를 페치 조인하고, 상황 분류는 목록의 동화를 한 번에 읽어서 목록 크기와 무관하게 쿼리 수가 일정하다.
  */
 @Service
 @RequiredArgsConstructor
@@ -56,19 +59,28 @@ public class LibraryService {
         if (page < 0 || size < 1 || size > MAX_SIZE) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED);
         }
-        return LibraryResponse.of(storyRepository.findLibrary(userId, filter.getStatuses(), filter.onlyRead(),
-                filter.onlyUnread(), PageRequest.of(page, size, RECENTLY_UPDATED)));
+        Page<Story> stories = storyRepository.findLibrary(userId, filter.getStatuses(), filter.onlyRead(),
+                filter.onlyUnread(), PageRequest.of(page, size, RECENTLY_UPDATED));
+        return LibraryResponse.of(stories, cards(stories.getContent()));
     }
 
     @Transactional(readOnly = true)
     public HomeResponse home(Long userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
-        List<StoryCardResponse> inProgress = storyRepository.findLibrary(userId, IN_PROGRESS, false, false,
-                        PageRequest.of(0, HOME_SIZE, RECENTLY_UPDATED))
-                .map(StoryCardResponse::of).getContent();
-        List<StoryCardResponse> recent = storyRepository.findRecentCompleted(userId, PageRequest.of(0, HOME_SIZE))
-                .stream().map(StoryCardResponse::of).toList();
+        List<StoryCardResponse> inProgress = cards(storyRepository.findLibrary(userId, IN_PROGRESS, false, false,
+                PageRequest.of(0, HOME_SIZE, RECENTLY_UPDATED)).getContent());
+        List<StoryCardResponse> recent = cards(storyRepository.findRecentCompleted(userId, PageRequest.of(0, HOME_SIZE)));
         return new HomeResponse(user.hasSeenOnboarding(), inProgress, recent, counts(userId));
+    }
+
+    /**
+     * 카드 목록. 상황 분류는 StoryInput에 있어 목록의 동화 id로 한 번에 읽는다 (Story에서 StoryInput으로 가는 연관이 없다).
+     */
+    private List<StoryCardResponse> cards(List<Story> stories) {
+        Map<Long, String> categories = storyInputRepository.findAllById(stories.stream().map(Story::getId).toList())
+                .stream().filter(input -> input.categoryLabel() != null)
+                .collect(Collectors.toMap(StoryInput::getStoryId, StoryInput::categoryLabel));
+        return stories.stream().map(story -> StoryCardResponse.of(story, categories.get(story.getId()))).toList();
     }
 
     /**

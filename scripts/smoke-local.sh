@@ -8,14 +8,17 @@
 #      $env:FIRSTORY_AI_FAKE_STAGE_DURATION="5s"; .\gradlew.bat bootRun --args="--spring.profiles.active=local"
 # 2) 다른 창에서
 #      bash scripts/smoke-local.sh
+#    진짜 AI 서버와 붙였으면 (FIRSTORY_AI_MODE=http): AI_MODE=http bash scripts/smoke-local.sh
 #
-# 환경 변수: BASE_URL(기본 http://localhost:8081), GENERATION_TIMEOUT(초, 기본 300)
+# 환경 변수: BASE_URL(기본 http://localhost:8081), GENERATION_TIMEOUT(초, 기본 300),
+#           AI_MODE(fake | http, 기본 fake. http면 가짜 AI만 만드는 샘플 제목은 확인하지 않는다)
 # 성공하면 0, 실패하면 실패한 단계와 응답을 보여 주고 1로 끝난다.
 
 set -u
 
 BASE_URL="${BASE_URL:-http://localhost:8081}"
 GENERATION_TIMEOUT="${GENERATION_TIMEOUT:-300}"
+AI_MODE="${AI_MODE:-fake}"
 CODE="000000"   # application-local.yml의 firstory.sms.local-fixed-code
 PASSWORD="firstory123"
 RUN_ID="$(date +%s)$RANDOM"
@@ -232,8 +235,12 @@ step "미리보기 (GET preview)"
 call GET "$STORY/preview"
 expect 200
 contains '"versionNo":1'
-contains '"title":"공룡 아로의 첫 인사"'
-contains '"regenerateRemaining":3'
+if [ "$AI_MODE" = fake ]; then
+    contains '"title":"공룡 아로의 첫 인사"'   # 가짜 AI 샘플 (fake-ai/sample-story.json)
+else
+    contains '"title":"'
+fi
+contains '"regenerateRemaining":1'
 VERSION1="$(printf '%s' "$BODY" | sed -n 's/.*"version":{"id":\([0-9][0-9]*\).*/\1/p')"
 IMAGE_URL="$(json_first_str imageUrl)"
 [ -n "$VERSION1" ] && [ -n "$IMAGE_URL" ] || fail "버전 id나 그림 주소가 없어요"
@@ -265,8 +272,8 @@ step "버전 2 미리보기"
 call GET "$STORY/preview"
 expect 200
 contains '"versionNo":2'
-contains '(다시 1)'
-contains '"regenerateRemaining":2'
+[ "$AI_MODE" = fake ] && contains '(다시 1)'   # 가짜 AI만 다시 만든 제목 뒤에 붙인다
+contains '"regenerateRemaining":0'
 ok
 
 step "버전 목록 (GET versions)"

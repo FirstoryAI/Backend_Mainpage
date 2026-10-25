@@ -40,7 +40,7 @@ dev 프로필(`application-dev.yml`)이 하는 일:
 | `AI_INTERNAL_TOKEN` | `http`일 때 | **예** | `X-Internal-Token`. `http`인데 비면 기동 실패 | (`fake`면 비움) |
 | `STORAGE_LOCAL_ROOT` | 선택 | 아니오 | 그림 파일 폴더. 기본 `./data/storage` (이미지 안에서 `/app/data/storage`) | `/app/data/storage` |
 | `SERVER_PORT` | 선택 | 아니오 | 서버 포트. 없으면 `PORT`, 둘 다 없으면 8080. Railway는 `PORT`를 넣어 주므로 비워 둔다 | (비움) |
-| `MAX_REGENERATIONS` | 선택 | 아니오 | 다시 만들기 최대 횟수. 기본 3 (TODO(PM)) | (비움) |
+| `MAX_REGENERATIONS` | 선택 | 아니오 | 다시 만들기 최대 횟수. 기본 1 (기획 확정) | (비움) |
 | `FIRSTORY_AI_FAKE_STAGE_DURATION` | 선택 | 아니오 | 가짜 AI 생성 단계 시간. dev 기본 `40s`. 빠르게 보고 싶으면 줄인다 | `40s` |
 | `JAVA_TOOL_OPTIONS` | 선택 | 아니오 | JVM 옵션. 이미지 기본 `-XX:MaxRAMPercentage=75`. 넣으면 기본값을 덮어쓴다 | (비움) |
 

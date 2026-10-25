@@ -12,6 +12,7 @@ import com.firstory.support.Browser;
 import com.firstory.support.IntegrationTest;
 import com.firstory.support.StoryFlow;
 import com.firstory.support.StoryStates;
+import com.jayway.jsonpath.JsonPath;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
@@ -163,6 +164,29 @@ class LibraryIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void 카드의_categoryLabel은_상황_분류이고_기타면_직접_입력한_분류() throws Exception {
+        long friend = StoryFlow.confirming(parent, "괜찮다고 말해 주고 싶어요");
+        long other = newDraft();
+        parent.put(StoryFlow.url(other) + "/situation", """
+                {"timing": "UPCOMING", "category": "OTHER", "customCategory": "이사", "description": "다음 주에 이사를 가요"}""")
+                .andExpect(jsonPath("$.saved").value(true));
+        long empty = newDraft();
+
+        parent.get("/api/stories")
+                .andExpect(jsonPath("$.items[?(@.id == %d)].categoryLabel".formatted(friend)).value("친구와 다툼"))
+                .andExpect(jsonPath("$.items[?(@.id == %d)].categoryLabel".formatted(other)).value("이사"))
+                .andExpect(jsonPath("$.items[?(@.id == %d)].categoryLabel".formatted(empty)).value(hasItem(nullValue())));
+        parent.get("/api/home").andExpect(jsonPath("$.inProgress[?(@.id == %d)].categoryLabel".formatted(friend))
+                .value("친구와 다툼"));
+    }
+
+    private long newDraft() throws Exception {
+        String body = parent.post("/api/stories", null).andExpect(status().isCreated()).andReturn()
+                .getResponse().getContentAsString();
+        return ((Number) JsonPath.read(body, "$.storyId")).longValue();
+    }
+
+    @Test
     void 서재_쿼리_수는_목록_크기와_무관하다() throws Exception {
         for (int i = 0; i < 3; i++) {
             withSavedChild(create(StoryStatus.COMPLETED, false));
@@ -178,7 +202,7 @@ class LibraryIntegrationTest extends IntegrationTest {
         long large = queriesFor("/api/stories?size=20");
 
         assertThat(large).isEqualTo(small);
-        assertThat(large).as("목록 1번 + 개수 1번").isEqualTo(2);
+        assertThat(large).as("목록 1번 + 개수 1번 + 상황 분류 1번").isEqualTo(3);
     }
 
     @Test
