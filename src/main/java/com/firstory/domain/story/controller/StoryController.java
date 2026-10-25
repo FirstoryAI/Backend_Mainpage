@@ -6,6 +6,7 @@ import com.firstory.domain.story.dto.StoryChildRequest;
 import com.firstory.domain.story.dto.StoryCreatedResponse;
 import com.firstory.domain.story.dto.StoryDraftResponse;
 import com.firstory.domain.story.dto.StoryStepResponse;
+import com.firstory.domain.story.dto.SummaryRequest;
 import com.firstory.domain.story.dto.ToneRequest;
 import com.firstory.domain.story.service.StoryDraftService;
 import com.firstory.global.error.ApiErrorCodes;
@@ -51,7 +52,7 @@ public class StoryController {
     }
 
     @Operation(summary = "상황 입력 (CRT-01, 02)",
-            description = "DRAFT에서만. 형식 오류는 위기 신호 검사 전에 400. 검사 대상: description, customCategory, customReaction."
+            description = "DRAFT, CONFIRMING(생성 전 확인에서 고치기)에서. 형식 오류는 위기 신호 검사 전에 400. 검사 대상: description, customCategory, customReaction."
                     + STEP_RESPONSE)
     @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.DESCRIPTION_TOO_LONG, ErrorCode.CUSTOM_VALUE_REQUIRED,
             ErrorCode.CUSTOM_VALUE_TOO_LONG, ErrorCode.MOMENT_ONLY_FOR_PAST, ErrorCode.STORY_NOT_FOUND,
@@ -63,7 +64,7 @@ public class StoryController {
     }
 
     @Operation(summary = "아이 정보 입력 (CRT-03)",
-            description = "DRAFT에서만. 저장된 프로필을 불러왔으면 childId, saveForNextTime이면 프로필을 저장하거나 갱신한다. "
+            description = "DRAFT, CONFIRMING(생성 전 확인에서 고치기)에서. 저장된 프로필을 불러왔으면 childId, saveForNextTime이면 프로필을 저장하거나 갱신한다. "
                     + "검사 대상: customTrait, customInterests." + STEP_RESPONSE)
     @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.INVALID_BIRTH_YM, ErrorCode.INTERESTS_LIMIT_EXCEEDED,
             ErrorCode.CUSTOM_VALUE_REQUIRED, ErrorCode.CUSTOM_VALUE_TOO_LONG, ErrorCode.CHILD_LABEL_EXHAUSTED,
@@ -76,13 +77,25 @@ public class StoryController {
     }
 
     @Operation(summary = "전하고 싶은 말 입력 (CRT-04)",
-            description = "DRAFT에서만. message가 null이거나 비어 있으면 \"아직 잘 모르겠어요\". 검사 대상: message." + STEP_RESPONSE)
+            description = "DRAFT, CONFIRMING(생성 전 확인에서 고치기)에서. message가 null이거나 비어 있으면 \"아직 잘 모르겠어요\". "
+                    + "인터뷰가 채운 다른 값은 그대로 둔다. 검사 대상: message." + STEP_RESPONSE)
     @ApiErrorCodes({ErrorCode.STORY_NOT_FOUND, ErrorCode.STORY_BLOCKED, ErrorCode.INVALID_STATUS_TRANSITION,
             ErrorCode.AI_UNAVAILABLE})
     @PutMapping("/{id:\\d+}/message")
     public StoryStepResponse writeMessage(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id,
                                           @RequestBody MessageRequest request) {
         return storyDraftService.writeMessage(principal.getUserId(), id, request);
+    }
+
+    @Operation(summary = "이번 이야기에서 나누고 싶은 것 고치기 (CRT-06)",
+            description = "CONFIRMING에서만. 인터뷰가 만든 summary를 부모가 고친다. 1~300자. 만들기를 누르면 AI에 함께 간다. "
+                    + "검사 대상: summary." + STEP_RESPONSE)
+    @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.STORY_NOT_FOUND, ErrorCode.STORY_BLOCKED,
+            ErrorCode.INVALID_STATUS_TRANSITION, ErrorCode.AI_UNAVAILABLE})
+    @PutMapping("/{id:\\d+}/summary")
+    public StoryStepResponse editSummary(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id,
+                                         @Valid @RequestBody SummaryRequest request) {
+        return storyDraftService.editSummary(principal.getUserId(), id, request);
     }
 
     @Operation(summary = "이야기 분위기 선택 (ST-04)",
