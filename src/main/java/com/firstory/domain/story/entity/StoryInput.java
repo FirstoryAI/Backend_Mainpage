@@ -123,6 +123,16 @@ public class StoryInput extends BaseTimeEntity {
         this.story = Objects.requireNonNull(story);
     }
 
+    /**
+     * 서재 카드에 보여 줄 상황 분류. 기타(OTHER)면 직접 입력한 분류, 상황을 아직 받지 않았으면 null.
+     */
+    public String categoryLabel() {
+        if (situationCategory == null) {
+            return null;
+        }
+        return situationCategory == SituationCategory.OTHER ? situationCustomCategory : situationCategory.getLabel();
+    }
+
     public static StoryInput begin(Story story) {
         return new StoryInput(story);
     }

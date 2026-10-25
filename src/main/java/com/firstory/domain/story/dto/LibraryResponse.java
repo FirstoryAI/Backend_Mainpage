@@ -11,8 +11,7 @@ import java.util.List;
 public record LibraryResponse(List<StoryCardResponse> items, int page, int size, long totalElements,
                               boolean hasNext) {
 
-    public static LibraryResponse of(Page<Story> page) {
-        return new LibraryResponse(page.getContent().stream().map(StoryCardResponse::of).toList(),
-                page.getNumber(), page.getSize(), page.getTotalElements(), page.hasNext());
+    public static LibraryResponse of(Page<Story> page, List<StoryCardResponse> items) {
+        return new LibraryResponse(items, page.getNumber(), page.getSize(), page.getTotalElements(), page.hasNext());
     }
 }
