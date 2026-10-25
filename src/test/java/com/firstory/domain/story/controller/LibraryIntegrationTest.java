@@ -229,8 +229,8 @@ class LibraryIntegrationTest extends IntegrationTest {
         long versionId = jdbc.queryForObject("SELECT current_version_id FROM stories WHERE id = ?", Long.class, id);
         jdbc.update("""
                 INSERT INTO reading_sessions (story_id, version_id, last_page, started_at, completed_at, created_at, updated_at)
-                VALUES (?, ?, 8, '2026-10-01T00:00:00Z', '2026-10-01T00:10:00Z', now(), now()),
-                       (?, ?, 8, '2026-10-02T00:00:00Z', '2026-10-02T00:10:00Z', now(), now()),
+                VALUES (?, ?, 10, '2026-10-01T00:00:00Z', '2026-10-01T00:10:00Z', now(), now()),
+                       (?, ?, 10, '2026-10-02T00:00:00Z', '2026-10-02T00:10:00Z', now(), now()),
                        (?, ?, 3, '2026-10-03T00:00:00Z', NULL, now(), now())""",
                 id, versionId, id, versionId, id, versionId);
 
@@ -241,7 +241,7 @@ class LibraryIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.label").value("함께 읽었어요"))
                 .andExpect(jsonPath("$.coverUrl").isNotEmpty())
-                .andExpect(jsonPath("$.pageCount").value(8))
+                .andExpect(jsonPath("$.pageCount").value(10))
                 .andExpect(jsonPath("$.confirmedAt").isNotEmpty())
                 .andExpect(jsonPath("$.readCount").value(2))
                 .andExpect(jsonPath("$.lastReadAt").value("2026-10-03T00:00:00Z"))

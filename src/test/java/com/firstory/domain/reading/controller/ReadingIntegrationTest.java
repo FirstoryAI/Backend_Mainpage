@@ -81,7 +81,7 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.beforeReading.intent").isNotEmpty())
                 .andExpect(jsonPath("$.beforeReading.tips", hasSize(2)))
                 .andExpect(jsonPath("$.prompts[*].seq", contains(1, 2)))
-                .andExpect(jsonPath("$.prompts[*].afterPage", contains(4, 7)))
+                .andExpect(jsonPath("$.prompts[*].afterPage", contains(4, 8)))
                 .andExpect(jsonPath("$.prompts[0].id").isNumber())
                 .andExpect(jsonPath("$.prompts[0].question").value("아로는 왜 혼자 앉았을까?"))
                 .andExpect(jsonPath("$.prompts[0].purpose").value("감정 알아차리기"))
@@ -113,7 +113,7 @@ class ReadingIntegrationTest extends IntegrationTest {
         long runId = tx.execute(status -> runRepository.save(Fixtures.run(storyRepository.getReferenceById(id), 1)))
                 .getId();
         String prefix = "stories/" + id + "/runs/1/images/";
-        List<AiGenerationResult.Page> pages = IntStream.rangeClosed(1, 8)
+        List<AiGenerationResult.Page> pages = IntStream.rangeClosed(1, 10)
                 .mapToObj(n -> new AiGenerationResult.Page(n, n + "쪽", null, prefix + "page-0" + n + ".png", "done"))
                 .toList();
         AiGenerationResult result = new AiGenerationResult(1, "cp-1", "제목", null, List.of(), pages,
@@ -149,12 +149,12 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.title").value(FakeAiClient.SAMPLE.title(0)))
                 .andExpect(jsonPath("$.coverUrl").value("/api/stories/" + id + "/versions/" + versionId
                         + "/character-sheet"))
-                .andExpect(jsonPath("$.pageCount").value(8))
-                .andExpect(jsonPath("$.pages", hasSize(8)))
+                .andExpect(jsonPath("$.pageCount").value(10))
+                .andExpect(jsonPath("$.pages", hasSize(10)))
                 .andExpect(jsonPath("$.pages[0].imageUrl").value("/api/stories/" + id + "/versions/" + versionId
                         + "/pages/1/image"))
                 .andExpect(jsonPath("$.pages[0].imageStatus").value("DONE"))
-                .andExpect(jsonPath("$.prompts[*].afterPage", contains(4, 7)))
+                .andExpect(jsonPath("$.prompts[*].afterPage", contains(4, 8)))
                 .andExpect(jsonPath("$.prompts[0].question").isNotEmpty())
                 .andExpect(jsonPath("$.prompts[0].parentHint").isNotEmpty());
 
@@ -163,14 +163,14 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.startedAt").isNotEmpty())
                 .andReturn().getResponse().getContentAsString();
         long sessionId = ((Number) JsonPath.read(started, "$.sessionId")).longValue();
-        for (int page = 1; page <= 8; page++) {
+        for (int page = 1; page <= 10; page++) {
             progress(sessionId, page).andExpect(status().isNoContent());
         }
         dialogue(sessionId, promptIds(versionId).getFirst(), "TALKED").andExpect(status().isNoContent());
         complete(sessionId).andExpect(status().isNoContent());
 
         assertThat(jdbc.queryForObject("SELECT last_page FROM reading_sessions WHERE id = ?", Integer.class, sessionId))
-                .isEqualTo(8);
+                .isEqualTo(10);
         assertThat(jdbc.queryForObject(
                 "SELECT count(*) FROM dialogue_actions WHERE session_id = ? AND action = 'TALKED'",
                 Integer.class, sessionId)).isOne();
@@ -187,7 +187,7 @@ class ReadingIntegrationTest extends IntegrationTest {
 
         progress(sessionId, 0).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("PAGE_OUT_OF_RANGE"));
-        progress(sessionId, 9).andExpect(status().isBadRequest())
+        progress(sessionId, 11).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("PAGE_OUT_OF_RANGE"));
         parent.put("/api/reading-sessions/" + sessionId + "/progress", "{}").andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));

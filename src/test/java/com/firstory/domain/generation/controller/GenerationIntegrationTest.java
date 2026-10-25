@@ -88,7 +88,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertThat(run.get("scope")).isEqualTo("ALL");
         assertThat(run.get("input_tokens")).isEqualTo(FakeAiClient.INPUT_TOKENS);
         assertThat(run.get("output_tokens")).isEqualTo(FakeAiClient.OUTPUT_TOKENS);
-        assertThat(run.get("image_count")).isEqualTo(9);
+        assertThat(run.get("image_count")).isEqualTo(11);
         assertThat(run.get("langsmith_trace_id")).isNotNull();
         assertThat(run.get("finished_at")).isNotNull();
         Map<String, Object> version = jdbc.queryForMap("SELECT * FROM story_versions WHERE story_id = ?", id);
@@ -100,10 +100,10 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertThat(jdbc.queryForObject("SELECT title FROM stories WHERE id = ?", String.class, id))
                 .isEqualTo(FakeAiClient.SAMPLE.title(0));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM story_pages WHERE version_id = ? AND image_status = 'DONE'",
-                Integer.class, version.get("id"))).isEqualTo(8);
+                Integer.class, version.get("id"))).isEqualTo(10);
         assertThat(jdbc.queryForList("""
                 SELECT p.after_page FROM guide_prompts p JOIN reading_guides g ON g.id = p.guide_id
-                WHERE g.version_id = ? ORDER BY p.seq""", Integer.class, version.get("id"))).containsExactly(4, 7);
+                WHERE g.version_id = ? ORDER BY p.seq""", Integer.class, version.get("id"))).containsExactly(4, 8);
     }
 
     @Test
@@ -154,7 +154,7 @@ class GenerationIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void 미리보기는_8쪽이고_주소에_파일_key나_경로가_없다() throws Exception {
+    void 미리보기는_10쪽이고_주소에_파일_key나_경로가_없다() throws Exception {
         long id = reviewingStory();
         long versionId = currentVersionId(id);
 
@@ -167,7 +167,7 @@ class GenerationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.version.title").value(FakeAiClient.SAMPLE.title(0)))
                 .andExpect(jsonPath("$.characterSheetUrl")
                         .value(storyUrl(id) + "/versions/" + versionId + "/character-sheet"))
-                .andExpect(jsonPath("$.pages", hasSize(8)))
+                .andExpect(jsonPath("$.pages", hasSize(10)))
                 .andExpect(jsonPath("$.pages[0].text").value(FakeAiClient.SAMPLE.pageText(1)))
                 .andExpect(jsonPath("$.pages[*].imageStatus", everyItem(org.hamcrest.Matchers.is("DONE"))))
                 .andExpect(jsonPath("$.pages[*].imageUrl", everyItem(matchesPattern(
@@ -217,7 +217,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertError(other.get(imageUrl(id, versionId, 1)), ErrorCode.STORY_NOT_FOUND);
         // 다른 동화의 버전 id를 이 동화 주소에 넣어도 404
         assertError(parent.get(imageUrl(id, otherVersionId, 1)), ErrorCode.VERSION_NOT_FOUND);
-        assertError(parent.get(imageUrl(id, versionId, 9)), ErrorCode.IMAGE_NOT_FOUND);
+        assertError(parent.get(imageUrl(id, versionId, 11)), ErrorCode.IMAGE_NOT_FOUND);
         assertError(parent.get(imageUrl(id, versionId, 0)), ErrorCode.IMAGE_NOT_FOUND);
         browser().get(imageUrl(id, versionId, 1)).andExpect(status().isUnauthorized());
     }
@@ -285,7 +285,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertError(regenerate(id, """
                 {"scope": "IMAGES", "pages": [0]}"""), ErrorCode.INVALID_PAGE_SELECTION);
         assertError(regenerate(id, """
-                {"scope": "IMAGES", "pages": [9]}"""), ErrorCode.INVALID_PAGE_SELECTION);
+                {"scope": "IMAGES", "pages": [11]}"""), ErrorCode.INVALID_PAGE_SELECTION);
         assertError(regenerate(id, """
                 {"scope": "IMAGES", "pages": [3, 3]}"""), ErrorCode.INVALID_PAGE_SELECTION);
         assertError(regenerate(id, """
@@ -628,7 +628,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM story_versions WHERE story_id = ?", Integer.class, id))
                 .isOne();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM story_pages p JOIN story_versions v ON v.id = p.version_id "
-                + "WHERE v.story_id = ?", Integer.class, id)).isEqualTo(8);
+                + "WHERE v.story_id = ?", Integer.class, id)).isEqualTo(10);
     }
 
     @Test

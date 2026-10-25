@@ -1,6 +1,6 @@
 # FIRSTORY Backend
 
-부모가 아이와 나누기 어려운 이야기를 AI 인터뷰로 정리해 8쪽짜리 맞춤 동화와 대화 가이드를 만들어 주는 웹 서비스의 백엔드.
+부모가 아이와 나누기 어려운 이야기를 AI 인터뷰로 정리해 10쪽짜리 맞춤 동화와 대화 가이드를 만들어 주는 웹 서비스의 백엔드.
 AI 생성은 별도 Python 서비스(LangGraph)가 맡고, 이 저장소는 회원, 아이, 동화, 읽기 기록, 알림 같은 도메인 데이터와 AI 서비스 호출을 맡는다.
 
 ## 기술 스택
@@ -130,7 +130,7 @@ com.firstory
 - 다시 만들기(`Story.requestRegeneration`)는 `REVIEWING`에서만 할 수 있고 `regenerateCount`를 1 올린다. 실패 후 다시 시도(`Story.retry`, `FAILED → REQUESTED`)는 다시 만들기 횟수에 포함하지 않는다. 한도를 다 써도 재시도는 할 수 있다.
 - `PhoneNumber.toString()`은 번호를 가린다(`PhoneNumber[***]`). 로그에 실수로 찍혀도 번호가 남지 않게 하기 위함이다. 번호가 필요하면 `digits()`나 `display()`를 명시적으로 쓰고, 그 값은 로그에 남기지 않는다.
 - 위기 신호는 AI가 4단계(`SafetyLevel`: OK, SENSITIVE, REVISE, CRISIS)로 판단하고, 대응은 `SafetyPolicy`(컴포넌트)가 정한다. OK는 진행, SENSITIVE는 분위기 선택(ST-04, tone을 이미 골랐으면 진행), REVISE는 `firstory.policy.safety-revise-limit`(2)번째 전까지 다시 쓰기 안내·그 횟수째에 차단, CRISIS는 1번만에 차단(ST-05). 기록(`SafetyFlag`)은 REVISE, CRISIS만 하고, 횟수와 `occurrenceNo`는 동화 단위·단계별로 센다(`countByStoryIdAndLevel`). 차단 판단에는 REVISE 횟수만 쓴다.
-- 동화 쪽수는 `firstory.story.page-count`(8)다. DB와 엔티티는 쪽 번호 1 이상만 검사하고 상한은 이 설정값으로 본다.
+- 동화 쪽수는 `firstory.story.page-count`(10)다. DB와 엔티티는 쪽 번호 1 이상만 검사하고 상한은 이 설정값으로 본다.
 - 아이 프로필은 "다음에도 이 아이 정보로 만들기"를 체크했을 때만 저장한다. 동화는 항상 `StoryInput.childSnapshot`을 기준으로 만든다.
 - 동화 만들기에서 아이 정보는 `ChildProfileResolver.resolve` 하나로 처리한다(저장 여부 다섯 경우). snapshot은 항상 화면의 최종 입력값으로 만들고 프로필에서 읽지 않는다.
 - 다른 회원의 아이는 403이 아니라 404 `CHILD_NOT_FOUND`로 응답한다(존재 여부를 드러내지 않는다).
@@ -154,7 +154,7 @@ com.firstory
 - `FakeAiClient`는 고정 동작이고 속도와 질문 수만 `firstory.ai.fake.*`(`FirstoryProperties.Ai.Fake`)로 바꾼다. **test 프로필은 기본값(지연 0, `stage-duration` 0, `turns` 2)이라 아래 동작 그대로다. 테스트가 기대는 동작을 바꾸지 않는다.**
   - 위기 신호는 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`가 있으면 그 level, 없으면 OK.
   - 인터뷰는 질문 1 → 답변 `turns`번까지 다음 질문 → 그다음 답변이나 skip이면 CONFIRM (`turns` 2면 3번째 답변). `turns` 0이면 thread_id 해시로 질문 1~5개. 질문 문장은 `fake-ai/sample-story.json` 순서대로.
-  - 생성은 design_story → write_story → illustrate → render → REVIEWING (글 다시는 write_story부터, 그림만 다시는 illustrate_only → render). `stage-duration` 0이면 `status`를 부를 때마다 한 단계씩, 0보다 크면 시작 후 지난 시간(`Clock`) / `stage-duration`으로 단계를 정한다. REVIEWING이 될 때 `fake-ai/sample-story.json`(제목, 8쪽 글, 가이드)으로 결과를 만들고 실제 PNG(512×512)를 `FileStorage`에 쓴다. 다시 만들기면 제목 뒤에 `(다시 n)`.
+  - 생성은 design_story → write_story → illustrate → render → REVIEWING (글 다시는 write_story부터, 그림만 다시는 illustrate_only → render). `stage-duration` 0이면 `status`를 부를 때마다 한 단계씩, 0보다 크면 시작 후 지난 시간(`Clock`) / `stage-duration`으로 단계를 정한다. REVIEWING이 될 때 `fake-ai/sample-story.json`(제목, 10쪽 글, 가이드)으로 결과를 만들고 실제 PNG(512×512)를 `FileStorage`에 쓴다. 다시 만들기면 제목 뒤에 `(다시 n)`.
   - 전하고 싶은 말이나 인터뷰 답변의 표시: `[[FAIL]]` 첫 생성 실패, `[[OUTPUT_REVISE]]` 첫 생성 결과의 safety가 REVISE, `[[PAGE_FAIL]]` 첫 생성 결과의 5쪽 그림만 failed, `[[AI_DOWN]]` 위기 신호 검사에서 처음 본 글이면 다음 AI 호출 한 번이 `AI_UNAVAILABLE`(생성 진행 확인 `status`, `result`는 세지 않는다).
   - 지연(`interview-delay`, `safety-delay`)은 `Thread.sleep`이다. local 전용이라 허용한다. thread 상태는 메모리에만 있어 서버를 다시 띄우면 진행 중인 인터뷰와 생성은 이어갈 수 없다. 테스트에서는 `failWith(ErrorCode)`로 장애를, `misdirectOutput()`으로 다른 동화 경로를 흉내 내고(`clearFailure()`로 둘 다 되돌린다), `answerCalls`, `statusCalls`, `lastBaseCheckpointId`로 호출을 본다.
 - **DB 트랜잭션 안에서 AI를 부르지 않는다**(응답이 35초까지 걸려 커넥션을 붙잡는다). ① 트랜잭션으로 조회·검증 → ② 트랜잭션 밖에서 AI 호출 → ③ 새 트랜잭션으로 저장. ③에서 동화를 `StoryRepository.findByIdForUpdate`로 다시 읽어 상태가 바뀌었으면 `INVALID_STATUS_TRANSITION`. AI를 부르는 서비스 메서드에는 `@Transactional`을 달지 않고 `TransactionTemplate`을 쓴다. `AiClient` 구현은 트랜잭션 안에서 불리면 `IllegalStateException`을 던진다(`TransactionGuard`).

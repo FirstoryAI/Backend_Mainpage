@@ -330,8 +330,8 @@ SESSION_ID="$(json_num sessionId)"
 SESSION="/api/reading-sessions/$SESSION_ID"
 ok "sessionId=$SESSION_ID"
 
-step "쪽 넘김 1~8 (PUT progress) + 대화 버튼 (PUT dialogue)"
-for page in 1 2 3 4 5 6 7 8; do
+step "쪽 넘김 1~10 (PUT progress) + 대화 버튼 (PUT dialogue)"
+for page in 1 2 3 4 5 6 7 8 9 10; do
     call PUT "$SESSION/progress" "{\"page\":$page}"
     expect 204
     if [ "$page" = 4 ]; then

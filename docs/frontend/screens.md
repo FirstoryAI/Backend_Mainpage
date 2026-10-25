@@ -234,7 +234,7 @@
 ```
 
 - `scope` 3가지: `CHARACTER_STORY`(이야기·인물부터 다시), `TEXT`(글 다시), `IMAGES`(그림만 다시).
-- `IMAGES`일 때만 `pages`로 쪽을 고른다(1~8, 비우면 전체). 다른 범위에서 `pages`를 보내면 400 `INVALID_PAGE_SELECTION`.
+- `IMAGES`일 때만 `pages`로 쪽을 고른다(1~10, 비우면 전체). 다른 범위에서 `pages`를 보내면 400 `INVALID_PAGE_SELECTION`.
 - `feedback`(요청 메모)은 300자. 위기 신호를 먼저 검사한다: `ASK_REVISE`면 `saved: false`이고 다시 만들지 않으며 횟수도 그대로(메모를 고치게 안내). `BLOCK`이면 ST-05.
 - `regenerateRemaining`(남은 횟수, 지금 임시 3번)이 0이면 버튼을 막는다. 넘기면 409 `REGENERATION_LIMIT_REACHED`.
 - 다시 만들면 **지금 보고 있는 버전**에서 갈라진다.
@@ -295,7 +295,7 @@
 | 들어올 때 | `GET /api/stories/{id}/book` | `title, coverUrl, pageCount, pages[]{pageNo, text, imageUrl, imageStatus}, prompts[]{id, afterPage, question, parentHint}` |
 | 이어 읽기 확인 | `GET /api/stories/{id}/reading-sessions/resume` | 200 `{sessionId, lastPage, startedAt}`이면 "이어 읽을까요?", **204면 이어 읽을 것 없음** |
 | 처음부터 읽기 | `POST /api/stories/{id}/reading-sessions` | 201 `{sessionId, lastPage: 0}` |
-| 쪽 넘길 때마다 | `PUT /api/reading-sessions/{sessionId}/progress` `{page}` (1~8) | 204 |
+| 쪽 넘길 때마다 | `PUT /api/reading-sessions/{sessionId}/progress` `{page}` (1~10) | 204 |
 
 `prompts[].afterPage`가 n이면 n쪽을 읽은 뒤 RD-02 대화 질문을 띄운다.
 
