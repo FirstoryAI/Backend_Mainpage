@@ -164,9 +164,11 @@
 | 답변 | `POST /api/stories/{id}/interview/answer` `{answer: "..."}` (500자) | 아래 |
 | 건너뛰기 | `POST /api/stories/{id}/interview/answer` `{skip: true}` | 인터뷰가 끝난다 |
 
-답변 응답(`InterviewResponse`): `status, type, turn, question, summary, safety, toneRequired`
+답변 응답(`InterviewResponse`): `status, type, turn, question, choices, summary, safety, toneRequired`
 
 - `type: "QUESTION"` → `question`을 다음 질문으로 보여 준다. `turn`이 질문 번호.
+- `choices`(문자열 0~4개) → 질문 아래 답변 카드. 누르면 그 문장을 `{answer: "..."}`로 보낸다(직접 쓴 답과 똑같이 위기 신호를 검사한다). 빈 목록이면 카드 없이 입력만 보여 준다. 질문이 아닌 응답(CONFIRM, 차단)은 항상 빈 목록이다.
+- 카드는 저장하지 않는다. `ASK_REVISE`로 같은 질문을 다시 줄 때와 `GET /draft`로 이어서 만들 때는 카드가 없다.
 - `type: "CONFIRM"` → 인터뷰 끝. `status`가 `CONFIRMING`, `summary`("이번 이야기에서 나누고 싶은 것", 부모에게 보여 줄 해요체 문장) → CRT-06.
 - **질문 수는 0~5개 사이에서 동화마다 다르다.** "3/5" 같은 고정 진행 표시를 하지 않는다.
 - **질문이 0개일 수 있다.** AI가 앞서 받은 입력만으로 충분하다고 보면 인터뷰 시작 응답이 바로 `type: "CONFIRM"`, `status: "CONFIRMING"`, `summary`다. 이때는 채팅 화면을 열지 않고 CRT-06으로 간다. 가짜 AI(local, dev)는 항상 질문 1부터 시작하므로 진짜 AI를 붙였을 때만 나온다.
