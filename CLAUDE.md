@@ -212,6 +212,7 @@ com.firstory
 - 형식 검증(`StoryInput.validateSituation`, `ChildProfileRequest.toProfile` 등)은 AI 호출 전에 한다. 형식 오류는 AI를 부르지 않고 400.
 - 대응: OK → PROCEED. SENSITIVE → `markToneRequired()`, tone이 있으면 PROCEED 아니면 CHOOSE_TONE(저장하고 ST-04). REVISE → `SafetyFlag` 저장 후 `SafetyPolicy.decide`로 ASK_REVISE 또는 BLOCK. CRISIS → `SafetyFlag` 저장 후 BLOCK. BLOCK이면 `story.block()`.
 - **ASK_REVISE와 BLOCK이면 입력을 저장하지 않고 AI 그래프로도 보내지 않는다.** 인터뷰 답변이 ASK_REVISE면 같은 질문을 다시 준다. 인터뷰 답변은 그래프에 보내기 전에 검사한다(스펙 v0.3). skip은 검사하지 않는다.
+- `category`는 AI가 준 값(스펙 4장 목록: violence, harmful_discipline, discrimination, illegal, blame_child, self_harm, abuse_neglect, harm_intent, other)을 그대로 저장하고, 비어 있으면 `other`. 값 목록을 enum으로 묶지 않는다(AI 쪽에서 늘어날 수 있다).
 - 차단 응답에는 `helpKind`(CRISIS → `CHILD_SAFETY`, REVISE로 차단 → `PARENTING`)만 준다. **상담 기관 이름과 번호는 백엔드에 넣지 않는다**(프론트가 helpKind로 보여준다).
 - BLOCKED 동화의 모든 변경 요청은 `STORY_BLOCKED`. 나가기(DELETE)와 조회(draft)만 된다. 다시 만들기 메모로 REVIEWING에서도 차단될 수 있다.
 - **결과 위기 신호**(AI 결과의 `safety`가 REVISE, CRISIS): `SafetyFlag`(source OUTPUT)를 감사용으로 남기고 버전을 만들지 않고 실행·스토리 FAILED(`OUTPUT_UNSAFE`). 부모는 다시 시도할 수 있다. **부모의 REVISE 횟수에는 넣지 않는다**(`countByStoryIdAndLevelAndSourceNot(OUTPUT)`). 다만 `occurrenceNo`는 UNIQUE(story, level, occurrence_no)라 OUTPUT까지 포함한 개수로 정한다.
@@ -282,7 +283,6 @@ com.firstory
 - 차단된 동화의 입력 데이터를 보관할지 바로 지울지 (ST-05). 지금은 그대로 둔다 (`SafetyGuard`)
 - 위기 신호 차단 화면의 상담 기관 이름과 번호 (G-FACT). 백엔드는 `helpKind`만 준다
 - 전하고 싶은 말(CRT-04) 글자 수 제한. 지금은 제한하지 않는다 (`MessageRequest`)
-- 위기 신호 `category` 값 목록 (스펙 D4). 지금은 AI가 준 문자열을 그대로 저장하고, 비어 있으면 `other`
 - 알림 문구 (`NotificationTemplate` 임시값). 다시 만들기·다시 시도의 시작 알림을 보낼지 (지금은 보내지 않는다)
 - 삭제한 동화의 입력 원문과 그림 파일 실제 파기 (PRD 36). 지금은 소프트 삭제만
 - 탈퇴 시 개인정보 파기 시점 (PRD 36). 지금은 회원만 소프트 삭제하고 아이, 동화 데이터는 그대로 둔다
