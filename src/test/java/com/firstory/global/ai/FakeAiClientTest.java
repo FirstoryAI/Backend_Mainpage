@@ -76,7 +76,8 @@ class FakeAiClientTest {
     @Test
     void 답변_2번까지는_다음_질문이고_3번째_답변이면_CONFIRM() {
         InterviewReply first = client.startInterview(THREAD_ID, UUID.randomUUID(), context(), null);
-        assertThat(first).isEqualTo(InterviewReply.question(1, FakeAiClient.FIRST_QUESTION, null));
+        assertThat(first).isEqualTo(InterviewReply.question(1, FakeAiClient.FIRST_QUESTION,
+                FakeAiClient.SAMPLE.questionChoices().getFirst(), null));
 
         InterviewReply second = client.answerInterview(THREAD_ID, "답변 1");
         InterviewReply third = client.answerInterview(THREAD_ID, "답변 2");
@@ -354,12 +355,16 @@ class FakeAiClientTest {
         client.startInterview(THREAD_ID, UUID.randomUUID(), context(), null);
 
         List<String> questions = new ArrayList<>(List.of(FakeAiClient.FIRST_QUESTION));
+        List<List<String>> choices = new ArrayList<>(List.of(FakeAiClient.SAMPLE.questionChoices().getFirst()));
         InterviewReply reply;
         while (!(reply = client.answerInterview(THREAD_ID, "답변")).isConfirm()) {
             questions.add(reply.question());
+            choices.add(reply.choices());
         }
 
         assertThat(questions).isEqualTo(FakeAiClient.SAMPLE.questions());
+        assertThat(choices).isEqualTo(FakeAiClient.SAMPLE.questionChoices());
+        assertThat(choices.getLast()).isEmpty();   // 5번째 질문은 카드가 없다
     }
 
     @Test

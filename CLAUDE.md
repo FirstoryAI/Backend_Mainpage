@@ -153,12 +153,13 @@ com.firstory
 - `firstory.ai.mode`로 구현을 고른다(`AiClientConfig`). `http`(기본)는 `HttpAiClient`(RestClient, `X-Internal-Token`, 연결 3초·응답 35초), `fake`는 `FakeAiClient`. local, test 프로필은 `fake`. `http`인데 `AI_INTERNAL_TOKEN`이 비어 있으면 기동하지 않는다.
 - `FakeAiClient`는 고정 동작이고 속도와 질문 수만 `firstory.ai.fake.*`(`FirstoryProperties.Ai.Fake`)로 바꾼다. **test 프로필은 기본값(지연 0, `stage-duration` 0, `turns` 2)이라 아래 동작 그대로다. 테스트가 기대는 동작을 바꾸지 않는다.**
   - 위기 신호는 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`가 있으면 그 level, 없으면 OK.
-  - 인터뷰는 질문 1 → 답변 `turns`번까지 다음 질문 → 그다음 답변이나 skip이면 CONFIRM (`turns` 2면 3번째 답변). `turns` 0이면 thread_id 해시로 질문 1~5개. 질문 문장은 `fake-ai/sample-story.json` 순서대로.
+  - 인터뷰는 질문 1 → 답변 `turns`번까지 다음 질문 → 그다음 답변이나 skip이면 CONFIRM (`turns` 2면 3번째 답변). `turns` 0이면 thread_id 해시로 질문 1~5개. 질문 문장은 `fake-ai/sample-story.json` 순서대로, 답변 카드는 같은 파일의 `questionChoices`(5번째 질문은 카드 없음).
   - 생성은 design_story → write_story → illustrate → render → REVIEWING (글 다시는 write_story부터, 그림만 다시는 illustrate_only → render). `stage-duration` 0이면 `status`를 부를 때마다 한 단계씩, 0보다 크면 시작 후 지난 시간(`Clock`) / `stage-duration`으로 단계를 정한다. REVIEWING이 될 때 `fake-ai/sample-story.json`(제목, 10쪽 글, 가이드)으로 결과를 만들고 실제 PNG(512×512)를 `FileStorage`에 쓴다. 다시 만들기면 제목 뒤에 `(다시 n)`.
   - 전하고 싶은 말이나 인터뷰 답변의 표시: `[[FAIL]]` 첫 생성 실패, `[[OUTPUT_REVISE]]` 첫 생성 결과의 safety가 REVISE, `[[PAGE_FAIL]]` 첫 생성 결과의 5쪽 그림만 failed, `[[AI_DOWN]]` 위기 신호 검사에서 처음 본 글이면 다음 AI 호출 한 번이 `AI_UNAVAILABLE`(생성 진행 확인 `status`, `result`는 세지 않는다).
   - 지연(`interview-delay`, `safety-delay`)은 `Thread.sleep`이다. local 전용이라 허용한다. thread 상태는 메모리에만 있어 서버를 다시 띄우면 진행 중인 인터뷰와 생성은 이어갈 수 없다. 테스트에서는 `failWith(ErrorCode)`로 장애를, `misdirectOutput()`으로 다른 동화 경로를 흉내 내고(`clearFailure()`로 둘 다 되돌린다), `answerCalls`, `statusCalls`, `lastBaseCheckpointId`로 호출을 본다.
 - **DB 트랜잭션 안에서 AI를 부르지 않는다**(응답이 35초까지 걸려 커넥션을 붙잡는다). ① 트랜잭션으로 조회·검증 → ② 트랜잭션 밖에서 AI 호출 → ③ 새 트랜잭션으로 저장. ③에서 동화를 `StoryRepository.findByIdForUpdate`로 다시 읽어 상태가 바뀌었으면 `INVALID_STATUS_TRANSITION`. AI를 부르는 서비스 메서드에는 `@Transactional`을 달지 않고 `TransactionTemplate`을 쓴다. `AiClient` 구현은 트랜잭션 안에서 불리면 `IllegalStateException`을 던진다(`TransactionGuard`).
 - 문자 발송(`SmsSender.send`)도 같은 이유로 트랜잭션 밖에서 한다.
+- 인터뷰 답변 카드(`choices`)는 AI 응답을 화면에 넘기기만 하고 저장하지 않는다. `InterviewReply`가 빈 것·겹치는 것을 빼고 `MAX_CHOICES`(4)개까지 남긴다. 다시 쓰기 안내(ASK_REVISE)로 같은 질문을 다시 줄 때는 빈 목록이다.
 - AI 오류는 `AI_UNAVAILABLE`(연결 실패, 타임아웃, 5xx, 422, 응답 형식 오류), `AI_BUSY`(409 THREAD_BUSY), `AI_STATE_MISMATCH`(409 INVALID_STATE, 404 THREAD_NOT_FOUND)로 바꾼다. AI 호출이 실패하면 아무것도 저장하지 않는다.
 - **AI 요청·응답 본문을 로그에 남기지 않는다.** 오류 로그에는 thread_id, 상태 코드, AI 오류 code만 남긴다. AI 응답 record(`InterviewReply`)와 요청·응답 DTO는 `toString`에서 내용을 가린다.
 

@@ -42,6 +42,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * checkSafety      글에 [[CRISIS]], [[REVISE]], [[SENSITIVE]]가 있으면 그 level (여럿이면 이 순서로 우선), 없으면 OK
  * startInterview   질문 1
  * answerInterview  답변 turns번까지는 다음 질문, 그다음 답변이나 skip이면 CONFIRM (turns 2면 3번째 답변에서)
+ *                  질문마다 sample-story.json의 답변 카드(questionChoices). 5번째 질문은 카드가 없다
  *                  turns가 0이면 thread_id로 질문 수 1~5개를 정한다 (같은 동화는 항상 같은 수)
  *                  finalContext는 받은 context에 parent.message_direction만 채운 것
  * generate         RUNNING. design_story → write_story → illustrate → render → REVIEWING
@@ -141,7 +142,7 @@ public class FakeAiClient implements AiClient {
         throwIfFailing();
         pause(settings.interviewDelay());
         threads.put(threadId, new ThreadState(context, followUps(threadId)));
-        return InterviewReply.question(1, FIRST_QUESTION, null);
+        return InterviewReply.question(1, FIRST_QUESTION, SAMPLE.questionChoices().getFirst(), null);
     }
 
     @Override
@@ -163,7 +164,7 @@ public class FakeAiClient implements AiClient {
             return finish(state, InterviewEndReason.SUFFICIENT);
         }
         return InterviewReply.question(answered + 1, SAMPLE.questions().get(answered),
-                Map.of("answered_turns", answered));
+                SAMPLE.questionChoices().get(answered), Map.of("answered_turns", answered));
     }
 
     @Override
@@ -505,15 +506,21 @@ public class FakeAiClient implements AiClient {
     /**
      * fake-ai/sample-story.json. 쪽 글에는 **의성어** 표시가 그대로 있다.
      *
-     * @param guide AI 결과의 guide와 같은 구조 (04-guide.json)
+     * @param questionChoices 질문마다 답변 카드 (questions와 같은 순서, 빈 목록이면 카드 없음)
+     * @param guide           AI 결과의 guide와 같은 구조 (04-guide.json)
      */
-    public record Sample(String title, List<String> pages, List<String> questions, Map<String, Object> guide) {
+    public record Sample(String title, List<String> pages, List<String> questions,
+                         List<List<String>> questionChoices, Map<String, Object> guide) {
 
         public Sample {
             pages = List.copyOf(pages);
             questions = List.copyOf(questions);
+            questionChoices = questionChoices.stream().map(List::copyOf).toList();
             if (questions.size() < Fake.MAX_QUESTIONS) {
                 throw new IllegalStateException("가짜 AI 샘플의 질문은 " + Fake.MAX_QUESTIONS + "개가 필요해요");
+            }
+            if (questionChoices.size() != questions.size()) {
+                throw new IllegalStateException("가짜 AI 샘플의 답변 카드는 질문마다 하나씩(빈 목록 포함) 있어야 해요");
             }
         }
 
