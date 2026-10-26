@@ -16,6 +16,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 | confirm의 `summary`, generate 요청 | 생성기용 정리 | 부모에게 보여 줄 문장. generate에 `context`, `summary` 추가 (7-3, 7-4) |
 | 결과물 파일 이름 | `story.json` 등 | AI가 실제로 쓰는 이름 (9장) |
 | 인터뷰 질문 응답 | `turn`, `question`, `context_update` | `choices`(답변 카드 0~4개) 추가 (7-3) |
+| 위기 신호 판단 (G2) | 없음 (mock만, 아니면 501) | `/safety/check` 진짜 판단, `result.safety`에 완성 본문 판단. `category` 목록 확정 (4장) |
 
 쪽수 이유: 실제 그림책이 9–17 펼침면이라 8쪽은 적었다. AI 프롬프트의 이야기 구조(기 1–2 / 승 3–5 / 전 6–8 / 결 9–10)와 예시가 10쪽 기준이다.
 
@@ -75,7 +76,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 |---|---|---|
 | G0 | 다시 만들기 메모 반영 버그 2개 (character feedback 무시, "3페이지" 인식) | **반영** (FirstoryAI/FIRSTORY_AI_worker#1. 쪽 번호는 쪽·페이지·p가 붙은 숫자와 숫자만 쓴 메모만: FirstoryAI/FIRSTORY_AI_worker#3) |
 | G1 | `interview_finish` 다음에 **생성 전 확인 멈춤 지점** 추가 | **반영** (FirstoryAI/FIRSTORY_AI_worker#2, 노드 `confirm_generate`). 재개 값이 비어 있어도 FastAPI가 그래프에는 `{"action": "generate"}`로 보낸다 |
-| G2 | **위기 신호 판단** 추가 (4장) | [요청] **현재 코드에 전혀 없음.** 프롬프트 설계가 핵심 |
+| G2 | **위기 신호 판단** 추가 (4장) | **반영** (FirstoryAI/FIRSTORY_AI_worker#16, `nodes/safety.py`. 폼·인터뷰 답변·다시 만들기 메모와 완성 본문이 같은 판단 프롬프트를 쓴다) |
 | G3 | **실행별 결과물 경로** (`runs/{run_no}/`) | **반영** (FirstoryAI/FIRSTORY_AI_worker#7. 실행마다 `output_prefix` 아래에 쓴다, 9장) |
 | G4 | 그림만 다시 그릴 때 안 바뀐 쪽은 이전 파일 경로 유지 | **반영** (FirstoryAI/FIRSTORY_AI_worker#7. 캐릭터 시트도 이전 key 유지, 파일 복사 없음) |
 | G5 | `parent_review` 멈춤 시점의 checkpoint_id를 결과에 포함 | **반영** (FirstoryAI/FIRSTORY_AI_worker#12, `result.checkpoint_id`) |
@@ -102,8 +103,22 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 { "safety": { "level": "REVISE", "category": "harmful_discipline", "reason": "공포로 행동을 바꾸게 하는 훈육이 담겨 있어요" } }
 ```
 
-- `reason`은 **부모에게 그대로 보여줄 수 있는 문장**으로. 판단·진단 표현은 쓰지 않는다.
-- **[결정 필요]** `category` 값 목록. 제안: `violence`, `harmful_discipline`, `discrimination`, `illegal`, `self_harm`, `abuse_neglect`, `harm_intent`, `other`
+- `reason`은 **부모에게 그대로 보여줄 수 있는 문장**으로. 판단·진단 표현은 쓰지 않는다. OK면 null.
+- **[확정]** `category`는 REVISE·CRISIS일 때만 붙는다 (OK·SENSITIVE는 null).
+
+| category | 뜻 |
+|---|---|
+| `violence` | 폭력을 해결책으로 그리거나 미화 |
+| `harmful_discipline` | 체벌·위협·공포·수치심 훈육 |
+| `discrimination` | 차별·혐오 |
+| `illegal` | 불법·위험 행동 미화 |
+| `blame_child` | 죽음·이혼·질병 같은 일을 아이 탓으로 |
+| `self_harm` | 아이의 자해·자살 언급 |
+| `abuse_neglect` | 학대·방임 정황 |
+| `harm_intent` | 아이를 해치려는 의도 |
+| `other` | 그 밖 |
+
+- 완성 본문 판단(`result.safety`)에는 SENSITIVE가 없다. 무거운 주제를 따뜻하게 다룬 본문은 OK다. 그림만 다시 그린 실행은 글이 그대로라 지난 판단을 그대로 준다.
 
 ### 검사 위치 (네 곳)
 
@@ -139,7 +154,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 | 500 | INTERNAL_ERROR | |
 | 404 | NOT_FOUND | 없는 경로 (연동 버그) |
 | 405 | METHOD_NOT_ALLOWED | 경로는 맞는데 메서드가 다름 (연동 버그) |
-| 501 | NOT_IMPLEMENTED | 아직 없는 기능. 지금은 mock이 아닐 때 `/v1/safety/check` (G2 전까지) |
+| 501 | NOT_IMPLEMENTED | 아직 없는 기능. G2가 들어가 지금 나가는 곳은 없다 (전에는 mock이 아닐 때 `/v1/safety/check`) |
 
 - Spring은 404를 code가 `THREAD_NOT_FOUND`일 때만 상태 불일치(`AI_STATE_MISMATCH`)로 보고, `NOT_FOUND`·405·501은 `AI_UNAVAILABLE`과 경고 로그로 처리한다 (`HttpAiClient`)
 
@@ -422,7 +437,7 @@ Spring                                        AI
 5. 인터뷰 API (7-2, 7-3) — `viewer/app.py`의 `run_until_pause`를 옮기면 됨
 6. 생성, 상태, 결과 API (7-4~7-6)
 7. review, retry (7-7, 7-8)
-8. G2 위기 신호 판단과 /safety/check
+8. ~~G2 위기 신호 판단과 /safety/check~~ (반영)
 9. G7 PostgresSaver (출시 전)
 
 ## 13. 남은 결정
@@ -431,7 +446,7 @@ Spring                                        AI
 |---|---|---|
 | D1 | FastAPI를 누가 만들지 | 팀 |
 | D2 | FastAPI 배포 위치 | 팀 |
-| D3 | 위기 신호 판단(G2)을 누가 맡을지. 프롬프트 설계라 AI 담당 추천 | 팀 |
-| D4 | safety `category` 값 목록 | AI 담당, PM |
+| D3 | ~~위기 신호 판단(G2)을 누가 맡을지~~ AI 담당이 만듦 | 팀 |
+| D4 | ~~safety `category` 값 목록~~ 4장에 확정 (PM 검토는 남음) | AI 담당, PM |
 | D5 | `tone`을 design_story에 전달하는 방식 | AI 담당 |
 | D6 | 이미지 설정의 실제 운영값 (.env) | AI 담당 |
