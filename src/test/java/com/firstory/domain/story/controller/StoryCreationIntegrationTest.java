@@ -72,6 +72,8 @@ class StoryCreationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.type").value("QUESTION"))
                 .andExpect(jsonPath("$.turn").value(1))
                 .andExpect(jsonPath("$.question").value(FakeAiClient.FIRST_QUESTION))
+                .andExpect(jsonPath("$.choices").value(contains(
+                        FakeAiClient.SAMPLE.questionChoices().getFirst().toArray())))
                 .andExpect(jsonPath("$.summary").value(nullValue()))
                 .andExpect(jsonPath("$.safety").value(nullValue()));
         answer(id, "같이 놀자고 했는데 대답을 안 해줬대요.").andExpect(jsonPath("$.turn").value(2))
@@ -82,7 +84,8 @@ class StoryCreationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.status").value("CONFIRMING"))
                 .andExpect(jsonPath("$.type").value("CONFIRM"))
                 .andExpect(jsonPath("$.summary").value(FakeAiClient.SUMMARY))
-                .andExpect(jsonPath("$.turn").value(nullValue()));
+                .andExpect(jsonPath("$.turn").value(nullValue()))
+                .andExpect(jsonPath("$.choices").isEmpty());
 
         assertThat(jdbc.queryForObject("SELECT count(*) FROM interview_turns WHERE story_id = ? AND answer IS NOT NULL",
                 Integer.class, id)).isEqualTo(3);
@@ -205,6 +208,7 @@ class StoryCreationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.type").value("QUESTION"))
                 .andExpect(jsonPath("$.turn").value(1))
                 .andExpect(jsonPath("$.question").value(FakeAiClient.FIRST_QUESTION))
+                .andExpect(jsonPath("$.choices").isEmpty())   // 카드는 저장하지 않아 다시 줄 수 없다
                 .andExpect(jsonPath("$.safety.action").value("ASK_REVISE"))
                 .andExpect(jsonPath("$.safety.reason").isNotEmpty());
 
