@@ -120,12 +120,14 @@ class HttpAiClientTest {
                 .andExpect(header(HttpAiClient.TOKEN_HEADER, TOKEN))
                 .andExpect(request -> bodies.add(((MockClientHttpRequest) request).getBodyAsString()))
                 .andRespond(withSuccess("""
-                        {"type": "question", "turn": 1, "question": "무슨 일이 있었나요?", "context_update": null}""",
+                        {"type": "question", "turn": 1, "question": "무슨 일이 있었나요?",
+                         "choices": ["친구랑 다퉜어요", "넘어졌어요"], "context_update": null}""",
                         MediaType.APPLICATION_JSON));
 
         InterviewReply reply = client.startInterview(THREAD_ID, runId, contextOfChildNamed("콩이"), Tone.WARM);
 
-        assertThat(reply).isEqualTo(InterviewReply.question(1, "무슨 일이 있었나요?", null));
+        assertThat(reply).isEqualTo(
+                InterviewReply.question(1, "무슨 일이 있었나요?", List.of("친구랑 다퉜어요", "넘어졌어요"), null));
         String body = bodies.getFirst();
         assertThat(body).doesNotContain("콩이");
         JsonNode json = JSON.readTree(body);
@@ -174,6 +176,21 @@ class HttpAiClientTest {
         assertThat(reply.turn()).isEqualTo(2);
         assertThat(reply.question()).isEqualTo("그때 아이는 어떤 표정이었나요?");
         assertThat(reply.contextUpdate()).isEqualTo(Map.of("moment", Map.of("emotions", List.of("sad"))));
+        assertThat(reply.choices()).isEmpty();   // choices가 없는 응답도 받는다
+        server.verify();
+    }
+
+    @Test
+    void 답변_카드는_빈_것과_겹치는_것을_빼고_4개까지() {
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/answer"))
+                .andRespond(withSuccess("""
+                        {"type": "question", "turn": 2, "question": "어떤 마음이었을까요?",
+                         "choices": [" 속상했어요 ", "", null, "속상했어요", "무서웠어요", "화났어요", "잘 모르겠어요", "부끄러웠어요"],
+                         "context_update": null}""", MediaType.APPLICATION_JSON));
+
+        InterviewReply reply = client.answerInterview(THREAD_ID, "울었어요");
+
+        assertThat(reply.choices()).containsExactly("속상했어요", "무서웠어요", "화났어요", "잘 모르겠어요");
         server.verify();
     }
 
@@ -192,6 +209,7 @@ class HttpAiClientTest {
         assertThat(reply.summary()).isEqualTo("요약");
         assertThat(reply.endReason()).isEqualTo(InterviewEndReason.USER_SKIP);
         assertThat(reply.finalContext()).isEqualTo(Map.of("parent", Map.of("message_direction", "comfort_first")));
+        assertThat(reply.choices()).isEmpty();
         server.verify();
     }
 

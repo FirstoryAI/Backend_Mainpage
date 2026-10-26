@@ -279,7 +279,8 @@ public class HttpAiClient implements AiClient {
         }
         try {
             return switch (body.type()) {
-                case "question" -> InterviewReply.question(body.turn(), body.question(), body.contextUpdate());
+                case "question" -> InterviewReply.question(body.turn(), body.question(), body.choices(),
+                        body.contextUpdate());
                 case "confirm" -> InterviewReply.confirm(body.summary(),
                         InterviewEndReason.valueOf(body.endReason().toUpperCase(Locale.ROOT)), body.context());
                 default -> throw new IllegalArgumentException("type");
@@ -308,7 +309,7 @@ public class HttpAiClient implements AiClient {
     record SafetyBody(String level, String category, String reason) {
     }
 
-    record InterviewBody(String type, Integer turn, String question,
+    record InterviewBody(String type, Integer turn, String question, List<String> choices,
                          @JsonProperty("context_update") Map<String, Object> contextUpdate,
                          String summary,
                          @JsonProperty("end_reason") String endReason,
