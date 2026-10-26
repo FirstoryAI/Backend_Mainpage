@@ -75,13 +75,13 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 
 | # | 변경 | 상태 |
 |---|---|---|
-| G0 | 다시 만들기 메모 반영 버그 2개 (character feedback 무시, "3페이지" 인식) | **반영** (FirstoryAI/FIRSTORY_AI_worker#1. 쪽 번호는 쪽·페이지·p가 붙은 숫자와 숫자만 쓴 메모만: FirstoryAI/FIRSTORY_AI_worker#3) |
-| G1 | `interview_finish` 다음에 **생성 전 확인 멈춤 지점** 추가 | **반영** (FirstoryAI/FIRSTORY_AI_worker#2, 노드 `confirm_generate`). 재개 값이 비어 있어도 FastAPI가 그래프에는 `{"action": "generate"}`로 보낸다 |
-| G2 | **위기 신호 판단** 추가 (4장) | **반영** (FirstoryAI/FIRSTORY_AI_worker#16, `nodes/safety.py`. 폼·인터뷰 답변·다시 만들기 메모와 완성 본문이 같은 판단 프롬프트를 쓴다) |
-| G3 | **실행별 결과물 경로** (`runs/{run_no}/`) | **반영** (FirstoryAI/FIRSTORY_AI_worker#7. 실행마다 `output_prefix` 아래에 쓴다, 9장) |
-| G4 | 그림만 다시 그릴 때 안 바뀐 쪽은 이전 파일 경로 유지 | **반영** (FirstoryAI/FIRSTORY_AI_worker#7. 캐릭터 시트도 이전 key 유지, 파일 복사 없음) |
-| G5 | `parent_review` 멈춤 시점의 checkpoint_id를 결과에 포함 | **반영** (FirstoryAI/FIRSTORY_AI_worker#12, `result.checkpoint_id`) |
-| G6 | mock 모드를 환경 변수로 켜기 (5장) | **반영** (FirstoryAI/FIRSTORY_AI_worker#5, `FIRSTORY_MOCK=true`. FastAPI 뼈대와 `/health`, `/v1/safety/check` 포함) |
+| G0 | 다시 만들기 메모 반영 버그 2개 (character feedback 무시, "3페이지" 인식) | **반영** (FirstoryAI/AI_worker#1. 쪽 번호는 쪽·페이지·p가 붙은 숫자와 숫자만 쓴 메모만: FirstoryAI/AI_worker#3) |
+| G1 | `interview_finish` 다음에 **생성 전 확인 멈춤 지점** 추가 | **반영** (FirstoryAI/AI_worker#2, 노드 `confirm_generate`). 재개 값이 비어 있어도 FastAPI가 그래프에는 `{"action": "generate"}`로 보낸다 |
+| G2 | **위기 신호 판단** 추가 (4장) | **반영** (FirstoryAI/AI_worker#16, `nodes/safety.py`. 폼·인터뷰 답변·다시 만들기 메모와 완성 본문이 같은 판단 프롬프트를 쓴다) |
+| G3 | **실행별 결과물 경로** (`runs/{run_no}/`) | **반영** (FirstoryAI/AI_worker#7. 실행마다 `output_prefix` 아래에 쓴다, 9장) |
+| G4 | 그림만 다시 그릴 때 안 바뀐 쪽은 이전 파일 경로 유지 | **반영** (FirstoryAI/AI_worker#7. 캐릭터 시트도 이전 key 유지, 파일 복사 없음) |
+| G5 | `parent_review` 멈춤 시점의 checkpoint_id를 결과에 포함 | **반영** (FirstoryAI/AI_worker#12, `result.checkpoint_id`) |
+| G6 | mock 모드를 환경 변수로 켜기 (5장) | **반영** (FirstoryAI/AI_worker#5, `FIRSTORY_MOCK=true`. FastAPI 뼈대와 `/health`, `/v1/safety/check` 포함) |
 | G7 | 운영 전 `SqliteSaver` → `PostgresSaver` | [요청] 출시 전 |
 
 ## 4. 위기 신호 판단 (G2)
@@ -356,7 +356,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 
 ## 8. 버전 되돌리기와 fork [확정]
 
-AI 서버 구현(FirstoryAI/FIRSTORY_AI_worker#13)에서 확인한 동작:
+AI 서버 구현(FirstoryAI/AI_worker#13)에서 확인한 동작:
 
 - `parent_review`에서 멈춘 v1 → 다시 만들기로 v2 → v1의 checkpoint_id에서 다시 만들기 → v1에서 갈라진 v3가 생긴다. **v2 체크포인트와 파일도 그대로 남는다**
 - 갈래는 멈춘 interrupt를 `Command(resume=...)`로 풀어서 만들지 **않는다.** LangGraph(1.2)는 한 번 재개한 체크포인트를 다시 재개하면 처음 재개 값을 그대로 다시 쓴다. 그래서 v1에서 두 번째로 다시 만들면 첫 번째 다시 만들기(v2)가 되풀이된다
