@@ -39,7 +39,7 @@ docker compose up -d                                                        # .e
 
 `.env`와 `application-local.yml`은 커밋하지 않는다. 설정을 바꾸면 `.example` 파일도 함께 고친다.
 
-전체 흐름 실제 확인(smoke): 서버를 `FIRSTORY_AI_FAKE_STAGE_DURATION=5s ./gradlew bootRun --args='--spring.profiles.active=local'`로 띄우고 다른 창에서 `bash scripts/smoke-local.sh`(Git Bash, curl만 필요). `docs/frontend/firstory.http`, `FullJourneyIntegrationTest`와 같은 순서로 35단계를 돌고 그림이 실제 PNG인지도 본다. 진짜 AI 서버와 붙였으면(`FIRSTORY_AI_MODE=http`, AI 서버의 `FIRSTORY_OUTPUT_ROOT`와 `STORAGE_LOCAL_ROOT`를 같은 폴더로) `AI_MODE=http bash scripts/smoke-local.sh`로 돌린다. 가짜 AI만 만드는 샘플 제목과 `(다시 n)`은 확인하지 않는다. API 흐름을 바꾸면 세 곳을 함께 고친다. Windows에서 curl로 한글 본문을 보낼 때는 인자가 아니라 파일(`--data-binary @file`)로 보낸다(코드 페이지 때문에 깨진다).
+전체 흐름 실제 확인(smoke): 서버를 `FIRSTORY_AI_FAKE_STAGE_DURATION=5s ./gradlew bootRun --args='--spring.profiles.active=local'`로 띄우고 다른 창에서 `bash scripts/smoke-local.sh`(Git Bash, curl만 필요). `docs/frontend/firstory.http`, `FullJourneyIntegrationTest`와 같은 순서로 35단계를 돌고 그림이 실제 PNG인지도 본다. 진짜 AI 서버와 붙였으면(`FIRSTORY_AI_MODE=http`, AI 서버의 `FIRSTORY_OUTPUT_ROOT`와 `STORAGE_LOCAL_ROOT`를 같은 폴더로) `AI_MODE=http bash scripts/smoke-local.sh`로 돌린다. 가짜 AI만 만드는 샘플 제목과 `(다시 n)`은 확인하지 않는다. 진짜 AI는 인터뷰 시작에서 질문 없이 바로 CONFIRM을 줄 수 있어 smoke는 질문 0~5개를 모두 통과시킨다. API 흐름을 바꾸면 세 곳을 함께 고친다. Windows에서 curl로 한글 본문을 보낼 때는 인자가 아니라 파일(`--data-binary @file`)로 보낸다(코드 페이지 때문에 깨진다).
 
 ### 개발 서버 (dev 프로필, Railway)
 
