@@ -16,6 +16,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 | confirm의 `summary`, generate 요청 | 생성기용 정리 | 부모에게 보여 줄 문장. generate에 `context`, `summary` 추가 (7-3, 7-4) |
 | 결과물 파일 이름 | `story.json` 등 | AI가 실제로 쓰는 이름 (9장) |
 | 인터뷰 질문 응답 | `turn`, `question`, `context_update` | `choices`(답변 카드 0~4개) 추가 (7-3) |
+| 글 다시 만들기의 그림 | 12장 전부 새로 | 장면이 바뀐 쪽만 새로, 나머지 쪽·시트는 이전 실행 key (7-6, 9장) |
 | 위기 신호 판단 (G2) | 없음 (mock만, 아니면 501) | `/safety/check` 진짜 판단, `result.safety`에 완성 본문 판단. `category` 목록 확정 (4장) |
 
 쪽수 이유: 실제 그림책이 9–17 펼침면이라 8쪽은 적었다. AI 프롬프트의 이야기 구조(기 1–2 / 승 3–5 / 전 6–8 / 결 9–10)와 예시가 10쪽 기준이다.
@@ -311,7 +312,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 - review interrupt payload에는 이미지 정보가 없으므로 `graph.get_state(cfg).values["illustrations"]`에서 읽어 합친다
 - `checkpoint_id`: `parent_review`에서 멈춘 시점 (`get_state(cfg).config["configurable"]["checkpoint_id"]`)
 - `safety`: 완성 본문 판단 (4장)
-- 그림만 다시 그린 경우, 안 바뀐 쪽의 `image_path`는 이전 실행 경로 그대로 (G4)
+- 그림만 다시 그린 경우, 안 바뀐 쪽의 `image_path`는 이전 실행 경로 그대로 (G4). 글 다시 만들기도 장면(그림 지시·등장인물)이 바뀐 쪽만 새로 그리고 나머지 쪽과 캐릭터 시트는 이전 실행 경로 그대로
 
 ### 7-7. POST /v1/threads/{thread_id}/review
 
@@ -394,7 +395,7 @@ graph.invoke(None, branch)   # 실제로는 백그라운드에서 stream으로 �
 
 - AI는 파일을 모두 저장소 루트(`FIRSTORY_OUTPUT_ROOT`) 기준 key로 읽고 쓴다. 쓰는 곳은 AI 저장소 `storage.py` 하나라 S3로 바꿀 때 그 파일만 바꾼다
 - Spring은 이 JSON 파일을 읽지 않는다. 결과는 `/result`로 받고, 그림은 결과에 든 key로만 찾는다
-- 그림만 다시 그린 실행은 새로 그린 쪽만 이 폴더에 있고, 안 바뀐 쪽과 캐릭터 시트는 이전 실행의 key를 가리킨다 (G4)
+- 그림만 다시 그린 실행과 글 다시 만들기 실행은 새로 그린 쪽만 이 폴더에 있고, 안 바뀐 쪽과 캐릭터 시트는 이전 실행의 key를 가리킨다 (G4)
 - `book.html`은 운영에서 필요 없다 (프론트가 JSON으로 그림). 이전 실행 폴더의 그림도 상대 경로로 이어서 보인다
 
 ## 10. LangSmith
