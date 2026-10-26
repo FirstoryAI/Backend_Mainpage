@@ -12,6 +12,7 @@
 #
 # 환경 변수: BASE_URL(기본 http://localhost:8081), GENERATION_TIMEOUT(초, 기본 300),
 #           AI_MODE(fake | http, 기본 fake. http면 가짜 AI만 만드는 샘플 제목은 확인하지 않는다)
+#           인터뷰 질문 수는 0~5개 어느 쪽이든 통과한다 (진짜 AI는 질문 없이 바로 확인으로 넘어갈 수 있다)
 # 성공하면 0, 실패하면 실패한 단계와 응답을 보여 주고 1로 끝난다.
 
 set -u
@@ -197,13 +198,24 @@ ok
 step "인터뷰 시작 (POST interview/start)"
 call POST "$STORY/interview/start"
 expect 200
-contains '"status":"INTERVIEWING"'
-contains '"turn":1'
-ok
+# 진짜 AI는 입력만으로 충분하면 질문 없이 바로 CONFIRM을 준다 (스펙 7-2). 가짜 AI는 항상 질문 1부터
+case "$BODY" in
+    *'"type":"CONFIRM"'*)
+        contains '"status":"CONFIRMING"'
+        INTERVIEW_DONE=true
+        ok "질문 없이 바로 확인"
+        ;;
+    *)
+        contains '"status":"INTERVIEWING"'
+        contains '"turn":1'
+        INTERVIEW_DONE=false
+        ok
+        ;;
+esac
 
 step "인터뷰 답변 (CONFIRMING까지)"
 ANSWERS=0
-while :; do
+while [ "$INTERVIEW_DONE" = false ]; do
     call POST "$STORY/interview/answer" '{"answer":"문 앞에서 한참 서 있었어요"}'
     expect 200
     ANSWERS=$((ANSWERS + 1))

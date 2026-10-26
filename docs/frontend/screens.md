@@ -160,7 +160,7 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `POST /api/stories/{id}/interview/start` | `status: "INTERVIEWING"`, `turn: 1`, `question` |
+| 들어올 때 | `POST /api/stories/{id}/interview/start` | 답변과 같은 `InterviewResponse`. 보통 `type: "QUESTION"`, `status: "INTERVIEWING"`, `turn: 1`, `question`. **바로 `type: "CONFIRM"`일 수 있다**(아래) |
 | 답변 | `POST /api/stories/{id}/interview/answer` `{answer: "..."}` (500자) | 아래 |
 | 건너뛰기 | `POST /api/stories/{id}/interview/answer` `{skip: true}` | 인터뷰가 끝난다 |
 
@@ -168,7 +168,8 @@
 
 - `type: "QUESTION"` → `question`을 다음 질문으로 보여 준다. `turn`이 질문 번호.
 - `type: "CONFIRM"` → 인터뷰 끝. `status`가 `CONFIRMING`, `summary`("이번 이야기에서 나누고 싶은 것", 부모에게 보여 줄 해요체 문장) → CRT-06.
-- **질문 수는 1~5개로 정해져 있지 않다.** "3/5" 같은 고정 진행 표시를 하지 않는다.
+- **질문 수는 0~5개 사이에서 동화마다 다르다.** "3/5" 같은 고정 진행 표시를 하지 않는다.
+- **질문이 0개일 수 있다.** AI가 앞서 받은 입력만으로 충분하다고 보면 인터뷰 시작 응답이 바로 `type: "CONFIRM"`, `status: "CONFIRMING"`, `summary`다. 이때는 채팅 화면을 열지 않고 CRT-06으로 간다. 가짜 AI(local, dev)는 항상 질문 1부터 시작하므로 진짜 AI를 붙였을 때만 나온다.
 - 응답이 수 초 걸린다(가짜 AI도 2초). 로딩 표시와 **중복 클릭 방지** 필수. 두 번 보내면 409 `AI_BUSY`.
 - `ASK_REVISE`면 `question`에 같은 질문이 다시 온다. `CHOOSE_TONE`이면 진행하면서 `toneRequired: true`(CRT-06 전에 ST-04).
 - AI 오류(503 `AI_UNAVAILABLE`, 409 `AI_BUSY`)면 아무것도 저장되지 않았으니 같은 답변으로 다시 보내면 된다.
