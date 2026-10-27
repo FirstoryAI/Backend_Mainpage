@@ -1,5 +1,8 @@
 server:
   port: ${SERVER_PORT:${PORT:8080}}   # SERVER_PORT가 없으면 PORT(Railway가 넣어 준다), 둘 다 없으면 8080
+  # 앞단 프록시(Railway 등)가 https를 받아 http로 넘기므로 X-Forwarded-* 헤더로 원래 주소를 찾는다.
+  # 없으면 Swagger의 서버 주소가 http://가 되어 https 화면에서 요청이 막힌다. 코드는 접속자 IP와 scheme을 쓰지 않는다
+  forward-headers-strategy: framework
 
 spring:
   application:

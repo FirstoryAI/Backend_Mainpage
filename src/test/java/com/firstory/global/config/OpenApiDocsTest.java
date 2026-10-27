@@ -14,6 +14,7 @@ import java.util.TreeSet;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -88,6 +89,17 @@ class OpenApiDocsTest extends IntegrationTest {
     /**
      * 문서 안의 모든 $ref가 components에 실제로 있는지 본다. 없으면 Swagger UI가 "Could not resolve reference"를 낸다.
      */
+    @Test
+    void 프록시_뒤에서는_문서의_서버_주소가_원래_https_주소다() throws Exception {
+        // Railway처럼 https를 받아 http로 넘기는 프록시 (forward-headers-strategy: framework)
+        mockMvc.perform(get("/v3/api-docs")
+                        .header("X-Forwarded-Proto", "https")
+                        .header("X-Forwarded-Host", "api.example.com")
+                        .header("X-Forwarded-Port", "443"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.servers[0].url").value("https://api.example.com"));
+    }
+
     @Test
     void 가입_동의_예시는_실제_동의_항목_키다() throws Exception {
         JsonNode consents = schemas().path("SignupRequest").path("properties").path("consents");
