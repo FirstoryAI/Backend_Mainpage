@@ -38,7 +38,12 @@ dev 프로필(`application-dev.yml`)이 하는 일:
 | `AI_MODE` | 선택 | 아니오 | `fake` 또는 `http`. dev 기본 `fake` | `fake` |
 | `AI_BASE_URL` | `http`일 때 | 아니오 | AI 서버(FastAPI) 주소 | (`fake`면 비움) |
 | `AI_INTERNAL_TOKEN` | `http`일 때 | **예** | `X-Internal-Token`. `http`인데 비면 기동 실패 | (`fake`면 비움) |
-| `STORAGE_LOCAL_ROOT` | 선택 | 아니오 | 그림 파일 폴더. 기본 `./data/storage` (이미지 안에서 `/app/data/storage`) | `/app/data/storage` |
+| `STORAGE_TYPE` | 선택 | 아니오 | 파일 저장소. `local`(기본) 또는 `s3`. 진짜 AI(`AI_MODE=http`)를 붙이면 `s3` (AI 서버와 컴퓨터가 달라 폴더를 같이 못 쓴다) | `local` |
+| `STORAGE_LOCAL_ROOT` | 선택 | 아니오 | `local`일 때 그림 파일 폴더. 기본 `./data/storage` (이미지 안에서 `/app/data/storage`) | `/app/data/storage` |
+| `STORAGE_S3_BUCKET` | `s3`일 때 | 아니오 | S3 버킷 이름. `s3`인데 비면 기동 실패. AI 서버와 같은 버킷 | (`local`이면 비움) |
+| `STORAGE_S3_REGION` | 선택 | 아니오 | S3 리전. 기본 `ap-northeast-2`(서울) | (비움) |
+| `AWS_ACCESS_KEY_ID` | `s3`일 때 | 아니오 | 그 버킷만 읽고 쓰는 IAM 사용자의 액세스 키 | (`local`이면 비움) |
+| `AWS_SECRET_ACCESS_KEY` | `s3`일 때 | **예** | 위 액세스 키의 비밀 키 | (`local`이면 비움) |
 | `SERVER_PORT` | 선택 | 아니오 | 서버 포트. 없으면 `PORT`, 둘 다 없으면 8080. Railway는 `PORT`를 넣어 주므로 비워 둔다 | (비움) |
 | `MAX_REGENERATIONS` | 선택 | 아니오 | 다시 만들기 최대 횟수. 기본 1 (기획 확정) | (비움) |
 | `FIRSTORY_AI_FAKE_STAGE_DURATION` | 선택 | 아니오 | 가짜 AI 생성 단계 시간. dev 기본 `40s`. 빠르게 보고 싶으면 줄인다 | `40s` |
@@ -48,9 +53,11 @@ dev 프로필(`application-dev.yml`)이 하는 일:
 
 넣지 않는 것: `firstory.sms.local-fixed-code`는 `application-dev.yml`에 이미 `000000`으로 있다. 고정 인증번호는 local, dev 프로필에서만 허용되고 다른 프로필(prod 등, 프로필 없음 포함)에 설정되면 기동이 실패한다.
 
-## 그림 파일 (볼륨)
+## 그림 파일 (볼륨 또는 S3)
 
-가짜 AI가 만든 그림은 `STORAGE_LOCAL_ROOT`에 쓴다. Railway 컨테이너의 파일은 다시 배포하면 사라지므로, 지우면 이미 만든 동화의 그림이 404가 난다. 유지하려면 서비스에 **Volume**을 `/app/data/storage`로 붙인다.
+진짜 AI 서버를 붙이면(`AI_MODE=http`) `STORAGE_TYPE=s3`로 둔다. AI 서버가 쓴 그림을 Spring이 읽어야 하는데, Railway는 서비스마다 컴퓨터가 달라 볼륨을 같이 쓸 수 없다. S3를 쓰면 아래 볼륨은 필요 없다.
+
+가짜 AI만 쓸 때(`local`): 가짜 AI가 만든 그림은 `STORAGE_LOCAL_ROOT`에 쓴다. Railway 컨테이너의 파일은 다시 배포하면 사라지므로, 지우면 이미 만든 동화의 그림이 404가 난다. 유지하려면 서비스에 **Volume**을 `/app/data/storage`로 붙인다.
 
 이미지는 root가 아닌 `firstory` 사용자로 돈다. 볼륨을 붙였는데 그림 저장이 권한 오류로 실패하면 서비스 변수에 `RAILWAY_RUN_UID=0`을 넣는다 (Railway 볼륨은 root 소유로 붙는다).
 

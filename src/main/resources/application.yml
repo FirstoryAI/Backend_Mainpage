@@ -56,7 +56,11 @@ firstory:
     poll-interval: 5s                           # AI에 진행 상태를 묻는 간격
     timeout: 15m                                # 시작하고 이 시간이 지나도 RUNNING이면 실패 처리
   storage:
+    type: ${STORAGE_TYPE:local}                         # local | s3. 진짜 AI 서버와 다른 컴퓨터면 s3 (AI 서버도 같은 버킷)
     local-root: ${STORAGE_LOCAL_ROOT:./data/storage}   # 그림 파일 저장 폴더 (커밋하지 않는다)
+    s3:
+      bucket: ${STORAGE_S3_BUCKET:}                     # type=s3면 필수
+      region: ${STORAGE_S3_REGION:ap-northeast-2}       # 접근 키는 AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (또는 EC2 IAM 역할)
   web:
     cookie-secure: ${COOKIE_SECURE:false}                      # 운영은 true
     cookie-domain: ${COOKIE_DOMAIN:}                           # API를 서브도메인으로 나눌 때만 설정
@@ -93,4 +97,5 @@ firstory:
   generation:
     poll-enabled: false
   storage:
+    type: local
     local-root: build/test-storage
