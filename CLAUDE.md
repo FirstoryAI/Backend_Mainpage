@@ -103,6 +103,7 @@ com.firstory
 - `flyway-core`, `flyway-database-postgresql`, Testcontainers, Hibernate 등 BOM이 관리하는 라이브러리에 **버전을 직접 적지 않는다.** 버전이 섞이면 Flyway가 PostgreSQL을 인식하지 못하는 오류가 난다.
 - 의존성을 바꾼 뒤에는 `./gradlew dependencyInsight --dependency flyway`로 flyway 모듈들의 버전이 모두 같은지 확인한다.
 - 예외: springdoc-openapi는 BOM에 없어서 버전을 적는다(`3.1.1`). springdoc 3.1.x가 Spring Boot 4.1 기준이다. Spring Boot를 올릴 때 springdoc 릴리스 노트에서 호환 버전을 다시 확인한다.
+- 예외: AWS SDK(S3)도 BOM에 없어서 AWS BOM(`software.amazon.awssdk:bom`)에만 버전을 적고 모듈(`s3`)에는 적지 않는다.
 
 ## 스키마 규칙
 
@@ -182,9 +183,11 @@ com.firstory
 
 ## 파일 저장소와 그림 API
 
-- 파일은 `global.storage.FileStorage`로만 읽고 쓴다. 지금은 `LocalFileStorage`(`firstory.storage.local-root`, 기본 `./data/storage`, test는 `build/test-storage`). S3는 같은 인터페이스로 나중에 추가하고 그림 API 주소와 동작은 그대로 둔다.
+- 파일은 `global.storage.FileStorage`로만 읽고 쓴다. `firstory.storage.type`(`STORAGE_TYPE`)으로 고른다(`StorageConfig`). 그림 API 주소와 동작은 어느 쪽이든 같다.
+  - `local`(기본): `LocalFileStorage`(`firstory.storage.local-root`, 기본 `./data/storage`, test는 `build/test-storage`). 진짜 AI 서버와 같은 컴퓨터에서 같은 폴더를 볼 때만 쓴다.
+  - `s3`: `S3FileStorage`. `STORAGE_S3_BUCKET`(필수, 비면 기동하지 않는다), `STORAGE_S3_REGION`(기본 `ap-northeast-2`). key가 그대로 객체 key다. AI 서버도 같은 버킷에 쓴다(AI 저장소 `FIRSTORY_STORAGE=s3`). 접근 키는 설정 파일에 두지 않고 AWS 기본 방식(`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` 환경 변수, EC2는 IAM 역할)으로 찾는다. 버킷은 공개하지 않는다(그림은 그림 API로만 내려준다).
 - key 형식은 `stories/{storyId}/runs/{runNo}/images/page-01.png`, `.../images/sheet-{role}-{n}.png` (`StoryFiles`). AI에 넘기는 `output_prefix`도 `StoryFiles.runPrefix`로 만든다.
-- `LocalFileStorage`는 `..`, 절대 경로, 역슬래시, `:`가 있는 key를 거부하고, `normalize()`한 경로가 루트 밖이면 한 번 더 거부한다.
+- key 검사는 `StorageKeys.validate` 하나로 한다(`..`, 빈 칸, 절대 경로, 역슬래시, `:` 거부. AI 저장소 `storage.py`와 같은 기준). `LocalFileStorage`는 `normalize()`한 경로가 루트 밖이면 한 번 더 거부한다.
 - 그림 API(`/api/stories/{id}/versions/{versionId}/pages/{pageNo}/image`, `/character-sheet`): 내 동화(`findByIdAndUserId`) → 그 동화의 버전 → 그 버전의 쪽 순서로 확인하고 하나라도 아니면 404. **파일 위치는 DB에 저장된 key로만 찾는다.** key가 `stories/{storyId}/`로 시작하는지 한 번 더 본다. 헤더는 `image/png`, `nosniff`, `private, max-age=3600`, `inline`. 오류를 JSON으로 내려야 해서 `produces`를 걸지 않는다.
 - **응답 어디에도 파일 key나 서버 경로를 넣지 않는다.** 주소는 DB id로만 만든다(`StoryImageUrls`).
 
@@ -243,7 +246,10 @@ com.firstory
 | `AI_MODE` | `http` (local, test, dev 프로필은 `fake`) | `http` | AI 클라이언트 구현 |
 | `AI_BASE_URL` | `http://localhost:8000` | AI 서버 주소 | FastAPI 기본 주소 |
 | `AI_INTERNAL_TOKEN` | (비움) | 비밀값 | `X-Internal-Token`. `http`면 필수 |
-| `STORAGE_LOCAL_ROOT` | `./data/storage` | 그림 파일 폴더 | 로컬 파일 저장소 루트 (S3 전까지) |
+| `STORAGE_TYPE` | `local` | `s3` | 파일 저장소 구현 |
+| `STORAGE_LOCAL_ROOT` | `./data/storage` | 쓰지 않음 | 로컬 파일 저장소 루트 (`local`일 때) |
+| `STORAGE_S3_BUCKET`, `STORAGE_S3_REGION` | (비움), `ap-northeast-2` | 버킷 이름, 리전 | S3 저장소 (`s3`일 때. 버킷은 필수) |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | (비움) | 비밀값 (EC2는 IAM 역할이면 비움) | S3 접근 키. 그 버킷만 읽고 쓰는 IAM 사용자의 키 |
 | `SERVER_PORT` (없으면 `PORT`) | `8080` | 플랫폼이 넣는 값 | 서버 포트. Railway는 `PORT`를 넣어 준다 |
 | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | 로컬 docker compose | 비밀번호는 비밀값 | JDBC 주소, DB 계정. dev는 기본값 없음 |
 | `FIRSTORY_AI_FAKE_STAGE_DURATION` | (local 40s) | 쓰지 않음 | 가짜 AI 생성 단계 시간. smoke 때 `5s`로 덮어쓴다 |

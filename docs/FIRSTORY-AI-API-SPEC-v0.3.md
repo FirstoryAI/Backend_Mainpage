@@ -393,7 +393,7 @@ graph.invoke(None, branch)   # 실제로는 백그라운드에서 stream으로 �
 └── book.html              확인용 미리보기
 ```
 
-- AI는 파일을 모두 저장소 루트(`FIRSTORY_OUTPUT_ROOT`) 기준 key로 읽고 쓴다. 쓰는 곳은 AI 저장소 `storage.py` 하나라 S3로 바꿀 때 그 파일만 바꾼다
+- AI는 파일을 모두 key로 읽고 쓴다(AI 저장소 `storage.py` 하나). 저장소는 양쪽이 같게 맞춘다: 로컬 폴더(AI `FIRSTORY_OUTPUT_ROOT` = Spring `STORAGE_LOCAL_ROOT`) 또는 S3 버킷(AI `FIRSTORY_STORAGE=s3`, `FIRSTORY_S3_BUCKET` = Spring `STORAGE_TYPE=s3`, `STORAGE_S3_BUCKET`). S3는 key가 그대로 객체 key다
 - Spring은 이 JSON 파일을 읽지 않는다. 결과는 `/result`로 받고, 그림은 결과에 든 key로만 찾는다
 - 그림만 다시 그린 실행과 글 다시 만들기 실행은 새로 그린 쪽만 이 폴더에 있고, 안 바뀐 쪽과 캐릭터 시트는 이전 실행의 key를 가리킨다 (G4)
 - `book.html`은 운영에서 필요 없다 (프론트가 JSON으로 그림). 이전 실행 폴더의 그림도 상대 경로로 이어서 보인다

@@ -112,8 +112,18 @@ public record FirstoryProperties(Crypto crypto, Story story, Policy policy, Ai a
     }
 
     /**
-     * @param localRoot 로컬 파일 저장소의 루트 폴더. 그림 파일이 여기에 쌓인다
+     * @param type      local: 로컬 폴더, s3: S3 버킷 (진짜 AI 서버와 다른 컴퓨터에서 돌 때)
+     * @param localRoot 로컬 파일 저장소의 루트 폴더. 그림 파일이 여기에 쌓인다 (type=local)
+     * @param s3        S3 버킷 (type=s3). 접근 키는 여기에 두지 않는다 (S3FileStorage)
      */
-    public record Storage(String localRoot) {
+    public record Storage(StorageType type, String localRoot, S3 s3) {
+
+        public enum StorageType {
+            LOCAL,
+            S3
+        }
+
+        public record S3(String bucket, String region) {
+        }
     }
 }
