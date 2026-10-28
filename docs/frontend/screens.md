@@ -283,11 +283,13 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `GET /api/stories/{id}` | `title, status, label, coverUrl, childDisplayName, situation{category, categoryLabel, timing}, summary, pageCount, createdAt, confirmedAt, readCount, lastReadAt, canRead` |
+| 들어올 때 | `GET /api/stories/{id}` | `title, status, label, coverUrl, childDisplayName, situation{category, categoryLabel, timing}, summary, synopsis, pageCount, createdAt, confirmedAt, readCount, lastReadAt, canRead` |
 | 함께 읽기 | `canRead`가 true일 때 RD-01 | |
 | 대화 가이드 | GDE-01 (REVIEWING·COMPLETED) | |
 | 이 동화 지우기 | `DELETE /api/stories/{id}` → 204 → 서재로 | |
 
+- **"동화 줄거리"에는 `synopsis`를 보여 준다.** 해요체 2~3문장으로 동화 안에서 일어난 일만 담는다. 지금 보여 주는 버전(확정 전에는 미리보기 중인 버전, 확정 뒤에는 확정 버전)의 것이다. 버전이 없거나 줄거리가 생기기 전에 만든 동화는 null이니 그때는 줄거리 칸을 숨긴다.
+- **`summary`는 줄거리가 아니다.** 인터뷰가 만든 "이번 이야기에서 나누고 싶은 것"(부모의 고민을 담은, 부모가 CRT-06에서 확인한 문장)이다. 보여 준다면 그 제목으로 따로 둔다. `synopsis`가 null일 때 `summary`로 대신 채우지 않는다.
 - 지우기는 만드는 중(`REQUESTED`, `GENERATING_TEXT`, `GENERATING_IMAGES`)에는 안 된다(409 `INVALID_STATUS_TRANSITION`).
 - 지운 동화는 모든 API에서 404 `STORY_NOT_FOUND`.
 - BLOCKED 동화도 상세는 열린다(ST-05 재진입용).

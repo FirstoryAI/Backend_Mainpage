@@ -273,7 +273,7 @@ class LibraryIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void 상세는_입력한_상황과_요약을_보여준다() throws Exception {
+    void 상세는_입력한_상황과_요약과_줄거리를_보여준다() throws Exception {
         long id = StoryFlow.completed(parent, poller);
 
         parent.get("/api/stories/" + id)
@@ -281,6 +281,8 @@ class LibraryIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.situation.categoryLabel").value("친구와 다툼"))
                 .andExpect(jsonPath("$.situation.timing").value("PAST"))
                 .andExpect(jsonPath("$.summary").value(FakeAiClient.SUMMARY))
+                // 줄거리는 인터뷰 요약이 아니라 확정 버전의 가이드에서
+                .andExpect(jsonPath("$.synopsis").value(FakeAiClient.SAMPLE.resultGuide().synopsis()))
                 .andExpect(jsonPath("$.childDisplayName").value("아이 A"))
                 .andExpect(jsonPath("$.readCount").value(0))
                 .andExpect(jsonPath("$.lastReadAt").value(nullValue()));
@@ -297,6 +299,7 @@ class LibraryIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.status").value("BLOCKED"))
                 .andExpect(jsonPath("$.label").value("만들 수 없는 이야기"))
                 .andExpect(jsonPath("$.title").value(nullValue()))
+                .andExpect(jsonPath("$.synopsis").value(nullValue()))
                 .andExpect(jsonPath("$.pageCount").value(nullValue()))
                 .andExpect(jsonPath("$.canRead").value(false));
     }

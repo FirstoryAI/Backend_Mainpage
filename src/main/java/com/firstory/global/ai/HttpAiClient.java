@@ -387,7 +387,9 @@ public class HttpAiClient implements AiClient {
                             (String) item.get("text"), (String) item.get("purpose"), (String) item.get("parent_hint")))
                     .toList()
                     : List.of();
-            return new AiGenerationResult.Guide((String) before.get("intent"), (List<String>) before.get("tips"),
+            // 줄거리가 없던 AI 결과는 빈 문자열이나 키 없음 → null
+            String synopsis = guide.get("synopsis") instanceof String text && !text.isBlank() ? text : null;
+            return new AiGenerationResult.Guide(synopsis, (String) before.get("intent"), (List<String>) before.get("tips"),
                     (String) after.get("bridge_question"), (String) after.get("if_undecided"), prompts);
         }
     }

@@ -1,5 +1,7 @@
 package com.firstory.domain.story.service;
 
+import com.firstory.domain.guide.entity.ReadingGuide;
+import com.firstory.domain.guide.repository.ReadingGuideRepository;
 import com.firstory.domain.reading.entity.ReadingSession;
 import com.firstory.domain.reading.repository.ReadingSessionRepository;
 import com.firstory.domain.story.dto.HomeResponse;
@@ -51,6 +53,7 @@ public class LibraryService {
     private final StoryRepository storyRepository;
     private final StoryInputRepository storyInputRepository;
     private final ReadingSessionRepository readingSessionRepository;
+    private final ReadingGuideRepository guideRepository;
     private final UserRepository userRepository;
     private final FirstoryProperties properties;
 
@@ -97,9 +100,11 @@ public class LibraryService {
         Instant lastReadAt = readingSessionRepository.findTopByStoryIdOrderByStartedAtDesc(story.getId())
                 .map(ReadingSession::getStartedAt).orElse(null);
         boolean hasVersion = story.getCurrentVersion() != null;
+        String synopsis = !hasVersion ? null : guideRepository.findByVersionId(story.getCurrentVersion().getId())
+                .map(ReadingGuide::getSynopsis).orElse(null);
         return new StoryDetailResponse(story.getId(), hasVersion ? story.getTitle() : null, story.getStatus(),
                 story.libraryLabel(), StoryCardResponse.coverUrl(story), StoryCardResponse.displayName(story.getChild()),
-                situation, input == null ? null : input.getInterviewSummary(),
+                situation, input == null ? null : input.getInterviewSummary(), synopsis,
                 hasVersion ? properties.story().pageCount() : null, story.getCreatedAt(), story.getConfirmedAt(),
                 readingSessionRepository.countByStoryIdAndCompletedAtIsNotNull(story.getId()), lastReadAt,
                 story.getStatus() == StoryStatus.COMPLETED);

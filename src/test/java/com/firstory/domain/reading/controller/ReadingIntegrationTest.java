@@ -130,7 +130,7 @@ class ReadingIntegrationTest extends IntegrationTest {
                         n == 3 ? TextPosition.TOP : TextPosition.BOTTOM, prefix + "page-0" + n + ".png", "done"))
                 .toList();
         AiGenerationResult result = new AiGenerationResult(1, "cp-1", "제목", null, List.of(), pages,
-                new AiGenerationResult.Guide("의도", List.of("팁"), "다리 질문", null, List.of(
+                new AiGenerationResult.Guide(null, "의도", List.of("팁"), "다리 질문", null, List.of(
                         new AiGenerationResult.Prompt(5, "다섯째 쪽 질문", "action", null),
                         new AiGenerationResult.Prompt(2, "둘째 쪽 질문", "emotion", "힌트"))),
                 null, null);

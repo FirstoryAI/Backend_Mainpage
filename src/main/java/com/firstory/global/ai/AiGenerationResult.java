@@ -43,10 +43,11 @@ public record AiGenerationResult(int runNo, String checkpointId, String title, M
     }
 
     /**
-     * 04-guide.json. before_reading → beforeIntent, beforeTips / after_reading → bridgeQuestion, ifUndecided.
+     * 04-guide.json. synopsis(동화 줄거리, 없으면 null) / before_reading → beforeIntent, beforeTips /
+     * after_reading → bridgeQuestion, ifUndecided.
      */
-    public record Guide(String beforeIntent, List<String> beforeTips, String bridgeQuestion, String ifUndecided,
-                        List<Prompt> prompts) {
+    public record Guide(String synopsis, String beforeIntent, List<String> beforeTips, String bridgeQuestion,
+                        String ifUndecided, List<Prompt> prompts) {
 
         public Guide {
             beforeTips = beforeTips == null ? List.of() : List.copyOf(beforeTips);
