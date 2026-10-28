@@ -62,6 +62,6 @@ public final class Fixtures {
 
     public static StoryVersion version(Story story, GenerationRun run, int versionNo, StoryVersion parent) {
         return StoryVersion.create(story, run, versionNo, parent, "제목 v" + versionNo, "cp-" + versionNo,
-                Map.of("hero", "토끼"), null);
+                Map.of("hero", "토끼"), null, null);
     }
 }

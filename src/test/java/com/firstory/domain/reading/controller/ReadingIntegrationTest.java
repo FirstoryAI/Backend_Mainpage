@@ -129,7 +129,7 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .mapToObj(n -> new AiGenerationResult.Page(n, n + "쪽", null,
                         n == 3 ? TextPosition.TOP : TextPosition.BOTTOM, prefix + "page-0" + n + ".png", "done"))
                 .toList();
-        AiGenerationResult result = new AiGenerationResult(1, "cp-1", "제목", null, List.of(), pages,
+        AiGenerationResult result = new AiGenerationResult(1, "cp-1", "제목", null, null, List.of(), pages,
                 new AiGenerationResult.Guide(null, "의도", List.of("팁"), "다리 질문", null, List.of(
                         new AiGenerationResult.Prompt(5, "다섯째 쪽 질문", "action", null),
                         new AiGenerationResult.Prompt(2, "둘째 쪽 질문", "emotion", "힌트"))),
@@ -161,7 +161,7 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.versionId").value(versionId))
                 .andExpect(jsonPath("$.title").value(FakeAiClient.SAMPLE.title(0)))
                 .andExpect(jsonPath("$.coverUrl").value("/api/stories/" + id + "/versions/" + versionId
-                        + "/character-sheet"))
+                        + "/cover"))
                 .andExpect(jsonPath("$.pageCount").value(10))
                 .andExpect(jsonPath("$.pages", hasSize(10)))
                 .andExpect(jsonPath("$.pages[0].imageUrl").value("/api/stories/" + id + "/versions/" + versionId

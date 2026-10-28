@@ -155,7 +155,7 @@ com.firstory
 - `FakeAiClient`는 고정 동작이고 속도와 질문 수만 `firstory.ai.fake.*`(`FirstoryProperties.Ai.Fake`)로 바꾼다. **test 프로필은 기본값(지연 0, `stage-duration` 0, `turns` 2)이라 아래 동작 그대로다. 테스트가 기대는 동작을 바꾸지 않는다.**
   - 위기 신호는 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`가 있으면 그 level, 없으면 OK.
   - 인터뷰는 질문 1 → 답변 `turns`번까지 다음 질문 → 그다음 답변이나 skip이면 CONFIRM (`turns` 2면 3번째 답변). `turns` 0이면 thread_id 해시로 질문 1~5개. 질문 문장은 `fake-ai/sample-story.json` 순서대로, 답변 카드는 같은 파일의 `questionChoices`(5번째 질문은 카드 없음).
-  - 생성은 design_story → write_story → illustrate → render → REVIEWING (글 다시는 write_story부터, 그림만 다시는 illustrate_only → render). `stage-duration` 0이면 `status`를 부를 때마다 한 단계씩, 0보다 크면 시작 후 지난 시간(`Clock`) / `stage-duration`으로 단계를 정한다. REVIEWING이 될 때 `fake-ai/sample-story.json`(제목, 10쪽 글, 가이드)으로 결과를 만들고 실제 PNG(1920×1088, 진짜 AI와 같은 크기)를 `FileStorage`에 쓴다. 글 자리(`textPosition`)는 3의 배수 쪽만 TOP(AI `mock.py`와 같다). 다시 만들기면 제목 뒤에 `(다시 n)`.
+  - 생성은 design_story → write_story → illustrate → render → REVIEWING (글 다시는 write_story부터, 그림만 다시는 illustrate_only → render). `stage-duration` 0이면 `status`를 부를 때마다 한 단계씩, 0보다 크면 시작 후 지난 시간(`Clock`) / `stage-duration`으로 단계를 정한다. REVIEWING이 될 때 `fake-ai/sample-story.json`(제목, 10쪽 글, 가이드)으로 결과를 만들고 실제 PNG(쪽 1920×1088, 표지 1024×1024, 진짜 AI와 같은 크기)를 `FileStorage`에 쓴다. 그림만 다시(일부 쪽)는 이전 표지 key. 글 자리(`textPosition`)는 3의 배수 쪽만 TOP(AI `mock.py`와 같다). 다시 만들기면 제목 뒤에 `(다시 n)`.
   - 전하고 싶은 말이나 인터뷰 답변의 표시: `[[FAIL]]` 첫 생성 실패, `[[OUTPUT_REVISE]]` 첫 생성 결과의 safety가 REVISE, `[[PAGE_FAIL]]` 첫 생성 결과의 5쪽 그림만 failed, `[[AI_DOWN]]` 위기 신호 검사에서 처음 본 글이면 다음 AI 호출 한 번이 `AI_UNAVAILABLE`(생성 진행 확인 `status`, `result`는 세지 않는다).
   - 지연(`interview-delay`, `safety-delay`)은 `Thread.sleep`이다. local 전용이라 허용한다. thread 상태는 메모리에만 있어 서버를 다시 띄우면 진행 중인 인터뷰와 생성은 이어갈 수 없다. 테스트에서는 `failWith(ErrorCode)`로 장애를, `misdirectOutput()`으로 다른 동화 경로를 흉내 내고(`clearFailure()`로 둘 다 되돌린다), `answerCalls`, `statusCalls`, `lastBaseCheckpointId`로 호출을 본다.
 - **DB 트랜잭션 안에서 AI를 부르지 않는다**(응답이 35초까지 걸려 커넥션을 붙잡는다). ① 트랜잭션으로 조회·검증 → ② 트랜잭션 밖에서 AI 호출 → ③ 새 트랜잭션으로 저장. ③에서 동화를 `StoryRepository.findByIdForUpdate`로 다시 읽어 상태가 바뀌었으면 `INVALID_STATUS_TRANSITION`. AI를 부르는 서비스 메서드에는 `@Transactional`을 달지 않고 `TransactionTemplate`을 쓴다. `AiClient` 구현은 트랜잭션 안에서 불리면 `IllegalStateException`을 던진다(`TransactionGuard`).
@@ -186,9 +186,9 @@ com.firstory
 - 파일은 `global.storage.FileStorage`로만 읽고 쓴다. `firstory.storage.type`(`STORAGE_TYPE`)으로 고른다(`StorageConfig`). 그림 API 주소와 동작은 어느 쪽이든 같다.
   - `local`(기본): `LocalFileStorage`(`firstory.storage.local-root`, 기본 `./data/storage`, test는 `build/test-storage`). 진짜 AI 서버와 같은 컴퓨터에서 같은 폴더를 볼 때만 쓴다.
   - `s3`: `S3FileStorage`. `STORAGE_S3_BUCKET`(필수, 비면 기동하지 않는다), `STORAGE_S3_REGION`(기본 `ap-northeast-2`). key가 그대로 객체 key다. AI 서버도 같은 버킷에 쓴다(AI 저장소 `FIRSTORY_STORAGE=s3`). 접근 키는 설정 파일에 두지 않고 AWS 기본 방식(`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` 환경 변수, EC2는 IAM 역할)으로 찾는다. 버킷은 공개하지 않는다(그림은 그림 API로만 내려준다).
-- key 형식은 `stories/{storyId}/runs/{runNo}/images/page-01.png`, `.../images/sheet-{role}-{n}.png` (`StoryFiles`). AI에 넘기는 `output_prefix`도 `StoryFiles.runPrefix`로 만든다.
+- key 형식은 `stories/{storyId}/runs/{runNo}/images/page-01.png`, `.../images/sheet-{role}-{n}.png`, `.../images/cover.png` (`StoryFiles`). AI에 넘기는 `output_prefix`도 `StoryFiles.runPrefix`로 만든다.
 - key 검사는 `StorageKeys.validate` 하나로 한다(`..`, 빈 칸, 절대 경로, 역슬래시, `:` 거부. AI 저장소 `storage.py`와 같은 기준). `LocalFileStorage`는 `normalize()`한 경로가 루트 밖이면 한 번 더 거부한다.
-- 그림 API(`/api/stories/{id}/versions/{versionId}/pages/{pageNo}/image`, `/character-sheet`): 내 동화(`findByIdAndUserId`) → 그 동화의 버전 → 그 버전의 쪽 순서로 확인하고 하나라도 아니면 404. **파일 위치는 DB에 저장된 key로만 찾는다.** key가 `stories/{storyId}/`로 시작하는지 한 번 더 본다. 헤더는 `image/png`, `nosniff`, `private, max-age=3600`, `inline`. 오류를 JSON으로 내려야 해서 `produces`를 걸지 않는다.
+- 그림 API(`/api/stories/{id}/versions/{versionId}/pages/{pageNo}/image`, `/character-sheet`, `/cover`): 내 동화(`findByIdAndUserId`) → 그 동화의 버전 → 그 버전의 쪽 순서로 확인하고 하나라도 아니면 404. **파일 위치는 DB에 저장된 key로만 찾는다.** key가 `stories/{storyId}/`로 시작하는지 한 번 더 본다. 헤더는 `image/png`, `nosniff`, `private, max-age=3600`, `inline`. 오류를 JSON으로 내려야 해서 `produces`를 걸지 않는다.
 - **응답 어디에도 파일 key나 서버 경로를 넣지 않는다.** 주소는 DB id로만 만든다(`StoryImageUrls`).
 
 ## 알림 규칙
@@ -202,7 +202,7 @@ com.firstory
 - 서재(`GET /api/stories`) filter: ALL(BLOCKED 뺀 전부), CREATING(DRAFT~GENERATING_IMAGES), REVIEWING, UNREAD(COMPLETED + 함께 읽은 적 없음), READ(COMPLETED + 읽은 적 있음), FAILED (`LibraryFilter`). 정렬은 `updated_at DESC, id DESC`, size 1~50(기본 20).
 - **BLOCKED 동화는 서재와 홈 어디에도 보이지 않는다.** 상세(`GET /api/stories/{id}`)에서는 상태 그대로 보여준다(차단 화면 재진입용).
 - **서재·홈 목록은 현재 버전과 아이를 페치 조인한다** (`StoryRepository.findLibrary`). 카드의 상황 분류(`categoryLabel`)는 Story에서 StoryInput으로 가는 연관이 없어 목록의 동화 id로 한 번에 읽는다(`LibraryService.cards`). 목록 크기와 무관하게 목록 1번 + 개수 1번 + 상황 분류 1번. 카드에 연관 엔티티를 더 쓰면 조인이나 한 번에 읽는 쿼리를 함께 늘린다.
-- 카드의 `title`, `coverUrl`(캐릭터 시트 그림 API)은 버전이 있을 때만. `label`은 `Story.libraryLabel()`, `categoryLabel`은 `StoryInput.categoryLabel()`(기타면 직접 입력한 분류).
+- 카드의 `title`, `coverUrl`은 버전이 있을 때만. `coverUrl`은 표지 그림 API(`story_versions.cover_key`, AI가 제목을 넣어 그린 정사각형)이고 표지가 없는 버전(이전 버전, 표지 실패)은 캐릭터 시트 그림 API(`StoryImageUrls.coverOrSheet`). 미리보기·상세·읽기도 같다. `label`은 `Story.libraryLabel()`, `categoryLabel`은 `StoryInput.categoryLabel()`(기타면 직접 입력한 분류).
 - 삭제(`DELETE /api/stories/{id}`)는 생성 중(REQUESTED, GENERATING_TEXT, GENERATING_IMAGES)을 뺀 모든 상태에서. 소프트 삭제라 목록·상세·가이드·읽기·그림 API가 모두 404. 입력 원문과 그림 파일의 실제 파기는 아직 없다(TODO(PM) PRD 36).
 - 가이드는 **REVIEWING·COMPLETED**에서 지금 보여 주는 버전의 것(미리보기에서 동화 설명과 가이드를 보여 주려고). 읽기는 **COMPLETED일 때만**이고 확정된 현재 버전을 쓴다. 아니면 `INVALID_STATUS_TRANSITION`.
 - 읽기 세션: 시작 `201`, 이어 읽기는 가장 최근의 끝나지 않은 세션(없으면 `204`), 쪽 넘김은 1~page-count(`PAGE_OUT_OF_RANGE`), 끝난 세션의 쪽 넘김은 `INVALID_STATUS_TRANSITION`. 끝(complete)은 두 번 불러도 `204`이고 `Story.firstReadCompletedAt`은 처음 한 번만 남는다.

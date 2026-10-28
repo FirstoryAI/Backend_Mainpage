@@ -110,7 +110,8 @@ public class GenerationResultRecorder {
         int versionNo = versionRepository.findTopByStoryIdOrderByVersionNoDesc(storyId)
                 .map(StoryVersion::getVersionNo).orElse(0) + 1;
         StoryVersion version = versionRepository.save(StoryVersion.create(story, run, versionNo, run.getBaseVersion(),
-                title(result.title()), result.checkpointId(), result.design(), characterSheetKey(result)));
+                title(result.title()), result.checkpointId(), result.design(), characterSheetKey(result),
+                result.coverPath()));
         savePages(version, result.pages());
         saveGuide(version, result.guide());
 

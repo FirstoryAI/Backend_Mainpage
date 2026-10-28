@@ -308,7 +308,7 @@ class HttpAiClientTest {
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withSuccess("""
                         {"run_no": 1, "checkpoint_id": "1ef8a", "title": "공룡 아로의 새 친구",
-                         "design": {"hero": "아로"},
+                         "design": {"hero": "아로"}, "cover_path": "stories/123/runs/1/images/cover.png",
                          "character_sheets": [{"role": "main", "name": "아로", "path": "stories/123/runs/1/images/sheet-main-1.png"}],
                          "pages": [{"page_no": 1, "text": "아로는 **쿵쿵**", "image_prompt": "p", "text_position": "top",
                                     "image_path": "stories/123/runs/1/images/page-01.png", "image_status": "done"}],
@@ -323,6 +323,7 @@ class HttpAiClientTest {
         assertThat(result.runNo()).isEqualTo(1);
         assertThat(result.checkpointId()).isEqualTo("1ef8a");
         assertThat(result.design()).containsEntry("hero", "아로");
+        assertThat(result.coverPath()).isEqualTo("stories/123/runs/1/images/cover.png");
         assertThat(result.characterSheets()).containsExactly(
                 new AiGenerationResult.CharacterSheet("main", "아로", "stories/123/runs/1/images/sheet-main-1.png"));
         assertThat(result.pages()).containsExactly(new AiGenerationResult.Page(1, "아로는 **쿵쿵**", "p",
