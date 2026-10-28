@@ -34,7 +34,7 @@ dev 프로필(`application-dev.yml`)이 하는 일:
 | `REMEMBER_ME_KEY` | 필수 | **예** | 로그인 상태 유지(`FREMEMBER`) 서명 키. 바꾸면 기존 토큰이 모두 무효 | `openssl rand -base64 32` 결과 |
 | `COOKIE_SECURE` | 선택 | 아니오 | 쿠키 Secure 속성. dev 기본 `true` (HTTPS) | `true` |
 | `COOKIE_DOMAIN` | 선택 | 아니오 | 쿠키 도메인. 비우면 host-only 쿠키. API와 프론트를 같은 최상위 도메인의 서브도메인으로 나눌 때만 넣는다 | (비움) |
-| `ALLOWED_ORIGINS` | 선택 | 아니오 | CORS 허용 출처. 쉼표로 구분. 비우면 CORS 설정을 등록하지 않는다. 기본 `http://localhost:5173` | `http://localhost:5173` |
+| `ALLOWED_ORIGINS` | 선택 | 아니오 | CORS 허용 출처. 쉼표로 구분. 비우면 CORS 설정을 등록하지 않는다. 기본 `http://localhost:5173`. 프론트가 프록시(Vite, Vercel rewrite)로 붙으면 **빈 값으로 넣는다** (변수를 지우면 기본값이 쓰인다). 프록시가 브라우저의 `Origin`을 그대로 넘겨서, 목록에 없는 출처는 403 `Invalid CORS request`가 난다 | (빈 값) |
 | `AI_MODE` | 선택 | 아니오 | `fake` 또는 `http`. dev 기본 `fake` | `fake` |
 | `AI_BASE_URL` | `http`일 때 | 아니오 | AI 서버(FastAPI) 주소 | (`fake`면 비움) |
 | `AI_INTERNAL_TOKEN` | `http`일 때 | **예** | `X-Internal-Token`. `http`인데 비면 기동 실패 | (`fake`면 비움) |
@@ -66,7 +66,7 @@ dev 프로필(`application-dev.yml`)이 하는 일:
 세션 쿠키 `FSESSION`은 SameSite=Lax라서 **다른 사이트에서 fetch로 부르면 쿠키가 붙지 않는다.** `*.up.railway.app`은 서브도메인마다 다른 사이트로 취급된다. 프론트는 다음 중 하나로 붙인다.
 
 - 로컬 프론트(Vite)에서 붙일 때: Vite 프록시로 `/api`를 Railway 주소로 보낸다 (`docs/frontend/README.md`의 프록시 방식, `target`만 Railway 주소로, `changeOrigin: true`). 브라우저 입장에서는 같은 출처라 CORS가 필요 없다. `localhost`는 http여도 Secure 쿠키를 받는다.
-- 프론트도 배포할 때: 프론트 서버가 `/api`를 같은 방식으로 프록시하거나, 둘을 같은 최상위 도메인의 서브도메인에 두고 `COOKIE_DOMAIN`을 맞춘다.
+- 프론트도 배포할 때: 프론트 서버가 `/api`를 같은 방식으로 프록시하거나(Vercel은 `vercel.json`의 `rewrites`로 `/api/:path*`를 Railway 주소로), 둘을 같은 최상위 도메인의 서브도메인에 두고 `COOKIE_DOMAIN`을 맞춘다.
 
 ## 확인
 
