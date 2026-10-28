@@ -79,7 +79,8 @@ public class FakeAiClient implements AiClient {
     public static final int OUTPUT_TOKENS = 8120;
 
     private static final String SAMPLE_PATH = "/fake-ai/sample-story.json";
-    private static final int IMAGE_SIZE = 512;
+    private static final int IMAGE_WIDTH = 1920;   // 진짜 AI와 같은 1920x1088 (16의 배수라 1080 대신 1088)
+    private static final int IMAGE_HEIGHT = 1088;
     private static final List<String> FULL_NODES = List.of("design_story", "write_story", "illustrate", "render");
     private static final List<String> TEXT_NODES = List.of("write_story", "illustrate", "render");
     private static final List<String> IMAGE_NODES = List.of("illustrate_only", "render");
@@ -476,12 +477,12 @@ public class FakeAiClient implements AiClient {
 
     // 글꼴 없이 그린다 (서버에 글꼴이 없어도 되게). 바탕색 위에 밝은 원 하나
     private static byte[] png(Color color) {
-        BufferedImage image = new BufferedImage(IMAGE_SIZE, IMAGE_SIZE, BufferedImage.TYPE_INT_RGB);
+        BufferedImage image = new BufferedImage(IMAGE_WIDTH, IMAGE_HEIGHT, BufferedImage.TYPE_INT_RGB);
         Graphics2D graphics = image.createGraphics();
         graphics.setColor(color);
-        graphics.fillRect(0, 0, IMAGE_SIZE, IMAGE_SIZE);
+        graphics.fillRect(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
         graphics.setColor(color.brighter());
-        graphics.fillOval(IMAGE_SIZE / 4, IMAGE_SIZE / 4, IMAGE_SIZE / 2, IMAGE_SIZE / 2);
+        graphics.fillOval((IMAGE_WIDTH - IMAGE_HEIGHT / 2) / 2, IMAGE_HEIGHT / 4, IMAGE_HEIGHT / 2, IMAGE_HEIGHT / 2);
         graphics.dispose();
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             ImageIO.write(image, "png", out);

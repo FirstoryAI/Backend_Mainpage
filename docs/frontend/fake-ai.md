@@ -65,4 +65,4 @@ $env:FIRSTORY_AI_FAKE_STAGE_DURATION="5s"; .\gradlew.bat bootRun --args="--sprin
 
 ## 가짜 그림
 
-가짜 AI의 그림은 512×512 PNG로, 쪽마다 다른 바탕색에 밝은 원이 하나 있다. 서버의 `./data/storage`에 쌓인다. 지우면 이미 만든 동화의 그림은 404 `IMAGE_NOT_FOUND`가 된다.
+가짜 AI의 그림은 진짜와 같은 1920×1088 PNG로, 쪽마다 다른 바탕색에 밝은 원이 하나 있다. 서버의 `./data/storage`에 쌓인다. 지우면 이미 만든 동화의 그림은 404 `IMAGE_NOT_FOUND`가 된다.
