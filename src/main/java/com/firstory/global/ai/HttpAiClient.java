@@ -348,6 +348,7 @@ public class HttpAiClient implements AiClient {
                       @JsonProperty("checkpoint_id") String checkpointId,
                       String title,
                       Map<String, Object> design,
+                      @JsonProperty("cover_path") String coverPath,
                       @JsonProperty("character_sheets") List<SheetBody> characterSheets,
                       List<PageBody> pages,
                       Map<String, Object> guide,
@@ -355,7 +356,7 @@ public class HttpAiClient implements AiClient {
                       SafetyBody safety) {
 
         AiGenerationResult toResult() {
-            return new AiGenerationResult(runNo, checkpointId, title, design,
+            return new AiGenerationResult(runNo, checkpointId, title, design, coverPath,
                     characterSheets == null ? List.of() : characterSheets.stream()
                             .map(sheet -> new AiGenerationResult.CharacterSheet(sheet.role(), sheet.name(), sheet.path()))
                             .toList(),

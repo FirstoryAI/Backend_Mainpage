@@ -32,10 +32,7 @@ public record StoryCardResponse(Long id, String title, StoryStatus status, Strin
 
     public static String coverUrl(Story story) {
         StoryVersion version = story.getCurrentVersion();
-        if (version == null || version.getCharacterSheetKey() == null) {
-            return null;
-        }
-        return StoryImageUrls.characterSheet(story.getId(), version.getId());
+        return version == null ? null : StoryImageUrls.coverOrSheet(story.getId(), version);
     }
 
     public static String displayName(Child child) {

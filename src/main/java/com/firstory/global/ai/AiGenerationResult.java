@@ -16,7 +16,7 @@ import java.util.stream.Stream;
  * @param safety 완성 본문의 위기 신호. 없으면 OK로 본다
  */
 public record AiGenerationResult(int runNo, String checkpointId, String title, Map<String, Object> design,
-                                 List<CharacterSheet> characterSheets, List<Page> pages, Guide guide, Cost cost,
+                                 String coverPath, List<CharacterSheet> characterSheets, List<Page> pages, Guide guide, Cost cost,
                                  SafetyResult safety) {
 
     public AiGenerationResult {
@@ -69,10 +69,12 @@ public record AiGenerationResult(int runNo, String checkpointId, String title, M
     }
 
     /**
-     * 결과에 들어 있는 모든 파일 key (캐릭터 시트, 쪽 그림).
+     * 결과에 들어 있는 모든 파일 key (표지, 캐릭터 시트, 쪽 그림).
      */
     public List<String> fileKeys() {
-        return Stream.concat(characterSheets.stream().map(CharacterSheet::path), pages.stream().map(Page::imagePath))
+        return Stream.of(Stream.of(coverPath), characterSheets.stream().map(CharacterSheet::path),
+                        pages.stream().map(Page::imagePath))
+                .flatMap(keys -> keys)
                 .filter(Objects::nonNull)
                 .toList();
     }

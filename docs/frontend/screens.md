@@ -76,7 +76,7 @@
 | 카드 누름 | 카드 `status`로 화면을 고른다(위 표). 완성된 동화는 LIB-02 | |
 | 새 동화 만들기 | CRT-01로 | |
 
-카드(`StoryCardResponse`): `id, title, status, label, categoryLabel, coverUrl, childDisplayName, createdAt, updatedAt`. `categoryLabel`은 상황 분류 문구("기타"를 골랐으면 직접 입력한 분류)이고, 상황을 아직 입력하지 않았으면 null. `title`, `coverUrl`은 그림이 나오기 전엔 null. **차단된 동화(BLOCKED)는 홈과 서재에 나오지 않는다.**
+카드(`StoryCardResponse`): `id, title, status, label, categoryLabel, coverUrl, childDisplayName, createdAt, updatedAt`. `categoryLabel`은 상황 분류 문구("기타"를 골랐으면 직접 입력한 분류)이고, 상황을 아직 입력하지 않았으면 null. `title`, `coverUrl`은 그림이 나오기 전엔 null. `coverUrl`은 **제목이 그림 안에 들어간 정사각형(1:1) 표지**다. 표지가 없는 예전 동화는 캐릭터 시트(16:9) 주소라, 칸은 `object-fit: cover`로 채운다. **차단된 동화(BLOCKED)는 홈과 서재에 나오지 않는다.**
 
 ---
 
@@ -221,7 +221,7 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `GET /api/stories/{id}/preview` | `version{id, versionNo, title}`, `characterSheetUrl`, `pages[]{pageNo, text, imageStatus, imageUrl, textPosition}`, `regenerateRemaining` |
+| 들어올 때 | `GET /api/stories/{id}/preview` | `version{id, versionNo, title}`, `characterSheetUrl`, `coverUrl`, `pages[]{pageNo, text, imageStatus, imageUrl, textPosition}`, `regenerateRemaining` |
 | 다시 만들기 | REV-02 | |
 | 동화 설명과 부모용 가이드 | GDE-01 (`GET .../guide`, REVIEWING에서도 된다) | 동화 설명은 `beforeReading.intent` |
 | 버전 목록 | 아래 "버전 목록" | |
@@ -231,7 +231,7 @@
 
 - `imageUrl`(예: `/api/stories/12/versions/30/pages/1/image`)을 **`<img src>`에 그대로** 넣는다. 쿠키가 자동으로 붙어 내 동화 그림만 보인다. 주소에 파일 경로는 없다.
 - `imageStatus: "FAILED"`면 `imageUrl`이 null이다. **빈 자리(대체 그림)** 를 보여 주고 "그림만 다시"로 그 쪽을 다시 그리게 안내한다.
-- `characterSheetUrl`은 표지·인물 그림. null일 수 있다.
+- `coverUrl`은 표지(제목이 들어간 정사각형 그림). 표지가 없는 버전이면 캐릭터 시트 주소다. `characterSheetUrl`은 주인공 기준 그림. 둘 다 null일 수 있다.
 - `textPosition`(`TOP` | `BOTTOM`)은 쪽 글을 그림 위에 얹을 자리다. 그림은 그쪽 약 30%를 빈 바닥·벽·하늘로 비워 두므로, 글 상자를 그 안에 가로로 넓게 놓으면 인물을 가리지 않는다. 빈 자리 경계가 딱 잘리지 않아 반투명 배경을 깔면 안전하다. 예전에 만든 동화는 모두 `BOTTOM`이다.
 - 쪽 글의 `**콩닥콩닥**`은 의성어·의태어 강조 표시다. 굵게 등으로 바꿔 보여 준다.
 

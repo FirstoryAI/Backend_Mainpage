@@ -103,7 +103,7 @@ class LibraryIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void 서재_카드는_버전이_있어야_제목과_표지가_있다() throws Exception {
+    void 서재_카드는_버전이_있어야_제목과_표지가_있고_표지가_없는_버전은_캐릭터_시트() throws Exception {
         long draft = create(StoryStatus.DRAFT, false);
         long completed = create(StoryStatus.COMPLETED, false);
         long versionId = jdbc.queryForObject("SELECT current_version_id FROM stories WHERE id = ?", Long.class,

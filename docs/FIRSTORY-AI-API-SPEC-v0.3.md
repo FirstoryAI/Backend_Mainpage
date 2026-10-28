@@ -298,6 +298,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
   "checkpoint_id": "1ef8a…",
   "title": "공룡 아로의 새 친구",
   "design": { "...": "02-design.json" },
+  "cover_path": "stories/123/runs/1/images/cover.png",
   "character_sheets": [ { "role": "main", "name": "아로", "path": "stories/123/runs/1/images/sheet-main-아로.png" } ],
   "pages": [
     { "page_no": 1, "text": "아로는 **쿵쿵** 걸어서…", "image_prompt": "…", "text_position": "bottom", "image_path": "stories/123/runs/1/images/page-01.png", "image_status": "done" }
@@ -309,6 +310,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 ```
 
 - `pages`는 **10개** (`firstory.story.page-count`)
+- `cover_path`: 표지 key. 캐릭터 시트를 참조해 따로 그린 **정사각형(1024×1024, `COVER_SIZE`)** 그림이고 제목이 한글로 그림 안에 들어 있다. 못 그렸으면 null(실행은 실패하지 않는다). 처음 만들기·이야기 다시·그림만 다시(전체)는 새로 그리고, 그림만 다시(일부 쪽)는 이전 표지 key, 글 다시는 제목이 그대로면 이전 표지 key이고 제목이 바뀌면 표지만 새로 그린다
 - `text_position`: `top` | `bottom`. 화면에서 글을 얹을 자리로, 그림은 이쪽 30%를 빈 바닥·벽·하늘로 비워 둔다. 작가(write_story)가 쪽마다 정한다(기본 bottom, 바닥이 장면의 핵심이거나 넓은 하늘이면 top). 없으면 bottom으로 본다
 - review interrupt payload에는 이미지 정보가 없으므로 `graph.get_state(cfg).values["illustrations"]`에서 읽어 합친다
 - `checkpoint_id`: `parent_review`에서 멈춘 시점 (`get_state(cfg).config["configurable"]["checkpoint_id"]`)
@@ -382,6 +384,7 @@ graph.invoke(None, branch)   # 실제로는 백그라운드에서 stream으로 �
 {output_prefix}
 ├── images/
 │   ├── sheet-{role}-{name}.png
+│   ├── cover.png           표지 (정사각형, 제목 포함)
 │   └── page-01.png … page-10.png
 ├── 00-context.json        최종 StoryInputContext
 ├── 01-interview.json      인터뷰 턴, 끝난 이유, 요약

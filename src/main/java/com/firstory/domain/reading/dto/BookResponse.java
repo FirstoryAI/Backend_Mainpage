@@ -2,9 +2,9 @@ package com.firstory.domain.reading.dto;
 
 import com.firstory.domain.generation.dto.StoryImageUrls;
 import com.firstory.domain.generation.entity.ImageStatus;
-import com.firstory.domain.generation.entity.TextPosition;
 import com.firstory.domain.generation.entity.StoryPage;
 import com.firstory.domain.generation.entity.StoryVersion;
+import com.firstory.domain.generation.entity.TextPosition;
 import com.firstory.domain.guide.entity.GuidePrompt;
 import com.firstory.domain.story.dto.StoryCardResponse;
 import com.firstory.domain.story.entity.Story;

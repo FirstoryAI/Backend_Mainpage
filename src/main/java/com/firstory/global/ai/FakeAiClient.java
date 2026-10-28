@@ -82,6 +82,7 @@ public class FakeAiClient implements AiClient {
     private static final String SAMPLE_PATH = "/fake-ai/sample-story.json";
     private static final int IMAGE_WIDTH = 1920;   // 진짜 AI와 같은 1920x1088 (16의 배수라 1080 대신 1088)
     private static final int IMAGE_HEIGHT = 1088;
+    private static final int COVER_SIZE = 1024;    // 표지는 진짜 AI처럼 정사각형
     private static final List<String> FULL_NODES = List.of("design_story", "write_story", "illustrate", "render");
     private static final List<String> TEXT_NODES = List.of("write_story", "illustrate", "render");
     private static final List<String> IMAGE_NODES = List.of("illustrate_only", "render");
@@ -457,6 +458,15 @@ public class FakeAiClient implements AiClient {
             }
         }
 
+        // 표지: 일부 쪽 그림만 다시면 이전 표지, 그 밖에는 새로 (진짜 AI는 글 다시에서 제목이 그대로면 재사용)
+        String coverKey;
+        if (base != null && targets != null) {
+            coverKey = base.coverPath();
+        } else {
+            coverKey = prefix + "images/cover.png";
+            storage.write(coverKey, png(color(1, runNo).darker(), COVER_SIZE, COVER_SIZE), "image/png");
+        }
+
         List<AiGenerationResult.CharacterSheet> sheets;
         if (base != null) {
             sheets = base.characterSheets();
@@ -470,8 +480,8 @@ public class FakeAiClient implements AiClient {
                 ? new SafetyResult(SafetyLevel.REVISE, "harmful_discipline", "완성된 이야기에 아이에게 맞지 않는 표현이 있어요.")
                 : SafetyResult.ok();
         return new AiGenerationResult(runNo, checkpointId(runNo), SAMPLE.title(state.titleNo),
-                Map.of("hero", "아로", "run_no", runNo), sheets, pages, SAMPLE.resultGuide(),
-                new AiGenerationResult.Cost(INPUT_TOKENS, OUTPUT_TOKENS, pageCount + 1), safety);
+                Map.of("hero", "아로", "run_no", runNo), coverKey, sheets, pages, SAMPLE.resultGuide(),
+                new AiGenerationResult.Cost(INPUT_TOKENS, OUTPUT_TOKENS, pageCount + 2), safety);   // 쪽 + 시트 + 표지
     }
 
     // AI 가짜 원고(mock.py)처럼 3의 배수 쪽만 위
@@ -485,12 +495,16 @@ public class FakeAiClient implements AiClient {
 
     // 글꼴 없이 그린다 (서버에 글꼴이 없어도 되게). 바탕색 위에 밝은 원 하나
     private static byte[] png(Color color) {
-        BufferedImage image = new BufferedImage(IMAGE_WIDTH, IMAGE_HEIGHT, BufferedImage.TYPE_INT_RGB);
+        return png(color, IMAGE_WIDTH, IMAGE_HEIGHT);
+    }
+
+    private static byte[] png(Color color, int width, int height) {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Graphics2D graphics = image.createGraphics();
         graphics.setColor(color);
-        graphics.fillRect(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
+        graphics.fillRect(0, 0, width, height);
         graphics.setColor(color.brighter());
-        graphics.fillOval((IMAGE_WIDTH - IMAGE_HEIGHT / 2) / 2, IMAGE_HEIGHT / 4, IMAGE_HEIGHT / 2, IMAGE_HEIGHT / 2);
+        graphics.fillOval((width - height / 2) / 2, height / 4, height / 2, height / 2);
         graphics.dispose();
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             ImageIO.write(image, "png", out);
