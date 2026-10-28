@@ -1,6 +1,7 @@
 package com.firstory.domain.reading.controller;
 
 import com.firstory.domain.generation.entity.GenerationRun;
+import com.firstory.domain.generation.entity.TextPosition;
 import com.firstory.domain.generation.repository.GenerationRunRepository;
 import com.firstory.domain.generation.repository.StoryVersionRepository;
 import com.firstory.domain.generation.service.GenerationPoller;
@@ -125,7 +126,8 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .getId();
         String prefix = "stories/" + id + "/runs/1/images/";
         List<AiGenerationResult.Page> pages = IntStream.rangeClosed(1, 10)
-                .mapToObj(n -> new AiGenerationResult.Page(n, n + "쪽", null, prefix + "page-0" + n + ".png", "done"))
+                .mapToObj(n -> new AiGenerationResult.Page(n, n + "쪽", null,
+                        n == 3 ? TextPosition.TOP : TextPosition.BOTTOM, prefix + "page-0" + n + ".png", "done"))
                 .toList();
         AiGenerationResult result = new AiGenerationResult(1, "cp-1", "제목", null, List.of(), pages,
                 new AiGenerationResult.Guide("의도", List.of("팁"), "다리 질문", null, List.of(
@@ -165,6 +167,8 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.pages[0].imageUrl").value("/api/stories/" + id + "/versions/" + versionId
                         + "/pages/1/image"))
                 .andExpect(jsonPath("$.pages[0].imageStatus").value("DONE"))
+                .andExpect(jsonPath("$.pages[0].textPosition").value("BOTTOM"))
+                .andExpect(jsonPath("$.pages[2].textPosition").value("TOP"))   // 가짜 AI는 3의 배수 쪽만 위
                 .andExpect(jsonPath("$.prompts[*].afterPage", contains(4, 8)))
                 .andExpect(jsonPath("$.prompts[0].question").isNotEmpty())
                 .andExpect(jsonPath("$.prompts[0].parentHint").isNotEmpty());

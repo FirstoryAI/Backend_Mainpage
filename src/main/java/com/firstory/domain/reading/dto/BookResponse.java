@@ -2,6 +2,7 @@ package com.firstory.domain.reading.dto;
 
 import com.firstory.domain.generation.dto.StoryImageUrls;
 import com.firstory.domain.generation.entity.ImageStatus;
+import com.firstory.domain.generation.entity.TextPosition;
 import com.firstory.domain.generation.entity.StoryPage;
 import com.firstory.domain.generation.entity.StoryVersion;
 import com.firstory.domain.guide.entity.GuidePrompt;
@@ -21,9 +22,11 @@ public record BookResponse(Long storyId, Long versionId, String title, String co
                            List<Page> pages, List<Prompt> prompts) {
 
     /**
-     * @param imageUrl 그림이 실패한 쪽(FAILED)은 null
+     * @param imageUrl     그림이 실패한 쪽(FAILED)은 null
+     * @param textPosition 글을 얹을 자리. 그림의 이쪽 30%가 비어 있다
      */
-    public record Page(int pageNo, String text, String imageUrl, ImageStatus imageStatus) {
+    public record Page(int pageNo, String text, String imageUrl, ImageStatus imageStatus,
+                       TextPosition textPosition) {
     }
 
     public record Prompt(Long id, int afterPage, String question, String parentHint) {
@@ -37,7 +40,7 @@ public record BookResponse(Long storyId, Long versionId, String title, String co
                 pages.stream().map(page -> new Page(page.getPageNo(), page.getText(),
                         page.getImageStatus() == ImageStatus.DONE
                                 ? StoryImageUrls.page(storyId, version.getId(), page.getPageNo()) : null,
-                        page.getImageStatus())).toList(),
+                        page.getImageStatus(), page.getTextPosition())).toList(),
                 prompts.stream().map(prompt -> new Prompt(prompt.getId(), prompt.getAfterPage(), prompt.getQuestion(),
                         prompt.getParentHint())).toList());
     }

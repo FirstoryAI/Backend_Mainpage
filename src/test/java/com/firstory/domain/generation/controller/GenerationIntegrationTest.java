@@ -169,6 +169,8 @@ class GenerationIntegrationTest extends IntegrationTest {
                         .value(storyUrl(id) + "/versions/" + versionId + "/character-sheet"))
                 .andExpect(jsonPath("$.pages", hasSize(10)))
                 .andExpect(jsonPath("$.pages[0].text").value(FakeAiClient.SAMPLE.pageText(1)))
+                .andExpect(jsonPath("$.pages[0].textPosition").value("BOTTOM"))
+                .andExpect(jsonPath("$.pages[2].textPosition").value("TOP"))   // 가짜 AI는 3의 배수 쪽만 위
                 .andExpect(jsonPath("$.pages[*].imageStatus", everyItem(org.hamcrest.Matchers.is("DONE"))))
                 .andExpect(jsonPath("$.pages[*].imageUrl", everyItem(matchesPattern(
                         "/api/stories/" + id + "/versions/" + versionId + "/pages/\\d+/image"))))

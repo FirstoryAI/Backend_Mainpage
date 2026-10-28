@@ -13,10 +13,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class FlywayMigrationTest extends IntegrationTest {
 
     @Test
-    void V1부터_V5까지_순서로_모두_성공한다() {
+    void V1부터_V6까지_순서로_모두_성공한다() {
         assertThat(jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE version IS NOT NULL ORDER BY installed_rank",
-                String.class)).containsExactly("1", "2", "3", "4", "5");
+                String.class)).containsExactly("1", "2", "3", "4", "5", "6");
         assertThat(jdbc.queryForObject("SELECT bool_and(success) FROM flyway_schema_history", Boolean.class))
                 .isTrue();
     }
@@ -44,6 +44,14 @@ class FlywayMigrationTest extends IntegrationTest {
         assertThat(columns("generation_runs")).contains("target_pages");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM pg_indexes WHERE indexname = 'ix_generation_runs_running'",
                 Integer.class)).isOne();
+    }
+
+    @Test
+    void V6_text_position은_기본값_BOTTOM() {
+        assertThat(jdbc.queryForObject("""
+                SELECT column_default FROM information_schema.columns
+                WHERE table_name = 'story_pages' AND column_name = 'text_position'""", String.class))
+                .startsWith("'BOTTOM'");
     }
 
     private List<String> columns(String table) {

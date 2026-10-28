@@ -53,7 +53,11 @@ public class StoryPage extends BaseTimeEntity {
     @Column(name = "image_status", nullable = false, length = 20)
     private ImageStatus imageStatus;
 
-    private StoryPage(StoryVersion version, int pageNo, String text, String imagePrompt,
+    @Enumerated(EnumType.STRING)
+    @Column(name = "text_position", nullable = false, length = 10)
+    private TextPosition textPosition;
+
+    private StoryPage(StoryVersion version, int pageNo, String text, String imagePrompt, TextPosition textPosition,
                       String imageKey, ImageStatus imageStatus) {
         if (pageNo < FIRST_PAGE) {
             throw new IllegalArgumentException("쪽 번호는 1 이상이어야 해요: " + pageNo);
@@ -62,12 +66,14 @@ public class StoryPage extends BaseTimeEntity {
         this.pageNo = pageNo;
         this.text = Objects.requireNonNull(text);
         this.imagePrompt = imagePrompt;
+        this.textPosition = Objects.requireNonNull(textPosition);
         this.imageKey = imageKey;
         this.imageStatus = Objects.requireNonNull(imageStatus);
     }
 
-    public static StoryPage create(StoryVersion version, int pageNo, String text, String imagePrompt) {
-        return new StoryPage(version, pageNo, text, imagePrompt, null, ImageStatus.PENDING);
+    public static StoryPage create(StoryVersion version, int pageNo, String text, String imagePrompt,
+                                   TextPosition textPosition) {
+        return new StoryPage(version, pageNo, text, imagePrompt, textPosition, null, ImageStatus.PENDING);
     }
 
     public void imageDone(String imageKey) {
@@ -84,6 +90,6 @@ public class StoryPage extends BaseTimeEntity {
      * "그림만 다시" 때 바뀌지 않은 쪽은 S3 파일을 복사하지 않고 키만 공유한다.
      */
     public StoryPage copyTo(StoryVersion target) {
-        return new StoryPage(target, pageNo, text, imagePrompt, imageKey, imageStatus);
+        return new StoryPage(target, pageNo, text, imagePrompt, textPosition, imageKey, imageStatus);
     }
 }

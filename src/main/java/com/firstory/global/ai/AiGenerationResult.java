@@ -1,5 +1,7 @@
 package com.firstory.global.ai;
 
+import com.firstory.domain.generation.entity.TextPosition;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,9 +31,11 @@ public record AiGenerationResult(int runNo, String checkpointId, String title, M
     }
 
     /**
-     * @param imageStatus done | failed (AI 값 그대로)
+     * @param textPosition 그림 위 글 자리 (AI text_position. 없으면 BOTTOM)
+     * @param imageStatus  done | failed (AI 값 그대로)
      */
-    public record Page(int pageNo, String text, String imagePrompt, String imagePath, String imageStatus) {
+    public record Page(int pageNo, String text, String imagePrompt, TextPosition textPosition, String imagePath,
+                       String imageStatus) {
 
         public boolean imageDone() {
             return "done".equalsIgnoreCase(imageStatus) && imagePath != null;
