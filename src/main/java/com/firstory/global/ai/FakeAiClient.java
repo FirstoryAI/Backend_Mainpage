@@ -1,6 +1,7 @@
 package com.firstory.global.ai;
 
 import com.firstory.domain.generation.entity.RegenerateScope;
+import com.firstory.domain.generation.entity.TextPosition;
 import com.firstory.domain.safety.entity.SafetyLevel;
 import com.firstory.domain.safety.entity.SafetySource;
 import com.firstory.domain.story.entity.InterviewEndReason;
@@ -443,14 +444,16 @@ public class FakeAiClient implements AiClient {
             AiGenerationResult.Page previous = base == null ? null : base.pages().get(pageNo - 1);
             String text = previous != null ? previous.text() : SAMPLE.pageText(pageNo);
             if (!redraw) {
-                pages.add(new AiGenerationResult.Page(pageNo, text, previous.imagePrompt(), previous.imagePath(),
-                        previous.imageStatus()));
+                pages.add(new AiGenerationResult.Page(pageNo, text, previous.imagePrompt(), previous.textPosition(),
+                        previous.imagePath(), previous.imageStatus()));
             } else if (state.mishaps.pageFail() && pageNo == FAILED_PAGE) {
-                pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, null, "failed"));
+                pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, textPosition(pageNo), null,
+                        "failed"));
             } else {
                 String key = prefix + "images/page-%02d.png".formatted(pageNo);
                 storage.write(key, png(color(pageNo, runNo)), "image/png");
-                pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, key, "done"));
+                pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, textPosition(pageNo), key,
+                        "done"));
             }
         }
 
@@ -469,6 +472,11 @@ public class FakeAiClient implements AiClient {
         return new AiGenerationResult(runNo, checkpointId(runNo), SAMPLE.title(state.titleNo),
                 Map.of("hero", "아로", "run_no", runNo), sheets, pages, SAMPLE.resultGuide(),
                 new AiGenerationResult.Cost(INPUT_TOKENS, OUTPUT_TOKENS, pageCount + 1), safety);
+    }
+
+    // AI 가짜 원고(mock.py)처럼 3의 배수 쪽만 위
+    private static TextPosition textPosition(int pageNo) {
+        return pageNo % 3 == 0 ? TextPosition.TOP : TextPosition.BOTTOM;
     }
 
     private Color color(int pageNo, int runNo) {

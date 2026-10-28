@@ -3,6 +3,7 @@ package com.firstory.global.ai;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.firstory.domain.generation.entity.RegenerateScope;
+import com.firstory.domain.generation.entity.TextPosition;
 import com.firstory.domain.safety.entity.SafetyLevel;
 import com.firstory.domain.safety.entity.SafetySource;
 import com.firstory.domain.story.entity.InterviewEndReason;
@@ -360,7 +361,7 @@ public class HttpAiClient implements AiClient {
                             .toList(),
                     pages == null ? List.of() : pages.stream()
                             .map(page -> new AiGenerationResult.Page(page.pageNo(), page.text(), page.imagePrompt(),
-                                    page.imagePath(), page.imageStatus()))
+                                    TextPosition.fromAi(page.textPosition()), page.imagePath(), page.imageStatus()))
                             .toList(),
                     guide(guide),
                     cost == null ? null : new AiGenerationResult.Cost(cost.inputTokens(), cost.outputTokens(),
@@ -396,6 +397,7 @@ public class HttpAiClient implements AiClient {
 
     record PageBody(@JsonProperty("page_no") int pageNo, String text,
                     @JsonProperty("image_prompt") String imagePrompt,
+                    @JsonProperty("text_position") String textPosition,
                     @JsonProperty("image_path") String imagePath,
                     @JsonProperty("image_status") String imageStatus) {
     }

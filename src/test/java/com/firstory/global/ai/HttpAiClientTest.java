@@ -2,6 +2,7 @@ package com.firstory.global.ai;
 
 import com.firstory.domain.child.entity.Child;
 import com.firstory.domain.generation.entity.RegenerateScope;
+import com.firstory.domain.generation.entity.TextPosition;
 import com.firstory.domain.safety.entity.SafetyLevel;
 import com.firstory.domain.safety.entity.SafetySource;
 import com.firstory.domain.story.entity.ChildSnapshot;
@@ -309,7 +310,7 @@ class HttpAiClientTest {
                         {"run_no": 1, "checkpoint_id": "1ef8a", "title": "공룡 아로의 새 친구",
                          "design": {"hero": "아로"},
                          "character_sheets": [{"role": "main", "name": "아로", "path": "stories/123/runs/1/images/sheet-main-1.png"}],
-                         "pages": [{"page_no": 1, "text": "아로는 **쿵쿵**", "image_prompt": "p",
+                         "pages": [{"page_no": 1, "text": "아로는 **쿵쿵**", "image_prompt": "p", "text_position": "top",
                                     "image_path": "stories/123/runs/1/images/page-01.png", "image_status": "done"}],
                          "guide": {"before_reading": {"intent": "의도", "tips": ["팁"]},
                                    "prompts": [{"after_page": 3, "text": "질문", "purpose": "emotion", "parent_hint": "힌트"}],
@@ -325,7 +326,7 @@ class HttpAiClientTest {
         assertThat(result.characterSheets()).containsExactly(
                 new AiGenerationResult.CharacterSheet("main", "아로", "stories/123/runs/1/images/sheet-main-1.png"));
         assertThat(result.pages()).containsExactly(new AiGenerationResult.Page(1, "아로는 **쿵쿵**", "p",
-                "stories/123/runs/1/images/page-01.png", "done"));
+                TextPosition.TOP, "stories/123/runs/1/images/page-01.png", "done"));
         assertThat(result.guide()).isEqualTo(new AiGenerationResult.Guide("의도", List.of("팁"), "다리", "괜찮아요",
                 List.of(new AiGenerationResult.Prompt(3, "질문", "emotion", "힌트"))));
         assertThat(result.cost()).isEqualTo(new AiGenerationResult.Cost(41230, 8120, 9));

@@ -300,7 +300,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
   "design": { "...": "02-design.json" },
   "character_sheets": [ { "role": "main", "name": "아로", "path": "stories/123/runs/1/images/sheet-main-아로.png" } ],
   "pages": [
-    { "page_no": 1, "text": "아로는 **쿵쿵** 걸어서…", "image_prompt": "…", "image_path": "stories/123/runs/1/images/page-01.png", "image_status": "done" }
+    { "page_no": 1, "text": "아로는 **쿵쿵** 걸어서…", "image_prompt": "…", "text_position": "bottom", "image_path": "stories/123/runs/1/images/page-01.png", "image_status": "done" }
   ],
   "guide": { "...": "04-guide.json 그대로 (before_reading, prompts[], after_reading)" },
   "cost": { "input_tokens": 41230, "output_tokens": 8120, "image_count": 9 },
@@ -309,10 +309,11 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 ```
 
 - `pages`는 **10개** (`firstory.story.page-count`)
+- `text_position`: `top` | `bottom`. 화면에서 글을 얹을 자리로, 그림은 이쪽 30%를 빈 바닥·벽·하늘로 비워 둔다. 작가(write_story)가 쪽마다 정한다(기본 bottom, 바닥이 장면의 핵심이거나 넓은 하늘이면 top). 없으면 bottom으로 본다
 - review interrupt payload에는 이미지 정보가 없으므로 `graph.get_state(cfg).values["illustrations"]`에서 읽어 합친다
 - `checkpoint_id`: `parent_review`에서 멈춘 시점 (`get_state(cfg).config["configurable"]["checkpoint_id"]`)
 - `safety`: 완성 본문 판단 (4장)
-- 그림만 다시 그린 경우, 안 바뀐 쪽의 `image_path`는 이전 실행 경로 그대로 (G4). 글 다시 만들기도 장면(그림 지시·등장인물)이 바뀐 쪽만 새로 그리고 나머지 쪽과 캐릭터 시트는 이전 실행 경로 그대로
+- 그림만 다시 그린 경우, 안 바뀐 쪽의 `image_path`는 이전 실행 경로 그대로 (G4). 글 다시 만들기도 장면(그림 지시·등장인물·글 위치)이 바뀐 쪽만 새로 그리고 나머지 쪽과 캐릭터 시트는 이전 실행 경로 그대로
 
 ### 7-7. POST /v1/threads/{thread_id}/review
 
