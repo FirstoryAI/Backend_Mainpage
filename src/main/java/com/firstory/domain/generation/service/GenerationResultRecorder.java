@@ -155,8 +155,8 @@ public class GenerationResultRecorder {
         if (guide == null) {
             return;
         }
-        ReadingGuide readingGuide = guideRepository.save(ReadingGuide.create(version, guide.beforeIntent(),
-                guide.beforeTips(), guide.bridgeQuestion(), guide.ifUndecided()));
+        ReadingGuide readingGuide = guideRepository.save(ReadingGuide.create(version, guide.synopsis(),
+                guide.beforeIntent(), guide.beforeTips(), guide.bridgeQuestion(), guide.ifUndecided()));
         List<AiGenerationResult.Prompt> prompts = guide.prompts().stream()
                 .filter(prompt -> prompt.afterPage() >= 1 && prompt.afterPage() <= pageCount)
                 .toList();

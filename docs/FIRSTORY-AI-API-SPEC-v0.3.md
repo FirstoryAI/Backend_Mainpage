@@ -302,7 +302,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
   "pages": [
     { "page_no": 1, "text": "아로는 **쿵쿵** 걸어서…", "image_prompt": "…", "text_position": "bottom", "image_path": "stories/123/runs/1/images/page-01.png", "image_status": "done" }
   ],
-  "guide": { "...": "04-guide.json 그대로 (before_reading, prompts[], after_reading)" },
+  "guide": { "...": "04-guide.json 그대로 (synopsis, before_reading, prompts[], after_reading)" },
   "cost": { "input_tokens": 41230, "output_tokens": 8120, "image_count": 9 },
   "safety": { "level": "OK", "category": null, "reason": null }
 }
@@ -313,6 +313,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 - review interrupt payload에는 이미지 정보가 없으므로 `graph.get_state(cfg).values["illustrations"]`에서 읽어 합친다
 - `checkpoint_id`: `parent_review`에서 멈춘 시점 (`get_state(cfg).config["configurable"]["checkpoint_id"]`)
 - `safety`: 완성 본문 판단 (4장)
+- `guide.synopsis`: 서재에서 부모가 보는 동화 줄거리. 해요체 2~3문장, 동화 안에서 일어난 일만(부모 고민·교훈 없음). 대화 가이드 단계가 본문과 함께 만들어 글 다시 만들기 때도 본문과 맞는다. 이 필드가 생기기 전 결과는 없거나 빈 문자열
 - 그림만 다시 그린 경우, 안 바뀐 쪽의 `image_path`는 이전 실행 경로 그대로 (G4). 글 다시 만들기도 장면(그림 지시·등장인물·글 위치)이 바뀐 쪽만 새로 그리고 나머지 쪽과 캐릭터 시트는 이전 실행 경로 그대로
 
 ### 7-7. POST /v1/threads/{thread_id}/review

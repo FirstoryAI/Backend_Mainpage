@@ -38,6 +38,9 @@ public class ReadingGuide extends BaseTimeEntity {
     @JoinColumn(name = "version_id", nullable = false, unique = true)
     private StoryVersion version;
 
+    @Column(columnDefinition = "text")
+    private String synopsis;
+
     @Column(name = "before_intent", columnDefinition = "text")
     private String beforeIntent;
 
@@ -51,17 +54,18 @@ public class ReadingGuide extends BaseTimeEntity {
     @Column(name = "if_undecided", columnDefinition = "text")
     private String ifUndecided;
 
-    private ReadingGuide(StoryVersion version, String beforeIntent, List<String> beforeTips,
+    private ReadingGuide(StoryVersion version, String synopsis, String beforeIntent, List<String> beforeTips,
                          String bridgeQuestion, String ifUndecided) {
         this.version = Objects.requireNonNull(version);
+        this.synopsis = synopsis;
         this.beforeIntent = beforeIntent;
         this.beforeTips = beforeTips == null ? new ArrayList<>() : new ArrayList<>(beforeTips);
         this.bridgeQuestion = bridgeQuestion;
         this.ifUndecided = ifUndecided;
     }
 
-    public static ReadingGuide create(StoryVersion version, String beforeIntent, List<String> beforeTips,
-                                      String bridgeQuestion, String ifUndecided) {
-        return new ReadingGuide(version, beforeIntent, beforeTips, bridgeQuestion, ifUndecided);
+    public static ReadingGuide create(StoryVersion version, String synopsis, String beforeIntent,
+                                      List<String> beforeTips, String bridgeQuestion, String ifUndecided) {
+        return new ReadingGuide(version, synopsis, beforeIntent, beforeTips, bridgeQuestion, ifUndecided);
     }
 }
