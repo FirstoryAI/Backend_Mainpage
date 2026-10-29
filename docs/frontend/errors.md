@@ -46,7 +46,8 @@
 | `PHONE_NOT_VERIFIED` | 400 | 휴대폰 인증을 먼저 해 주세요. | `POST /api/auth/signup`, `POST /api/me/phone` (인증 안 함, 10분 지남, 다른 세션) |
 | `REQUIRED_CONSENT_MISSING` | 400 | 필수 항목에 모두 동의해야 가입할 수 있어요. | `POST /api/auth/signup` |
 | `INVALID_PHONE_FORMAT` | 400 | 010-0000-0000 형식으로 입력해 주세요. | `send-code`, `verify`, `signup`, `POST /api/me/phone` |
-| `DUPLICATE_EMAIL` | 409 | 이미 가입된 이메일이에요. | `POST /api/auth/signup` |
+| `EMAIL_CHECK_RATE_LIMITED` | 429 | 이메일 확인을 너무 많이 했어요. 1분 후 다시 시도해 주세요. | `POST /api/auth/email/check` (같은 IP에서 1분에 11번째부터) |
+| `DUPLICATE_EMAIL` | 409 | 이미 가입된 이메일이에요. | `POST /api/auth/signup` (`email/check`에서 미리 봐도 그사이 누가 가입했을 수 있다) |
 | `DUPLICATE_PHONE` | 409 | 이미 가입된 휴대폰 번호예요. | `send-code`(SIGNUP), `signup`, `POST /api/me/phone` |
 | `INTERESTS_LIMIT_EXCEEDED` | 400 | 좋아하는 것은 고른 것과 직접 입력을 합쳐 5개까지예요. | `POST/PUT /api/children`, `PUT /api/stories/{id}/child` |
 | `CUSTOM_VALUE_REQUIRED` | 400 | 기타를 고르면 내용을 직접 입력해 주세요. | `POST/PUT /api/children`, `PUT /api/stories/{id}/child`, `PUT /api/stories/{id}/situation` |

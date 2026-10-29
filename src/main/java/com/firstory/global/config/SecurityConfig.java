@@ -73,7 +73,7 @@ public class SecurityConfig {
                         .accessDeniedHandler(errorHandler))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST,
-                                "/api/auth/phone/send-code", "/api/auth/phone/verify",
+                                "/api/auth/phone/send-code", "/api/auth/phone/verify", "/api/auth/email/check",
                                 "/api/auth/signup", "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/csrf", "/api/health").permitAll()
                         // Swagger. springdoc이 꺼진 운영에서는 이 경로에 핸들러가 없어 404가 난다

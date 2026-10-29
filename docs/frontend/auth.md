@@ -55,12 +55,13 @@ async function api(method, url, body) {
 
 - 앱을 열 때 로그인 여부는 `GET /api/me`로 본다. 200이면 로그인 상태, 401이면 비로그인.
 - 로그인 실패는 401 `INVALID_CREDENTIALS`(이메일·비밀번호 틀림)라서 **같은 401이라도 `code`로 구분한다.** 로그인 화면에서 받은 401을 "로그인 화면으로 이동"으로 처리하지 않는다.
-- 로그인이 필요 없는 API: `GET /api/auth/csrf`, `POST /api/auth/phone/send-code`, `POST /api/auth/phone/verify`, `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/logout`. 나머지는 모두 로그인 필요.
+- 로그인이 필요 없는 API: `GET /api/auth/csrf`, `POST /api/auth/email/check`, `POST /api/auth/phone/send-code`, `POST /api/auth/phone/verify`, `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/logout`. 나머지는 모두 로그인 필요.
 
 ## 가입과 로그인 흐름
 
 ```
 GET  /api/auth/csrf
+POST /api/auth/email/check       {"email": "parent@example.com"}                   → 200 {"available": true}
 POST /api/auth/phone/send-code   {"phone": "010-1234-5678", "purpose": "SIGNUP"}   → 200 {"expiresInSeconds": 180}
 POST /api/auth/phone/verify      {"phone": "010-1234-5678", "code": "000000"}      → 204
 POST /api/auth/signup            {email, password, phone, consents, termsVersion}  → 201 (바로 로그인됨)
