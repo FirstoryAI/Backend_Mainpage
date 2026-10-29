@@ -24,6 +24,7 @@ public class Browser {
 
     private final MockMvc mockMvc;
     private final Map<String, Cookie> cookies = new LinkedHashMap<>();
+    private final Map<String, String> headers = new LinkedHashMap<>();
 
     public Browser(MockMvc mockMvc) {
         this.mockMvc = mockMvc;
@@ -74,6 +75,14 @@ public class Browser {
         return this;
     }
 
+    /**
+     * 이후 모든 요청에 붙일 헤더 (예: 앞단 프록시가 넣는 X-Forwarded-For로 다른 IP 흉내 내기).
+     */
+    public Browser withHeader(String name, String value) {
+        headers.put(name, value);
+        return this;
+    }
+
     private MockHttpServletRequestBuilder withBody(MockHttpServletRequestBuilder builder, String json) {
         return builder.contentType(MediaType.APPLICATION_JSON).content(json == null ? "" : json);
     }
@@ -84,6 +93,7 @@ public class Browser {
     }
 
     private ResultActions perform(MockHttpServletRequestBuilder builder) throws Exception {
+        headers.forEach(builder::header);
         if (!cookies.isEmpty()) {
             builder.cookie(cookies.values().toArray(Cookie[]::new));
         }

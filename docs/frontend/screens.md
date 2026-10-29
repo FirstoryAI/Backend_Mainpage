@@ -43,11 +43,14 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
+| 이메일 입력 (다음으로 넘어가기 전) | `POST /api/auth/email/check` `{email}` | 200 `{available}`. false면 "이미 가입된 이메일이에요" 안내 |
 | 약관 항목 | (API 없음) `consents` 키: `GUARDIAN`, `TERMS`, `PRIVACY`(필수), `SMS_NOTIFY`(선택) | |
 | 가입 버튼 (AUTH-03 인증을 마친 뒤) | `POST /api/auth/signup` `{email, password, phone, consents: {GUARDIAN: true, ...}, termsVersion: "2026-10-01"}` | 201 MeResponse. **바로 로그인된 상태** |
 | 다음 화면 | ONB-01 | |
 
-오류: 409 `DUPLICATE_EMAIL`, `DUPLICATE_PHONE`, 400 `INVALID_PASSWORD_FORMAT`, `REQUIRED_CONSENT_MISSING`, `PHONE_NOT_VERIFIED`(인증 안 했거나 10분 지남).
+- `email/check`는 같은 IP에서 1분에 10번까지(429 `EMAIL_CHECK_RATE_LIMITED`). 글자를 칠 때마다 부르지 말고 입력을 마쳤을 때(다음 버튼, 입력란을 벗어날 때) 한 번 부른다. 형식이 틀리면 400 `VALIDATION_FAILED`.
+
+오류: 409 `DUPLICATE_EMAIL`(미리 확인했어도 그사이 누가 가입했을 수 있다), `DUPLICATE_PHONE`, 400 `INVALID_PASSWORD_FORMAT`, `REQUIRED_CONSENT_MISSING`, `PHONE_NOT_VERIFIED`(인증 안 했거나 10분 지남).
 
 ## AUTH-03 휴대폰 인증
 

@@ -33,6 +33,13 @@ GET {{host}}/api/auth/csrf
     client.global.set("xsrf", cookie.split(";")[0].substring("XSRF-TOKEN=".length));
 %}
 
+### 1-1a. 이메일 중복 확인 → 200 {"available": true} (이미 가입했으면 false)
+POST {{host}}/api/auth/email/check
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrf}}
+
+{"email": "{{email}}"}
+
 ### 1-2. 인증번호 받기 (local은 항상 000000)
 POST {{host}}/api/auth/phone/send-code
 Content-Type: application/json

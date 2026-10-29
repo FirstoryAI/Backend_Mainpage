@@ -24,6 +24,7 @@ public enum ErrorCode {
     PHONE_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "휴대폰 인증을 먼저 해 주세요."),
     REQUIRED_CONSENT_MISSING(HttpStatus.BAD_REQUEST, "필수 항목에 모두 동의해야 가입할 수 있어요."),
     INVALID_PHONE_FORMAT(HttpStatus.BAD_REQUEST, "010-0000-0000 형식으로 입력해 주세요."),
+    EMAIL_CHECK_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "이메일 확인을 너무 많이 했어요. 1분 후 다시 시도해 주세요."),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "이미 가입된 이메일이에요."),
     DUPLICATE_PHONE(HttpStatus.CONFLICT, "이미 가입된 휴대폰 번호예요."),
     INTERESTS_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "좋아하는 것은 고른 것과 직접 입력을 합쳐 5개까지예요."),

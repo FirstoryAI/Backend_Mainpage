@@ -1,10 +1,13 @@
 package com.firstory.domain.auth.controller;
 
+import com.firstory.domain.auth.dto.EmailCheckRequest;
+import com.firstory.domain.auth.dto.EmailCheckResponse;
 import com.firstory.domain.auth.dto.LoginRequest;
 import com.firstory.domain.auth.dto.SendCodeRequest;
 import com.firstory.domain.auth.dto.SendCodeResponse;
 import com.firstory.domain.auth.dto.SignupRequest;
 import com.firstory.domain.auth.dto.VerifyCodeRequest;
+import com.firstory.domain.auth.service.EmailCheckService;
 import com.firstory.domain.auth.service.LoginService;
 import com.firstory.domain.auth.service.PhoneVerificationService;
 import com.firstory.domain.auth.service.SignupService;
@@ -46,6 +49,7 @@ public class AuthController {
 
     private final PhoneVerificationService phoneVerificationService;
     private final SignupService signupService;
+    private final EmailCheckService emailCheckService;
     private final LoginService loginService;
     private final MeService meService;
     private final LoginSuccessHandler loginSuccessHandler;
@@ -81,6 +85,16 @@ public class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void verify(@Valid @RequestBody VerifyCodeRequest request, HttpSession session) {
         phoneVerificationService.verify(session, PhoneNumber.fromDisplay(request.phone()), request.code());
+    }
+
+    @Operation(summary = "이메일 중복 확인",
+            description = "가입 정보 입력(AUTH-02)에서 이메일이 이미 가입됐는지 미리 본다. 대소문자는 가입과 같이 무시한다. "
+                    + "IP마다 1분에 10번까지. 가입(signup)에서도 다시 확인한다")
+    @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.EMAIL_CHECK_RATE_LIMITED})
+    @PostMapping("/email/check")
+    public EmailCheckResponse checkEmail(@Valid @RequestBody EmailCheckRequest request,
+                                         HttpServletRequest httpRequest) {
+        return new EmailCheckResponse(emailCheckService.isAvailable(request.email(), httpRequest.getRemoteAddr()));
     }
 
     /**
