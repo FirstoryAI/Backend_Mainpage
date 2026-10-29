@@ -16,7 +16,7 @@ public enum GenerationStage {
 
     DESIGN(1, "이야기 짜기", Set.of("design_story")),
     WRITE(2, "글 쓰기", Set.of("write_story", "polish_story")),
-    ILLUSTRATE(3, "그림 그리기", Set.of("reading_guide", "illustrate", "illustrate_only")),
+    ILLUSTRATE(3, "그림 그리기", Set.of("reading_guide", "safety_output", "illustrate", "illustrate_only")),
     RENDER(4, "책으로 묶기", Set.of("render"));
 
     private final int number;
