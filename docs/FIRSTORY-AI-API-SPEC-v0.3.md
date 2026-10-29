@@ -281,8 +281,8 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 | stage | 화면 문구 | 노드 |
 |---|---|---|
 | 1 | 이야기 짜기 | `design_story` |
-| 2 | 글 쓰기 | `write_story` |
-| 3 | 그림 그리기 | `reading_guide`, `illustrate`, `illustrate_only` |
+| 2 | 글 쓰기 | `write_story`, `polish_story` |
+| 3 | 그림 그리기 | `reading_guide`, `safety_output`, `illustrate`, `illustrate_only` |
 | 4 | 책으로 묶기 | `render` |
 
 - 참고: 그래프 state의 `status`(requested → generating_text → generating_images → reviewing → completed)도 함께 쓸 수 있음
