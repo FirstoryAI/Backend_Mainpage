@@ -110,7 +110,8 @@ public class GenerationResultRecorder {
         int versionNo = versionRepository.findTopByStoryIdOrderByVersionNoDesc(storyId)
                 .map(StoryVersion::getVersionNo).orElse(0) + 1;
         StoryVersion version = versionRepository.save(StoryVersion.create(story, run, versionNo, run.getBaseVersion(),
-                title(result.title()), result.checkpointId(), result.design(), characterSheetKey(result)));
+                title(result.title()), result.checkpointId(), result.design(), characterSheetKey(result),
+                result.coverPath()));
         savePages(version, result.pages());
         saveGuide(version, result.guide());
 
@@ -140,7 +141,8 @@ public class GenerationResultRecorder {
 
     private void savePages(StoryVersion version, List<AiGenerationResult.Page> pages) {
         pages.stream().sorted(Comparator.comparingInt(AiGenerationResult.Page::pageNo)).forEach(page -> {
-            StoryPage storyPage = StoryPage.create(version, page.pageNo(), page.text(), page.imagePrompt());
+            StoryPage storyPage = StoryPage.create(version, page.pageNo(), page.text(), page.imagePrompt(),
+                    page.textPosition());
             if (page.imageDone()) {
                 storyPage.imageDone(page.imagePath());
             } else {
@@ -154,8 +156,8 @@ public class GenerationResultRecorder {
         if (guide == null) {
             return;
         }
-        ReadingGuide readingGuide = guideRepository.save(ReadingGuide.create(version, guide.beforeIntent(),
-                guide.beforeTips(), guide.bridgeQuestion(), guide.ifUndecided()));
+        ReadingGuide readingGuide = guideRepository.save(ReadingGuide.create(version, guide.synopsis(),
+                guide.beforeIntent(), guide.beforeTips(), guide.bridgeQuestion(), guide.ifUndecided()));
         List<AiGenerationResult.Prompt> prompts = guide.prompts().stream()
                 .filter(prompt -> prompt.afterPage() >= 1 && prompt.afterPage() <= pageCount)
                 .toList();

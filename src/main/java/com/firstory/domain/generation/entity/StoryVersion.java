@@ -66,8 +66,13 @@ public class StoryVersion extends BaseTimeEntity {
     @Column(name = "character_sheet_key")
     private String characterSheetKey;
 
+    // 제목이 들어간 정사각형 표지. 없으면(이전 버전, 표지 실패) 캐릭터 시트를 표지로 쓴다
+    @Column(name = "cover_key")
+    private String coverKey;
+
     private StoryVersion(Story story, GenerationRun run, int versionNo, StoryVersion parentVersion, String title,
-                         String checkpointId, Map<String, Object> design, String characterSheetKey) {
+                         String checkpointId, Map<String, Object> design, String characterSheetKey,
+                         String coverKey) {
         this.story = Objects.requireNonNull(story);
         this.run = Objects.requireNonNull(run);
         this.versionNo = versionNo;
@@ -76,13 +81,14 @@ public class StoryVersion extends BaseTimeEntity {
         this.checkpointId = checkpointId;
         this.design = design == null ? null : new LinkedHashMap<>(design);
         this.characterSheetKey = characterSheetKey;
+        this.coverKey = coverKey;
     }
 
     public static StoryVersion create(Story story, GenerationRun run, int versionNo, StoryVersion parentVersion,
                                       String title, String checkpointId, Map<String, Object> design,
-                                      String characterSheetKey) {
+                                      String characterSheetKey, String coverKey) {
         return new StoryVersion(story, run, versionNo, parentVersion, title, checkpointId, design,
-                characterSheetKey);
+                characterSheetKey, coverKey);
     }
 
     public boolean belongsTo(Story other) {

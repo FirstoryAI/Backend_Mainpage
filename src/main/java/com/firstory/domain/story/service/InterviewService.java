@@ -101,7 +101,7 @@ public class InterviewService {
             }
             if (outcome.action() == SafetyAction.ASK_REVISE) {
                 return InterviewResponse.question(story.getId(), story.getStatus(), turn.getTurnNo(),
-                        turn.getQuestion(), null, outcome, current.toneRequired());
+                        turn.getQuestion(), List.of(), null, outcome, current.toneRequired());
             }
         }
         InterviewReply reply = aiClient.answerInterview(story.getThreadId(), answer);
@@ -154,7 +154,7 @@ public class InterviewService {
         }
         interviewTurnRepository.save(InterviewTurn.ask(story, nextTurnNo, reply.question()));
         return InterviewResponse.question(story.getId(), story.getStatus(), nextTurnNo, reply.question(),
-                reply.contextUpdate(), outcome, input.isToneRequired());
+                reply.choices(), reply.contextUpdate(), outcome, input.isToneRequired());
     }
 
     /**

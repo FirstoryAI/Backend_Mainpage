@@ -1,6 +1,7 @@
 package com.firstory.global.ai;
 
 import com.firstory.domain.generation.entity.RegenerateScope;
+import com.firstory.domain.generation.entity.TextPosition;
 import com.firstory.domain.safety.entity.SafetyLevel;
 import com.firstory.domain.safety.entity.SafetySource;
 import com.firstory.domain.story.entity.InterviewEndReason;
@@ -42,6 +43,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * checkSafety      글에 [[CRISIS]], [[REVISE]], [[SENSITIVE]]가 있으면 그 level (여럿이면 이 순서로 우선), 없으면 OK
  * startInterview   질문 1
  * answerInterview  답변 turns번까지는 다음 질문, 그다음 답변이나 skip이면 CONFIRM (turns 2면 3번째 답변에서)
+ *                  질문마다 sample-story.json의 답변 카드(questionChoices). 5번째 질문은 카드가 없다
  *                  turns가 0이면 thread_id로 질문 수 1~5개를 정한다 (같은 동화는 항상 같은 수)
  *                  finalContext는 받은 context에 parent.message_direction만 채운 것
  * generate         RUNNING. design_story → write_story → illustrate → render → REVIEWING
@@ -78,7 +80,9 @@ public class FakeAiClient implements AiClient {
     public static final int OUTPUT_TOKENS = 8120;
 
     private static final String SAMPLE_PATH = "/fake-ai/sample-story.json";
-    private static final int IMAGE_SIZE = 512;
+    private static final int IMAGE_WIDTH = 1920;   // 진짜 AI와 같은 1920x1088 (16의 배수라 1080 대신 1088)
+    private static final int IMAGE_HEIGHT = 1088;
+    private static final int COVER_SIZE = 1024;    // 표지는 진짜 AI처럼 정사각형
     private static final List<String> FULL_NODES = List.of("design_story", "write_story", "illustrate", "render");
     private static final List<String> TEXT_NODES = List.of("write_story", "illustrate", "render");
     private static final List<String> IMAGE_NODES = List.of("illustrate_only", "render");
@@ -141,7 +145,7 @@ public class FakeAiClient implements AiClient {
         throwIfFailing();
         pause(settings.interviewDelay());
         threads.put(threadId, new ThreadState(context, followUps(threadId)));
-        return InterviewReply.question(1, FIRST_QUESTION, null);
+        return InterviewReply.question(1, FIRST_QUESTION, SAMPLE.questionChoices().getFirst(), null);
     }
 
     @Override
@@ -163,16 +167,19 @@ public class FakeAiClient implements AiClient {
             return finish(state, InterviewEndReason.SUFFICIENT);
         }
         return InterviewReply.question(answered + 1, SAMPLE.questions().get(answered),
-                Map.of("answered_turns", answered));
+                SAMPLE.questionChoices().get(answered), Map.of("answered_turns", answered));
     }
 
     @Override
-    public void generate(String threadId, UUID runId, int runNo, String outputPrefix, Tone tone) {
+    public void generate(String threadId, UUID runId, int runNo, String outputPrefix, Tone tone,
+                         Map<String, Object> context, String summary) {
         TransactionGuard.requireNoTransaction();
         throwIfFailing();
         // 서버를 다시 띄워 인터뷰 기록이 없어도 local에서 생성은 해 볼 수 있게 빈 context로 시작한다
         ThreadState state = threads.computeIfAbsent(threadId, id -> new ThreadState(Map.of(), followUps(id)));
         synchronized (state) {
+            state.lastGenerateContext = context;
+            state.lastGenerateSummary = summary;
             String input = state.parentInput();
             state.start(runNo, outputPrefix, FULL_NODES, RegenerateScope.ALL, List.of(), null, 0,
                     new Mishaps(input.contains(FAIL_MARKER), input.contains(OUTPUT_REVISE_MARKER),
@@ -319,6 +326,22 @@ public class FakeAiClient implements AiClient {
     }
 
     /**
+     * 테스트용. 마지막 generate에 받은 context (생성 전 확인에서 고친 입력이 들어 있다).
+     */
+    public Map<String, Object> lastGenerateContext(String threadId) {
+        ThreadState state = threads.get(threadId);
+        return state == null ? null : state.lastGenerateContext;
+    }
+
+    /**
+     * 테스트용. 마지막 generate에 받은 "이번 이야기에서 나누고 싶은 것".
+     */
+    public String lastGenerateSummary(String threadId) {
+        ThreadState state = threads.get(threadId);
+        return state == null ? null : state.lastGenerateSummary;
+    }
+
+    /**
      * 테스트용. 마지막 regenerate에 받은 기준 checkpointId. null이면 현재 상태에서 다시 만든 것.
      */
     public String lastBaseCheckpointId(String threadId) {
@@ -422,15 +445,26 @@ public class FakeAiClient implements AiClient {
             AiGenerationResult.Page previous = base == null ? null : base.pages().get(pageNo - 1);
             String text = previous != null ? previous.text() : SAMPLE.pageText(pageNo);
             if (!redraw) {
-                pages.add(new AiGenerationResult.Page(pageNo, text, previous.imagePrompt(), previous.imagePath(),
-                        previous.imageStatus()));
+                pages.add(new AiGenerationResult.Page(pageNo, text, previous.imagePrompt(), previous.textPosition(),
+                        previous.imagePath(), previous.imageStatus()));
             } else if (state.mishaps.pageFail() && pageNo == FAILED_PAGE) {
-                pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, null, "failed"));
+                pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, textPosition(pageNo), null,
+                        "failed"));
             } else {
                 String key = prefix + "images/page-%02d.png".formatted(pageNo);
                 storage.write(key, png(color(pageNo, runNo)), "image/png");
-                pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, key, "done"));
+                pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, textPosition(pageNo), key,
+                        "done"));
             }
+        }
+
+        // 표지: 일부 쪽 그림만 다시면 이전 표지, 그 밖에는 새로 (진짜 AI는 글 다시에서 제목이 그대로면 재사용)
+        String coverKey;
+        if (base != null && targets != null) {
+            coverKey = base.coverPath();
+        } else {
+            coverKey = prefix + "images/cover.png";
+            storage.write(coverKey, png(color(1, runNo).darker(), COVER_SIZE, COVER_SIZE), "image/png");
         }
 
         List<AiGenerationResult.CharacterSheet> sheets;
@@ -446,8 +480,13 @@ public class FakeAiClient implements AiClient {
                 ? new SafetyResult(SafetyLevel.REVISE, "harmful_discipline", "완성된 이야기에 아이에게 맞지 않는 표현이 있어요.")
                 : SafetyResult.ok();
         return new AiGenerationResult(runNo, checkpointId(runNo), SAMPLE.title(state.titleNo),
-                Map.of("hero", "아로", "run_no", runNo), sheets, pages, SAMPLE.resultGuide(),
-                new AiGenerationResult.Cost(INPUT_TOKENS, OUTPUT_TOKENS, pageCount + 1), safety);
+                Map.of("hero", "아로", "run_no", runNo), coverKey, sheets, pages, SAMPLE.resultGuide(),
+                new AiGenerationResult.Cost(INPUT_TOKENS, OUTPUT_TOKENS, pageCount + 2), safety);   // 쪽 + 시트 + 표지
+    }
+
+    // AI 가짜 원고(mock.py)처럼 3의 배수 쪽만 위
+    private static TextPosition textPosition(int pageNo) {
+        return pageNo % 3 == 0 ? TextPosition.TOP : TextPosition.BOTTOM;
     }
 
     private Color color(int pageNo, int runNo) {
@@ -456,12 +495,16 @@ public class FakeAiClient implements AiClient {
 
     // 글꼴 없이 그린다 (서버에 글꼴이 없어도 되게). 바탕색 위에 밝은 원 하나
     private static byte[] png(Color color) {
-        BufferedImage image = new BufferedImage(IMAGE_SIZE, IMAGE_SIZE, BufferedImage.TYPE_INT_RGB);
+        return png(color, IMAGE_WIDTH, IMAGE_HEIGHT);
+    }
+
+    private static byte[] png(Color color, int width, int height) {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Graphics2D graphics = image.createGraphics();
         graphics.setColor(color);
-        graphics.fillRect(0, 0, IMAGE_SIZE, IMAGE_SIZE);
+        graphics.fillRect(0, 0, width, height);
         graphics.setColor(color.brighter());
-        graphics.fillOval(IMAGE_SIZE / 4, IMAGE_SIZE / 4, IMAGE_SIZE / 2, IMAGE_SIZE / 2);
+        graphics.fillOval((width - height / 2) / 2, height / 4, height / 2, height / 2);
         graphics.dispose();
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             ImageIO.write(image, "png", out);
@@ -486,15 +529,21 @@ public class FakeAiClient implements AiClient {
     /**
      * fake-ai/sample-story.json. 쪽 글에는 **의성어** 표시가 그대로 있다.
      *
-     * @param guide AI 결과의 guide와 같은 구조 (04-guide.json)
+     * @param questionChoices 질문마다 답변 카드 (questions와 같은 순서, 빈 목록이면 카드 없음)
+     * @param guide           AI 결과의 guide와 같은 구조 (04-guide.json)
      */
-    public record Sample(String title, List<String> pages, List<String> questions, Map<String, Object> guide) {
+    public record Sample(String title, List<String> pages, List<String> questions,
+                         List<List<String>> questionChoices, Map<String, Object> guide) {
 
         public Sample {
             pages = List.copyOf(pages);
             questions = List.copyOf(questions);
+            questionChoices = questionChoices.stream().map(List::copyOf).toList();
             if (questions.size() < Fake.MAX_QUESTIONS) {
                 throw new IllegalStateException("가짜 AI 샘플의 질문은 " + Fake.MAX_QUESTIONS + "개가 필요해요");
+            }
+            if (questionChoices.size() != questions.size()) {
+                throw new IllegalStateException("가짜 AI 샘플의 답변 카드는 질문마다 하나씩(빈 목록 포함) 있어야 해요");
             }
         }
 
@@ -567,6 +616,8 @@ public class FakeAiClient implements AiClient {
         // 결과 제목의 (다시 n). 다시 시도는 실패한 실행의 n을 이어 간다
         private int titleNo;
         private String lastBaseCheckpointId;
+        private Map<String, Object> lastGenerateContext;
+        private String lastGenerateSummary;
         private RegenerateScope lastRegenerateScope;
 
         private ThreadState(Map<String, Object> context, int followUps) {

@@ -1,6 +1,7 @@
 package com.firstory.domain.reading.controller;
 
 import com.firstory.domain.generation.entity.GenerationRun;
+import com.firstory.domain.generation.entity.TextPosition;
 import com.firstory.domain.generation.repository.GenerationRunRepository;
 import com.firstory.domain.generation.repository.StoryVersionRepository;
 import com.firstory.domain.generation.service.GenerationPoller;
@@ -81,7 +82,7 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.beforeReading.intent").isNotEmpty())
                 .andExpect(jsonPath("$.beforeReading.tips", hasSize(2)))
                 .andExpect(jsonPath("$.prompts[*].seq", contains(1, 2)))
-                .andExpect(jsonPath("$.prompts[*].afterPage", contains(4, 7)))
+                .andExpect(jsonPath("$.prompts[*].afterPage", contains(4, 8)))
                 .andExpect(jsonPath("$.prompts[0].id").isNumber())
                 .andExpect(jsonPath("$.prompts[0].question").value("아로는 왜 혼자 앉았을까?"))
                 .andExpect(jsonPath("$.prompts[0].purpose").value("감정 알아차리기"))
@@ -90,8 +91,19 @@ class ReadingIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void 확정_전에는_가이드를_볼_수_없다() throws Exception {
+    void 가이드는_미리보기_REVIEWING에서도_보이고_함께_읽기는_확정_뒤에만() throws Exception {
         long id = StoryFlow.reviewing(parent, poller);
+
+        guide(id).andExpect(status().isOk())
+                .andExpect(jsonPath("$.beforeReading.intent").isNotEmpty())
+                .andExpect(jsonPath("$.prompts", hasSize(2)));
+        parent.get("/api/stories/" + id + "/book")
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("INVALID_STATUS_TRANSITION"));
+    }
+
+    @Test
+    void 만들기_전에는_가이드를_볼_수_없다() throws Exception {
+        long id = StoryFlow.confirming(parent, "괜찮다고 말해 주고 싶어요");
 
         guide(id).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("INVALID_STATUS_TRANSITION"));
     }
@@ -113,11 +125,12 @@ class ReadingIntegrationTest extends IntegrationTest {
         long runId = tx.execute(status -> runRepository.save(Fixtures.run(storyRepository.getReferenceById(id), 1)))
                 .getId();
         String prefix = "stories/" + id + "/runs/1/images/";
-        List<AiGenerationResult.Page> pages = IntStream.rangeClosed(1, 8)
-                .mapToObj(n -> new AiGenerationResult.Page(n, n + "쪽", null, prefix + "page-0" + n + ".png", "done"))
+        List<AiGenerationResult.Page> pages = IntStream.rangeClosed(1, 10)
+                .mapToObj(n -> new AiGenerationResult.Page(n, n + "쪽", null,
+                        n == 3 ? TextPosition.TOP : TextPosition.BOTTOM, prefix + "page-0" + n + ".png", "done"))
                 .toList();
-        AiGenerationResult result = new AiGenerationResult(1, "cp-1", "제목", null, List.of(), pages,
-                new AiGenerationResult.Guide("의도", List.of("팁"), "다리 질문", null, List.of(
+        AiGenerationResult result = new AiGenerationResult(1, "cp-1", "제목", null, null, List.of(), pages,
+                new AiGenerationResult.Guide(null, "의도", List.of("팁"), "다리 질문", null, List.of(
                         new AiGenerationResult.Prompt(5, "다섯째 쪽 질문", "action", null),
                         new AiGenerationResult.Prompt(2, "둘째 쪽 질문", "emotion", "힌트"))),
                 null, null);
@@ -148,13 +161,15 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.versionId").value(versionId))
                 .andExpect(jsonPath("$.title").value(FakeAiClient.SAMPLE.title(0)))
                 .andExpect(jsonPath("$.coverUrl").value("/api/stories/" + id + "/versions/" + versionId
-                        + "/character-sheet"))
-                .andExpect(jsonPath("$.pageCount").value(8))
-                .andExpect(jsonPath("$.pages", hasSize(8)))
+                        + "/cover"))
+                .andExpect(jsonPath("$.pageCount").value(10))
+                .andExpect(jsonPath("$.pages", hasSize(10)))
                 .andExpect(jsonPath("$.pages[0].imageUrl").value("/api/stories/" + id + "/versions/" + versionId
                         + "/pages/1/image"))
                 .andExpect(jsonPath("$.pages[0].imageStatus").value("DONE"))
-                .andExpect(jsonPath("$.prompts[*].afterPage", contains(4, 7)))
+                .andExpect(jsonPath("$.pages[0].textPosition").value("BOTTOM"))
+                .andExpect(jsonPath("$.pages[2].textPosition").value("TOP"))   // 가짜 AI는 3의 배수 쪽만 위
+                .andExpect(jsonPath("$.prompts[*].afterPage", contains(4, 8)))
                 .andExpect(jsonPath("$.prompts[0].question").isNotEmpty())
                 .andExpect(jsonPath("$.prompts[0].parentHint").isNotEmpty());
 
@@ -163,14 +178,14 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.startedAt").isNotEmpty())
                 .andReturn().getResponse().getContentAsString();
         long sessionId = ((Number) JsonPath.read(started, "$.sessionId")).longValue();
-        for (int page = 1; page <= 8; page++) {
+        for (int page = 1; page <= 10; page++) {
             progress(sessionId, page).andExpect(status().isNoContent());
         }
         dialogue(sessionId, promptIds(versionId).getFirst(), "TALKED").andExpect(status().isNoContent());
         complete(sessionId).andExpect(status().isNoContent());
 
         assertThat(jdbc.queryForObject("SELECT last_page FROM reading_sessions WHERE id = ?", Integer.class, sessionId))
-                .isEqualTo(8);
+                .isEqualTo(10);
         assertThat(jdbc.queryForObject(
                 "SELECT count(*) FROM dialogue_actions WHERE session_id = ? AND action = 'TALKED'",
                 Integer.class, sessionId)).isOne();
@@ -187,7 +202,7 @@ class ReadingIntegrationTest extends IntegrationTest {
 
         progress(sessionId, 0).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("PAGE_OUT_OF_RANGE"));
-        progress(sessionId, 9).andExpect(status().isBadRequest())
+        progress(sessionId, 11).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("PAGE_OUT_OF_RANGE"));
         parent.put("/api/reading-sessions/" + sessionId + "/progress", "{}").andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));

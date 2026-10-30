@@ -5,6 +5,7 @@ import com.firstory.global.error.ErrorCode;
 import com.firstory.support.Browser;
 import com.firstory.support.IntegrationTest;
 import com.jayway.jsonpath.JsonPath;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -71,6 +72,8 @@ class StoryCreationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.type").value("QUESTION"))
                 .andExpect(jsonPath("$.turn").value(1))
                 .andExpect(jsonPath("$.question").value(FakeAiClient.FIRST_QUESTION))
+                .andExpect(jsonPath("$.choices").value(contains(
+                        FakeAiClient.SAMPLE.questionChoices().getFirst().toArray())))
                 .andExpect(jsonPath("$.summary").value(nullValue()))
                 .andExpect(jsonPath("$.safety").value(nullValue()));
         answer(id, "같이 놀자고 했는데 대답을 안 해줬대요.").andExpect(jsonPath("$.turn").value(2))
@@ -81,7 +84,8 @@ class StoryCreationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.status").value("CONFIRMING"))
                 .andExpect(jsonPath("$.type").value("CONFIRM"))
                 .andExpect(jsonPath("$.summary").value(FakeAiClient.SUMMARY))
-                .andExpect(jsonPath("$.turn").value(nullValue()));
+                .andExpect(jsonPath("$.turn").value(nullValue()))
+                .andExpect(jsonPath("$.choices").isEmpty());
 
         assertThat(jdbc.queryForObject("SELECT count(*) FROM interview_turns WHERE story_id = ? AND answer IS NOT NULL",
                 Integer.class, id)).isEqualTo(3);
@@ -204,6 +208,7 @@ class StoryCreationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.type").value("QUESTION"))
                 .andExpect(jsonPath("$.turn").value(1))
                 .andExpect(jsonPath("$.question").value(FakeAiClient.FIRST_QUESTION))
+                .andExpect(jsonPath("$.choices").isEmpty())   // 카드는 저장하지 않아 다시 줄 수 없다
                 .andExpect(jsonPath("$.safety.action").value("ASK_REVISE"))
                 .andExpect(jsonPath("$.safety.reason").isNotEmpty());
 
@@ -274,6 +279,46 @@ class StoryCreationIntegrationTest extends IntegrationTest {
         writeSituation(fresh, REVISE)
                 .andExpect(jsonPath("$.status").value("DRAFT"))
                 .andExpect(jsonPath("$.safety.action").value("ASK_REVISE"));
+    }
+
+    @Test
+    void 생성_전_확인에서_입력과_나누고_싶은_것을_고치면_만들기에_함께_간다() throws Exception {
+        long id = confirming();
+
+        writeSituation(id, "놀이터에서 그네를 안 비켜 줬어요").andExpect(status().isOk())
+                .andExpect(jsonPath("$.saved").value(true)).andExpect(jsonPath("$.status").value("CONFIRMING"));
+        writeMessage(id, "기다리면 차례가 온다고 말해 주고 싶어요").andExpect(jsonPath("$.saved").value(true));
+        editSummary(id, "차례를 기다리는 게 어렵다는 마음을 알아주고 싶어요.").andExpect(status().isOk())
+                .andExpect(jsonPath("$.saved").value(true)).andExpect(jsonPath("$.status").value("CONFIRMING"));
+
+        parent.get(draftUrl(id))
+                .andExpect(jsonPath("$.situation.description").value("놀이터에서 그네를 안 비켜 줬어요"))
+                .andExpect(jsonPath("$.parent.message").value("기다리면 차례가 온다고 말해 주고 싶어요"))
+                .andExpect(jsonPath("$.parent.messageDirection").value("COMFORT_FIRST"))   // 인터뷰가 채운 값은 그대로
+                .andExpect(jsonPath("$.interview.summary").value("차례를 기다리는 게 어렵다는 마음을 알아주고 싶어요."));
+
+        parent.post(storyUrl(id) + "/confirm", null).andExpect(status().isAccepted());
+        Map<String, Object> context = ai.lastGenerateContext(threadId(id));
+        assertThat(context).extractingByKey("situation").asInstanceOf(InstanceOfAssertFactories.MAP)
+                .containsEntry("description", "놀이터에서 그네를 안 비켜 줬어요");
+        assertThat(context).extractingByKey("parent").asInstanceOf(InstanceOfAssertFactories.MAP)
+                .containsEntry("message", "기다리면 차례가 온다고 말해 주고 싶어요")
+                .containsEntry("message_direction", "comfort_first");
+        assertThat(ai.lastGenerateSummary(threadId(id))).isEqualTo("차례를 기다리는 게 어렵다는 마음을 알아주고 싶어요.");
+    }
+
+    @Test
+    void 나누고_싶은_것은_확인_화면에서만_고치고_위기_신호를_검사한다() throws Exception {
+        long draft = create();
+        assertError(editSummary(draft, "고쳐요"), ErrorCode.INVALID_STATUS_TRANSITION);
+
+        long id = confirming();
+        assertError(editSummary(id, " "), ErrorCode.VALIDATION_FAILED);
+        assertError(editSummary(id, "가".repeat(301)), ErrorCode.VALIDATION_FAILED);
+        editSummary(id, "말을 안 들으면 혼난다고 알려 주고 싶어요 [[REVISE]]")
+                .andExpect(jsonPath("$.saved").value(false))
+                .andExpect(jsonPath("$.safety.action").value("ASK_REVISE"));
+        parent.get(draftUrl(id)).andExpect(jsonPath("$.interview.summary").value(FakeAiClient.SUMMARY));
     }
 
     @Test
@@ -487,6 +532,24 @@ class StoryCreationIntegrationTest extends IntegrationTest {
     private ResultActions writeMessage(long id, String message) throws Exception {
         return parent.put(storyUrl(id) + "/message", """
                 {"message": "%s"}""".formatted(message));
+    }
+
+    /**
+     * 인터뷰를 끝낸 CONFIRMING 동화. 가짜 AI(test 프로필 turns 2)는 세 번째 답변에서 끝난다.
+     */
+    private long confirming() throws Exception {
+        long id = readyToInterview();
+        start(id);
+        for (String a : new String[]{"울었어요", "모르겠어요", "괜찮다고 말해 주고 싶어요"}) {
+            answer(id, a).andExpect(status().isOk());
+        }
+        assertThat(storyStatus(id)).isEqualTo("CONFIRMING");
+        return id;
+    }
+
+    private ResultActions editSummary(long id, String summary) throws Exception {
+        return parent.put(storyUrl(id) + "/summary", """
+                {"summary": "%s"}""".formatted(summary));
     }
 
     private ResultActions start(long id) throws Exception {

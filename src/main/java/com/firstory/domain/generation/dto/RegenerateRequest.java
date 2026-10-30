@@ -16,7 +16,7 @@ import java.util.List;
 public record RegenerateRequest(
         @NotNull(message = "다시 만들 범위를 골라 주세요.")
         @Schema(allowableValues = {"CHARACTER_STORY", "TEXT", "IMAGES"}, example = "IMAGES") RegenerateScope scope,
-        @Schema(description = "IMAGES일 때만. 1~8, 비우면 전체", example = "[3]") List<Integer> pages,
+        @Schema(description = "IMAGES일 때만. 1~10, 비우면 전체", example = "[3]") List<Integer> pages,
         String feedback) {
 
     // 부모 입력이 로그에 남지 않게 한다

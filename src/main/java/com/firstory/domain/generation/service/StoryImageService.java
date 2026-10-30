@@ -53,6 +53,13 @@ public class StoryImageService {
         return read(story, version.getCharacterSheetKey());
     }
 
+    @Transactional(readOnly = true)
+    public StoredFile cover(Long userId, Long storyId, Long versionId) {
+        Story story = loader.findOwned(userId, storyId);
+        StoryVersion version = findVersion(story, versionId);
+        return read(story, version.getCoverKey());
+    }
+
     private StoryVersion findVersion(Story story, Long versionId) {
         return versionRepository.findByIdAndStoryId(versionId, story.getId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.VERSION_NOT_FOUND));

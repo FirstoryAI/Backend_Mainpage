@@ -68,7 +68,8 @@ public class StoryStates {
             }
             GenerationRun run = runRepository.save(Fixtures.run(story, 1));
             StoryVersion version = versionRepository.save(StoryVersion.create(story, run, 1, null,
-                    "동화 " + story.getId(), "cp-1", null, "stories/" + story.getId() + "/runs/1/images/sheet-main-1.png"));
+                    "동화 " + story.getId(), "cp-1", null, "stories/" + story.getId() + "/runs/1/images/sheet-main-1.png",
+                    null));
             story.changeStatus(StoryStatus.REVIEWING);
             story.showVersion(version);
             if (target == StoryStatus.COMPLETED) {

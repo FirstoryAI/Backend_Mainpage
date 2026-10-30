@@ -33,6 +33,13 @@ GET {{host}}/api/auth/csrf
     client.global.set("xsrf", cookie.split(";")[0].substring("XSRF-TOKEN=".length));
 %}
 
+### 1-1a. 이메일 중복 확인 → 200 {"available": true} (이미 가입했으면 false)
+POST {{host}}/api/auth/email/check
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrf}}
+
+{"email": "{{email}}"}
+
 ### 1-2. 인증번호 받기 (local은 항상 000000)
 POST {{host}}/api/auth/phone/send-code
 Content-Type: application/json
@@ -142,6 +149,13 @@ X-XSRF-TOKEN: {{xsrf}}
 ### 3-9. 만들기 전 확인 내용 (CRT-06)
 GET {{host}}/api/stories/{{storyId}}/draft
 
+### 3-10. (선택) 확인 화면에서 "이번 이야기에서 나누고 싶은 것" 고치기. 아이·상황·전하고 싶은 말도 3-3~3-5와 같은 API로 고칠 수 있다
+PUT {{host}}/api/stories/{{storyId}}/summary
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrf}}
+
+{"summary": "속상했던 마음을 먼저 알아주고 싶어요. 친구를 나쁘게 말하지는 않고 싶어요."}
+
 ### 4-1. 동화 만들기 시작 → 202 REQUESTED
 POST {{host}}/api/stories/{{storyId}}/confirm
 X-XSRF-TOKEN: {{xsrf}}
@@ -214,7 +228,7 @@ GET {{host}}/api/stories/{{storyId}}/reading-sessions/resume
     client.global.set("sessionId", response.body.sessionId);
 %}
 
-### 7-4. 쪽 넘김 (1~8, 쪽마다)
+### 7-4. 쪽 넘김 (1~10, 쪽마다)
 PUT {{host}}/api/reading-sessions/{{sessionId}}/progress
 Content-Type: application/json
 X-XSRF-TOKEN: {{xsrf}}
@@ -233,7 +247,7 @@ PUT {{host}}/api/reading-sessions/{{sessionId}}/progress
 Content-Type: application/json
 X-XSRF-TOKEN: {{xsrf}}
 
-{"page": 8}
+{"page": 10}
 
 ### 7-7. 다 읽음 (RD-03) → 204
 POST {{host}}/api/reading-sessions/{{sessionId}}/complete

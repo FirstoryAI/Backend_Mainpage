@@ -3,6 +3,7 @@ package com.firstory.global.ai;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.firstory.domain.generation.entity.RegenerateScope;
+import com.firstory.domain.generation.entity.TextPosition;
 import com.firstory.domain.safety.entity.SafetyLevel;
 import com.firstory.domain.safety.entity.SafetySource;
 import com.firstory.domain.story.entity.InterviewEndReason;
@@ -54,7 +55,11 @@ public class HttpAiClient implements AiClient {
     }
 
     public static HttpAiClient create(FirstoryProperties.Ai ai) {
-        HttpClient httpClient = HttpClient.newBuilder().connectTimeout(ai.connectTimeout()).build();
+        // HTTP/1.1 고정: 기본값(HTTP/2)이면 평문 HTTP에 Upgrade: h2c를 붙이는데, uvicorn 기본 파서는 그 요청의 본문을 버린다
+        HttpClient httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
+                .connectTimeout(ai.connectTimeout())
+                .build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(ai.readTimeout());
         return new HttpAiClient(RestClient.builder().requestFactory(requestFactory), ai);
@@ -108,9 +113,11 @@ public class HttpAiClient implements AiClient {
     }
 
     @Override
-    public void generate(String threadId, UUID runId, int runNo, String outputPrefix, Tone tone) {
+    public void generate(String threadId, UUID runId, int runNo, String outputPrefix, Tone tone,
+                         Map<String, Object> context, String summary) {
         TransactionGuard.requireNoTransaction();
-        RunRequest request = new RunRequest(runId, runNo, outputPrefix, tone == null ? null : tone.aiValue());
+        RunRequest request = new RunRequest(runId, runNo, outputPrefix, tone == null ? null : tone.aiValue(), context,
+                summary);
         call(threadId, () -> restClient.post()
                 .uri("/v1/threads/{threadId}/generate", threadId)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -172,7 +179,7 @@ public class HttpAiClient implements AiClient {
     @Override
     public void retry(String threadId, UUID runId, int runNo, String outputPrefix) {
         TransactionGuard.requireNoTransaction();
-        RunRequest request = new RunRequest(runId, runNo, outputPrefix, null);
+        RunRequest request = new RunRequest(runId, runNo, outputPrefix, null, null, null);
         call(threadId, () -> restClient.post()
                 .uri("/v1/threads/{threadId}/retry", threadId)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -273,7 +280,8 @@ public class HttpAiClient implements AiClient {
         }
         try {
             return switch (body.type()) {
-                case "question" -> InterviewReply.question(body.turn(), body.question(), body.contextUpdate());
+                case "question" -> InterviewReply.question(body.turn(), body.question(), body.choices(),
+                        body.contextUpdate());
                 case "confirm" -> InterviewReply.confirm(body.summary(),
                         InterviewEndReason.valueOf(body.endReason().toUpperCase(Locale.ROOT)), body.context());
                 default -> throw new IllegalArgumentException("type");
@@ -302,15 +310,24 @@ public class HttpAiClient implements AiClient {
     record SafetyBody(String level, String category, String reason) {
     }
 
-    record InterviewBody(String type, Integer turn, String question,
+    record InterviewBody(String type, Integer turn, String question, List<String> choices,
                          @JsonProperty("context_update") Map<String, Object> contextUpdate,
                          String summary,
                          @JsonProperty("end_reason") String endReason,
                          Map<String, Object> context) {
     }
 
+    // context, summary는 generate만 보낸다 (retry는 비워서 키를 빼고 보낸다)
     record RunRequest(@JsonProperty("run_id") UUID runId, @JsonProperty("run_no") int runNo,
-                      @JsonProperty("output_prefix") String outputPrefix, String tone) {
+                      @JsonProperty("output_prefix") String outputPrefix, String tone,
+                      @JsonInclude(JsonInclude.Include.NON_NULL) Map<String, Object> context,
+                      @JsonInclude(JsonInclude.Include.NON_NULL) String summary) {
+
+        // 부모 입력이 로그에 남지 않게 한다
+        @Override
+        public String toString() {
+            return "RunRequest[runNo=" + runNo + "]";
+        }
     }
 
     record RegenerateRequest(String action, String scope, List<Integer> pages, String feedback,
@@ -331,6 +348,7 @@ public class HttpAiClient implements AiClient {
                       @JsonProperty("checkpoint_id") String checkpointId,
                       String title,
                       Map<String, Object> design,
+                      @JsonProperty("cover_path") String coverPath,
                       @JsonProperty("character_sheets") List<SheetBody> characterSheets,
                       List<PageBody> pages,
                       Map<String, Object> guide,
@@ -338,13 +356,13 @@ public class HttpAiClient implements AiClient {
                       SafetyBody safety) {
 
         AiGenerationResult toResult() {
-            return new AiGenerationResult(runNo, checkpointId, title, design,
+            return new AiGenerationResult(runNo, checkpointId, title, design, coverPath,
                     characterSheets == null ? List.of() : characterSheets.stream()
                             .map(sheet -> new AiGenerationResult.CharacterSheet(sheet.role(), sheet.name(), sheet.path()))
                             .toList(),
                     pages == null ? List.of() : pages.stream()
                             .map(page -> new AiGenerationResult.Page(page.pageNo(), page.text(), page.imagePrompt(),
-                                    page.imagePath(), page.imageStatus()))
+                                    TextPosition.fromAi(page.textPosition()), page.imagePath(), page.imageStatus()))
                             .toList(),
                     guide(guide),
                     cost == null ? null : new AiGenerationResult.Cost(cost.inputTokens(), cost.outputTokens(),
@@ -370,7 +388,9 @@ public class HttpAiClient implements AiClient {
                             (String) item.get("text"), (String) item.get("purpose"), (String) item.get("parent_hint")))
                     .toList()
                     : List.of();
-            return new AiGenerationResult.Guide((String) before.get("intent"), (List<String>) before.get("tips"),
+            // 줄거리가 없던 AI 결과는 빈 문자열이나 키 없음 → null
+            String synopsis = guide.get("synopsis") instanceof String text && !text.isBlank() ? text : null;
+            return new AiGenerationResult.Guide(synopsis, (String) before.get("intent"), (List<String>) before.get("tips"),
                     (String) after.get("bridge_question"), (String) after.get("if_undecided"), prompts);
         }
     }
@@ -380,6 +400,7 @@ public class HttpAiClient implements AiClient {
 
     record PageBody(@JsonProperty("page_no") int pageNo, String text,
                     @JsonProperty("image_prompt") String imagePrompt,
+                    @JsonProperty("text_position") String textPosition,
                     @JsonProperty("image_path") String imagePath,
                     @JsonProperty("image_status") String imageStatus) {
     }

@@ -58,6 +58,15 @@ public class StoryImageController {
         return image(storyImageService.characterSheet(principal.getUserId(), id, versionId));
     }
 
+    @Operation(summary = "표지", description = "제목이 들어간 정사각형 표지. 표지가 없는 버전(이전 버전, 표지 실패)이면 IMAGE_NOT_FOUND")
+    @ApiResponse(responseCode = "200", description = "PNG 그림",
+            content = @Content(mediaType = MediaType.IMAGE_PNG_VALUE, schema = @Schema(type = "string", format = "binary")))
+    @GetMapping("/cover")
+    public ResponseEntity<byte[]> cover(@AuthenticationPrincipal UserPrincipal principal,
+                                        @PathVariable Long id, @PathVariable Long versionId) {
+        return image(storyImageService.cover(principal.getUserId(), id, versionId));
+    }
+
     private static ResponseEntity<byte[]> image(StoredFile file) {
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(file.contentType()))

@@ -2,6 +2,7 @@ package com.firstory.global.ai;
 
 import com.firstory.domain.child.entity.Child;
 import com.firstory.domain.generation.entity.RegenerateScope;
+import com.firstory.domain.generation.entity.TextPosition;
 import com.firstory.domain.safety.entity.SafetyLevel;
 import com.firstory.domain.safety.entity.SafetySource;
 import com.firstory.domain.story.entity.ChildSnapshot;
@@ -120,12 +121,14 @@ class HttpAiClientTest {
                 .andExpect(header(HttpAiClient.TOKEN_HEADER, TOKEN))
                 .andExpect(request -> bodies.add(((MockClientHttpRequest) request).getBodyAsString()))
                 .andRespond(withSuccess("""
-                        {"type": "question", "turn": 1, "question": "무슨 일이 있었나요?", "context_update": null}""",
+                        {"type": "question", "turn": 1, "question": "무슨 일이 있었나요?",
+                         "choices": ["친구랑 다퉜어요", "넘어졌어요"], "context_update": null}""",
                         MediaType.APPLICATION_JSON));
 
         InterviewReply reply = client.startInterview(THREAD_ID, runId, contextOfChildNamed("콩이"), Tone.WARM);
 
-        assertThat(reply).isEqualTo(InterviewReply.question(1, "무슨 일이 있었나요?", null));
+        assertThat(reply).isEqualTo(
+                InterviewReply.question(1, "무슨 일이 있었나요?", List.of("친구랑 다퉜어요", "넘어졌어요"), null));
         String body = bodies.getFirst();
         assertThat(body).doesNotContain("콩이");
         JsonNode json = JSON.readTree(body);
@@ -174,6 +177,21 @@ class HttpAiClientTest {
         assertThat(reply.turn()).isEqualTo(2);
         assertThat(reply.question()).isEqualTo("그때 아이는 어떤 표정이었나요?");
         assertThat(reply.contextUpdate()).isEqualTo(Map.of("moment", Map.of("emotions", List.of("sad"))));
+        assertThat(reply.choices()).isEmpty();   // choices가 없는 응답도 받는다
+        server.verify();
+    }
+
+    @Test
+    void 답변_카드는_빈_것과_겹치는_것을_빼고_4개까지() {
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/answer"))
+                .andRespond(withSuccess("""
+                        {"type": "question", "turn": 2, "question": "어떤 마음이었을까요?",
+                         "choices": [" 속상했어요 ", "", null, "속상했어요", "무서웠어요", "화났어요", "잘 모르겠어요", "부끄러웠어요"],
+                         "context_update": null}""", MediaType.APPLICATION_JSON));
+
+        InterviewReply reply = client.answerInterview(THREAD_ID, "울었어요");
+
+        assertThat(reply.choices()).containsExactly("속상했어요", "무서웠어요", "화났어요", "잘 모르겠어요");
         server.verify();
     }
 
@@ -192,6 +210,7 @@ class HttpAiClientTest {
         assertThat(reply.summary()).isEqualTo("요약");
         assertThat(reply.endReason()).isEqualTo(InterviewEndReason.USER_SKIP);
         assertThat(reply.finalContext()).isEqualTo(Map.of("parent", Map.of("message_direction", "comfort_first")));
+        assertThat(reply.choices()).isEmpty();
         server.verify();
     }
 
@@ -251,11 +270,14 @@ class HttpAiClientTest {
                 .andExpect(header(HttpAiClient.TOKEN_HEADER, TOKEN))
                 .andExpect(content().json("""
                         {"run_id": "6c1f0f7e-2b8a-4f53-9a6e-0f5b8f0c2d11", "run_no": 1,
-                         "output_prefix": "stories/123/runs/1/", "tone": "warm"}""", JsonCompareMode.STRICT))
+                         "output_prefix": "stories/123/runs/1/", "tone": "warm",
+                         "context": {"situation": {"description": "친구가 밀쳤어요"}},
+                         "summary": "속상한 마음을 먼저 알아주고 싶어요."}""", JsonCompareMode.STRICT))
                 .andRespond(withStatus(HttpStatus.ACCEPTED).contentType(MediaType.APPLICATION_JSON)
                         .body("{\"accepted\": true}"));
 
-        client.generate(THREAD_ID, runId, 1, "stories/123/runs/1/", Tone.WARM);
+        client.generate(THREAD_ID, runId, 1, "stories/123/runs/1/", Tone.WARM,
+                Map.of("situation", Map.of("description", "친구가 밀쳤어요")), "속상한 마음을 먼저 알아주고 싶어요.");
 
         server.verify();
     }
@@ -286,11 +308,11 @@ class HttpAiClientTest {
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withSuccess("""
                         {"run_no": 1, "checkpoint_id": "1ef8a", "title": "공룡 아로의 새 친구",
-                         "design": {"hero": "아로"},
+                         "design": {"hero": "아로"}, "cover_path": "stories/123/runs/1/images/cover.png",
                          "character_sheets": [{"role": "main", "name": "아로", "path": "stories/123/runs/1/images/sheet-main-1.png"}],
-                         "pages": [{"page_no": 1, "text": "아로는 **쿵쿵**", "image_prompt": "p",
+                         "pages": [{"page_no": 1, "text": "아로는 **쿵쿵**", "image_prompt": "p", "text_position": "top",
                                     "image_path": "stories/123/runs/1/images/page-01.png", "image_status": "done"}],
-                         "guide": {"before_reading": {"intent": "의도", "tips": ["팁"]},
+                         "guide": {"synopsis": "줄거리", "before_reading": {"intent": "의도", "tips": ["팁"]},
                                    "prompts": [{"after_page": 3, "text": "질문", "purpose": "emotion", "parent_hint": "힌트"}],
                                    "after_reading": {"bridge_question": "다리", "if_undecided": "괜찮아요"}},
                          "cost": {"input_tokens": 41230, "output_tokens": 8120, "image_count": 9},
@@ -301,11 +323,12 @@ class HttpAiClientTest {
         assertThat(result.runNo()).isEqualTo(1);
         assertThat(result.checkpointId()).isEqualTo("1ef8a");
         assertThat(result.design()).containsEntry("hero", "아로");
+        assertThat(result.coverPath()).isEqualTo("stories/123/runs/1/images/cover.png");
         assertThat(result.characterSheets()).containsExactly(
                 new AiGenerationResult.CharacterSheet("main", "아로", "stories/123/runs/1/images/sheet-main-1.png"));
         assertThat(result.pages()).containsExactly(new AiGenerationResult.Page(1, "아로는 **쿵쿵**", "p",
-                "stories/123/runs/1/images/page-01.png", "done"));
-        assertThat(result.guide()).isEqualTo(new AiGenerationResult.Guide("의도", List.of("팁"), "다리", "괜찮아요",
+                TextPosition.TOP, "stories/123/runs/1/images/page-01.png", "done"));
+        assertThat(result.guide()).isEqualTo(new AiGenerationResult.Guide("줄거리", "의도", List.of("팁"), "다리", "괜찮아요",
                 List.of(new AiGenerationResult.Prompt(3, "질문", "emotion", "힌트"))));
         assertThat(result.cost()).isEqualTo(new AiGenerationResult.Cost(41230, 8120, 9));
         assertThat(result.safety()).isEqualTo(SafetyResult.ok());
@@ -399,7 +422,7 @@ class HttpAiClientTest {
                 .andRespond(withStatus(HttpStatus.CONFLICT).contentType(MediaType.APPLICATION_JSON).body("""
                         {"error": {"code": "THREAD_BUSY", "message": "busy"}}"""));
 
-        assertError(() -> client.generate(THREAD_ID, UUID.randomUUID(), 1, "stories/1/runs/1/", null),
+        assertError(() -> client.generate(THREAD_ID, UUID.randomUUID(), 1, "stories/1/runs/1/", null, null, null),
                 ErrorCode.AI_BUSY);
     }
 

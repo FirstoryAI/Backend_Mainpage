@@ -1,5 +1,8 @@
 server:
   port: ${SERVER_PORT:${PORT:8080}}   # SERVER_PORT가 없으면 PORT(Railway가 넣어 준다), 둘 다 없으면 8080
+  # 앞단 프록시(Railway 등)가 https를 받아 http로 넘기므로 X-Forwarded-* 헤더로 원래 주소를 찾는다.
+  # 없으면 Swagger의 서버 주소가 http://가 되어 https 화면에서 요청이 막힌다. 코드는 접속자 IP와 scheme을 쓰지 않는다
+  forward-headers-strategy: framework
 
 spring:
   application:
@@ -36,9 +39,9 @@ firstory:
     phone-aes-key: ${PHONE_AES_KEY:LlNjGbl6PF959ZAmeT0cgo7fB8RzybmscK7lwJIujzA=}
     phone-hmac-key: ${PHONE_HMAC_KEY:Chg1Q+ecsxbaP3RFwbIYhmQvksrUc1XG03McsuGB+Jk=}
   story:
-    page-count: 8                               # 동화 쪽수. DB에는 상한을 두지 않는다
+    page-count: 10                              # 동화 쪽수. DB에는 상한을 두지 않는다
   policy:
-    max-regenerations: ${MAX_REGENERATIONS:3}   # TODO(PM): 다시 만들기 최대 횟수 미정 (결정 4번). 임시값 3
+    max-regenerations: ${MAX_REGENERATIONS:1}   # 다시 만들기 최대 횟수 (기획 확정 1회)
     safety-revise-limit: 2                      # 위기 신호 REVISE가 이 횟수째면 차단 (1번째는 다시 쓰기 안내)
   ai:
     mode: ${AI_MODE:http}                       # http | fake. local, test 프로필은 fake (AI 서버 없이 고정 응답)
@@ -56,7 +59,11 @@ firstory:
     poll-interval: 5s                           # AI에 진행 상태를 묻는 간격
     timeout: 15m                                # 시작하고 이 시간이 지나도 RUNNING이면 실패 처리
   storage:
+    type: ${STORAGE_TYPE:local}                         # local | s3. 진짜 AI 서버와 다른 컴퓨터면 s3 (AI 서버도 같은 버킷)
     local-root: ${STORAGE_LOCAL_ROOT:./data/storage}   # 그림 파일 저장 폴더 (커밋하지 않는다)
+    s3:
+      bucket: ${STORAGE_S3_BUCKET:}                     # type=s3면 필수
+      region: ${STORAGE_S3_REGION:ap-northeast-2}       # 접근 키는 AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (또는 EC2 IAM 역할)
   web:
     cookie-secure: ${COOKIE_SECURE:false}                      # 운영은 true
     cookie-domain: ${COOKIE_DOMAIN:}                           # API를 서브도메인으로 나눌 때만 설정
@@ -93,4 +100,5 @@ firstory:
   generation:
     poll-enabled: false
   storage:
+    type: local
     local-root: build/test-storage

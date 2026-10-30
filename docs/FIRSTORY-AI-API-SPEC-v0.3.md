@@ -5,6 +5,22 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 
 - 표시: **[확정]** 코드로 확인했거나 팀이 정한 것, **[요청]** AI 쪽 수정이 필요한 것, **[결정 필요]** 팀이 정해야 하는 것
 
+## v0.3 이후 바뀐 점 (2026-10-26)
+
+| 항목 | 전 | 지금 |
+|---|---|---|
+| 동화 쪽수 | 8쪽 | **10쪽** (AI는 10/7부터, Spring `firstory.story.page-count`도 10) |
+| 오류 code | 6장 표 6개 | `NOT_FOUND`(404), `METHOD_NOT_ALLOWED`(405), `NOT_IMPLEMENTED`(501) 추가 |
+| G0, G1, G3, G4, G5, G6 | 요청 | AI 저장소에 반영 (3장) |
+| 이전 버전에서 다시 만들기 | `Command(resume)` | `update_state(as_node="parent_review")`로 새 갈래 (8장) |
+| confirm의 `summary`, generate 요청 | 생성기용 정리 | 부모에게 보여 줄 문장. generate에 `context`, `summary` 추가 (7-3, 7-4) |
+| 결과물 파일 이름 | `story.json` 등 | AI가 실제로 쓰는 이름 (9장) |
+| 인터뷰 질문 응답 | `turn`, `question`, `context_update` | `choices`(답변 카드 0~4개) 추가 (7-3) |
+| 글 다시 만들기의 그림 | 12장 전부 새로 | 장면이 바뀐 쪽만 새로, 나머지 쪽·시트는 이전 실행 key (7-6, 9장) |
+| 위기 신호 판단 (G2) | 없음 (mock만, 아니면 501) | `/safety/check` 진짜 판단, `result.safety`에 완성 본문 판단. `category` 목록 확정 (4장) |
+
+쪽수 이유: 실제 그림책이 9–17 펼침면이라 8쪽은 적었다. AI 프롬프트의 이야기 구조(기 1–2 / 승 3–5 / 전 6–8 / 결 9–10)와 예시가 10쪽 기준이다.
+
 ## v0.2 → v0.3 바뀐 점
 
 | 항목 | v0.2 | v0.3 |
@@ -59,13 +75,13 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 
 | # | 변경 | 상태 |
 |---|---|---|
-| G0 | 다시 만들기 메모 반영 버그 2개 (character feedback 무시, "3페이지" 인식) | **PR 올라감** (`fix/피드백-반영-누락`) |
-| G1 | `interview_finish` 다음에 **생성 전 확인 멈춤 지점** 추가 | [요청] 작업 예정 |
-| G2 | **위기 신호 판단** 추가 (4장) | [요청] **현재 코드에 전혀 없음.** 프롬프트 설계가 핵심 |
-| G3 | **실행별 결과물 경로** (`runs/{run_no}/`) | [요청] 작업 예정. 지금은 다시 만들면 덮어써짐 |
-| G4 | 그림만 다시 그릴 때 안 바뀐 쪽은 이전 파일 경로 유지 | [요청] G3와 함께 |
-| G5 | `parent_review` 멈춤 시점의 checkpoint_id를 결과에 포함 | [요청] FastAPI에서 `get_state`로 가능 |
-| G6 | mock 모드를 환경 변수로 켜기 (5장) | [요청] |
+| G0 | 다시 만들기 메모 반영 버그 2개 (character feedback 무시, "3페이지" 인식) | **반영** (FirstoryAI/AI_worker#1. 쪽 번호는 쪽·페이지·p가 붙은 숫자와 숫자만 쓴 메모만: FirstoryAI/AI_worker#3) |
+| G1 | `interview_finish` 다음에 **생성 전 확인 멈춤 지점** 추가 | **반영** (FirstoryAI/AI_worker#2, 노드 `confirm_generate`). 재개 값이 비어 있어도 FastAPI가 그래프에는 `{"action": "generate"}`로 보낸다 |
+| G2 | **위기 신호 판단** 추가 (4장) | **반영** (FirstoryAI/AI_worker#16, `nodes/safety.py`. 폼·인터뷰 답변·다시 만들기 메모와 완성 본문이 같은 판단 프롬프트를 쓴다) |
+| G3 | **실행별 결과물 경로** (`runs/{run_no}/`) | **반영** (FirstoryAI/AI_worker#7. 실행마다 `output_prefix` 아래에 쓴다, 9장) |
+| G4 | 그림만 다시 그릴 때 안 바뀐 쪽은 이전 파일 경로 유지 | **반영** (FirstoryAI/AI_worker#7. 캐릭터 시트도 이전 key 유지, 파일 복사 없음) |
+| G5 | `parent_review` 멈춤 시점의 checkpoint_id를 결과에 포함 | **반영** (FirstoryAI/AI_worker#12, `result.checkpoint_id`) |
+| G6 | mock 모드를 환경 변수로 켜기 (5장) | **반영** (FirstoryAI/AI_worker#5, `FIRSTORY_MOCK=true`. FastAPI 뼈대와 `/health`, `/v1/safety/check` 포함) |
 | G7 | 운영 전 `SqliteSaver` → `PostgresSaver` | [요청] 출시 전 |
 
 ## 4. 위기 신호 판단 (G2)
@@ -88,8 +104,22 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 { "safety": { "level": "REVISE", "category": "harmful_discipline", "reason": "공포로 행동을 바꾸게 하는 훈육이 담겨 있어요" } }
 ```
 
-- `reason`은 **부모에게 그대로 보여줄 수 있는 문장**으로. 판단·진단 표현은 쓰지 않는다.
-- **[결정 필요]** `category` 값 목록. 제안: `violence`, `harmful_discipline`, `discrimination`, `illegal`, `self_harm`, `abuse_neglect`, `harm_intent`, `other`
+- `reason`은 **부모에게 그대로 보여줄 수 있는 문장**으로. 판단·진단 표현은 쓰지 않는다. OK면 null.
+- **[확정]** `category`는 REVISE·CRISIS일 때만 붙는다 (OK·SENSITIVE는 null).
+
+| category | 뜻 |
+|---|---|
+| `violence` | 폭력을 해결책으로 그리거나 미화 |
+| `harmful_discipline` | 체벌·위협·공포·수치심 훈육 |
+| `discrimination` | 차별·혐오 |
+| `illegal` | 불법·위험 행동 미화 |
+| `blame_child` | 죽음·이혼·질병 같은 일을 아이 탓으로 |
+| `self_harm` | 아이의 자해·자살 언급 |
+| `abuse_neglect` | 학대·방임 정황 |
+| `harm_intent` | 아이를 해치려는 의도 |
+| `other` | 그 밖 |
+
+- 완성 본문 판단(`result.safety`)에는 SENSITIVE가 없다. 무거운 주제를 따뜻하게 다룬 본문은 OK다. 그림만 다시 그린 실행은 글이 그대로라 지난 판단을 그대로 준다.
 
 ### 검사 위치 (네 곳)
 
@@ -123,6 +153,11 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 | 409 | INVALID_STATE | 멈춤 지점과 맞지 않는 요청 |
 | 422 | VALIDATION_ERROR | `StoryInputContext` 검증 실패 포함 |
 | 500 | INTERNAL_ERROR | |
+| 404 | NOT_FOUND | 없는 경로 (연동 버그) |
+| 405 | METHOD_NOT_ALLOWED | 경로는 맞는데 메서드가 다름 (연동 버그) |
+| 501 | NOT_IMPLEMENTED | 아직 없는 기능. G2가 들어가 지금 나가는 곳은 없다 (전에는 mock이 아닐 때 `/v1/safety/check`) |
+
+- Spring은 404를 code가 `THREAD_NOT_FOUND`일 때만 상태 불일치(`AI_STATE_MISMATCH`)로 보고, `NOT_FOUND`·405·501은 `AI_UNAVAILABLE`과 경고 로그로 처리한다 (`HttpAiClient`)
 
 - 응답 시간: 인터뷰·확인 API는 30초 이내 동기, 생성 API는 즉시 202
 
@@ -192,21 +227,25 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
   "type": "question",
   "turn": 2,
   "question": "그때 아이는 어떤 표정이었나요?",
+  "choices": ["울상이었어요", "얼어붙은 것 같았어요", "애써 웃고 있었어요"],
   "context_update": { "...": "..." }
 }
 ```
+
+- `choices`: 이 질문에 부모가 눌러서 보낼 수 있는 답변 카드. 부모 입말 해요체 짧은 문장 0~4개. AI 노드가 빈 것·겹치는 것을 빼고 4개까지 남긴다(Spring도 같은 정리를 한 번 더 한다). 카드가 없으면 빈 목록. 부모가 카드를 누르면 그 문장이 일반 `answer`로 온다
 
 응답, 인터뷰가 끝나 생성 전 확인(G1)에서 멈췄을 때:
 
 ```json
 {
   "type": "confirm",
-  "summary": "아이가 친구에게 다가갔다가 거절당한 경험…",
+  "summary": "속상했던 마음을 먼저 알아주고 싶어요. 친구를 나쁘게 말하지는 않고 싶어요.",
   "end_reason": "sufficient",
   "context": { "...": "인터뷰가 채운 parent 값까지 포함한 최종 StoryInputContext" }
 }
 ```
 
+- `summary`: 생성 전 확인 화면(CRT-06)에 "이번 이야기에서 나누고 싶은 것"으로 **부모에게 그대로 보이는** 해요체 1~2문장. 부모가 고칠 수 있다. 동화 생성기가 읽는 정리("이 부모는 ~")는 AI 안에만 둔다
 - `end_reason`: `sufficient` | `max_turns` | `user_skip` (코드의 `interview_done_by`)
 - 위기 신호는 이 API가 판단하지 않는다. Spring이 보내기 전에 `/safety/check`로 검사한다.
 - Spring은 `context`를 `story_inputs.final_context`에 저장한다
@@ -214,11 +253,15 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 ### 7-4. POST /v1/threads/{thread_id}/generate
 
 ```json
-{ "run_id": "…", "run_no": 1, "output_prefix": "stories/123/runs/1/", "tone": "warm" }
+{ "run_id": "…", "run_no": 1, "output_prefix": "stories/123/runs/1/", "tone": "warm",
+  "context": { "...": "지금 입력 전체 (StoryInputContext)" }, "summary": "부모가 확인한 '나누고 싶은 것'" }
 ```
 
-→ `202 { "accepted": true }`. G1 멈춤 지점을 `{"action": "generate", "tone": ...}`로 재개.
+→ `202 { "accepted": true }`. G1 멈춤 지점을 `{"action": "generate", "tone", "output_prefix", "context", "summary"}`로 재개.
 - `tone`: 인터뷰 중 민감 주제가 나와 부모가 분위기를 고른 경우. design_story에 전달 (D5)
+- `context`, `summary`(선택): 생성 전 확인에서 부모가 고쳤을 수 있는 입력과 '나누고 싶은 것'. AI가 인터뷰 결과와 합친다
+  - `child`는 Spring 것, `situation`은 바뀌었을 때만 `moment`와 함께 Spring 것 (안 바뀌었으면 인터뷰가 보충한 `moment`를 지킨다), `parent.message`는 Spring 것, 나머지 `parent`는 인터뷰가 채운 그대로
+  - `summary`가 confirm 때 준 문장과 다르면 고쳐 쓴 것으로 보고 동화 생성기가 읽는 정리 뒤에 덧붙인다
 
 ### 7-5. GET /v1/threads/{thread_id}/status
 
@@ -238,8 +281,8 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 | stage | 화면 문구 | 노드 |
 |---|---|---|
 | 1 | 이야기 짜기 | `design_story` |
-| 2 | 글 쓰기 | `write_story` |
-| 3 | 그림 그리기 | `reading_guide`, `illustrate`, `illustrate_only` |
+| 2 | 글 쓰기 | `write_story`, `polish_story` |
+| 3 | 그림 그리기 | `reading_guide`, `safety_output`, `illustrate`, `illustrate_only` |
 | 4 | 책으로 묶기 | `render` |
 
 - 참고: 그래프 state의 `status`(requested → generating_text → generating_images → reviewing → completed)도 함께 쓸 수 있음
@@ -255,21 +298,25 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
   "checkpoint_id": "1ef8a…",
   "title": "공룡 아로의 새 친구",
   "design": { "...": "02-design.json" },
+  "cover_path": "stories/123/runs/1/images/cover.png",
   "character_sheets": [ { "role": "main", "name": "아로", "path": "stories/123/runs/1/images/sheet-main-아로.png" } ],
   "pages": [
-    { "page_no": 1, "text": "아로는 **쿵쿵** 걸어서…", "image_prompt": "…", "image_path": "stories/123/runs/1/images/page-01.png", "image_status": "done" }
+    { "page_no": 1, "text": "아로는 **쿵쿵** 걸어서…", "image_prompt": "…", "text_position": "bottom", "image_path": "stories/123/runs/1/images/page-01.png", "image_status": "done" }
   ],
-  "guide": { "...": "04-guide.json 그대로 (before_reading, prompts[], after_reading)" },
+  "guide": { "...": "04-guide.json 그대로 (synopsis, before_reading, prompts[], after_reading)" },
   "cost": { "input_tokens": 41230, "output_tokens": 8120, "image_count": 9 },
   "safety": { "level": "OK", "category": null, "reason": null }
 }
 ```
 
-- `pages`는 **8개**
+- `pages`는 **10개** (`firstory.story.page-count`)
+- `cover_path`: 표지 key. 캐릭터 시트를 참조해 따로 그린 **정사각형(1024×1024, `COVER_SIZE`)** 그림이고 제목이 한글로 그림 안에 들어 있다. 못 그렸으면 null(실행은 실패하지 않는다). 처음 만들기·이야기 다시·그림만 다시(전체)는 새로 그리고, 그림만 다시(일부 쪽)는 이전 표지 key, 글 다시는 제목이 그대로면 이전 표지 key이고 제목이 바뀌면 표지만 새로 그린다
+- `text_position`: `top` | `bottom`. 화면에서 글을 얹을 자리로, 그림은 이쪽 30%를 빈 바닥·벽·하늘로 비워 둔다. 작가(write_story)가 쪽마다 정한다(기본 bottom, 바닥이 장면의 핵심이거나 넓은 하늘이면 top). 없으면 bottom으로 본다
 - review interrupt payload에는 이미지 정보가 없으므로 `graph.get_state(cfg).values["illustrations"]`에서 읽어 합친다
 - `checkpoint_id`: `parent_review`에서 멈춘 시점 (`get_state(cfg).config["configurable"]["checkpoint_id"]`)
 - `safety`: 완성 본문 판단 (4장)
-- 그림만 다시 그린 경우, 안 바뀐 쪽의 `image_path`는 이전 실행 경로 그대로 (G4)
+- `guide.synopsis`: 서재에서 부모가 보는 동화 줄거리. 해요체 2~3문장, 동화 안에서 일어난 일만(부모 고민·교훈 없음). 대화 가이드 단계가 본문과 함께 만들어 글 다시 만들기 때도 본문과 맞는다. 이 필드가 생기기 전 결과는 없거나 빈 문자열
+- 그림만 다시 그린 경우, 안 바뀐 쪽의 `image_path`는 이전 실행 경로 그대로 (G4). 글 다시 만들기도 장면(그림 지시·등장인물·글 위치)이 바뀐 쪽만 새로 그리고 나머지 쪽과 캐릭터 시트는 이전 실행 경로 그대로
 
 ### 7-7. POST /v1/threads/{thread_id}/review
 
@@ -313,19 +360,23 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 
 ## 8. 버전 되돌리기와 fork [확정]
 
-실험으로 확인한 동작:
+AI 서버 구현(FirstoryAI/AI_worker#13)에서 확인한 동작:
 
-- `parent_review`에서 멈춘 v1 → 다시 만들기로 v2 → **v1의 checkpoint_id를 지정해 `Command(resume=regenerate)`** → v1에서 갈라진 v3가 생김. **v2 체크포인트도 그대로 남음**
+- `parent_review`에서 멈춘 v1 → 다시 만들기로 v2 → v1의 checkpoint_id에서 다시 만들기 → v1에서 갈라진 v3가 생긴다. **v2 체크포인트와 파일도 그대로 남는다**
+- 갈래는 멈춘 interrupt를 `Command(resume=...)`로 풀어서 만들지 **않는다.** LangGraph(1.2)는 한 번 재개한 체크포인트를 다시 재개하면 처음 재개 값을 그대로 다시 쓴다. 그래서 v1에서 두 번째로 다시 만들면 첫 번째 다시 만들기(v2)가 되풀이된다
+- 대신 `update_state(..., as_node="parent_review")`로 "부모 검토가 이 값을 돌려줬다"는 새 체크포인트를 그 버전에서 만들고, `invoke(None)`으로 거기서부터 돌린다. 확정(approve)도 같은 방식이다
 - checkpoint_id 없이 `get_state(thread)`를 부르면 **마지막에 실행한 가지**가 나온다
 - 가지는 step 번호가 아니라 `parent_checkpoint_id`로 구분된다 (두 가지가 같은 step 번호를 씀)
 
 ```python
-config = {"configurable": {"thread_id": tid, "checkpoint_id": base_checkpoint_id}}
-graph.invoke(Command(resume={...}), config)
+base = {"configurable": {"thread_id": tid, "checkpoint_ns": "", "checkpoint_id": base_checkpoint_id}}  # checkpoint_ns 필수
+branch = graph.update_state(base, review_update({"action": "regenerate", "scope": ..., "feedback": ...,
+                                                 "output_prefix": ...}), as_node="parent_review")
+graph.invoke(None, branch)   # 실제로는 백그라운드에서 stream으로 돌린다
 ```
 
 - 버전 사이를 오가는 것(되돌리기, 앞으로 가기)은 **Spring만** 처리하고 AI는 호출하지 않는다
-- 결과물 파일은 G3 전까지 덮어써지므로, **G3가 이 기능의 전제**
+- 결과물 파일은 실행마다 다른 `output_prefix` 아래에 남으므로(G3), 이전 버전의 그림도 그대로 볼 수 있다
 
 ## 9. 결과물 저장 경로 (G3, G4)
 
@@ -333,15 +384,24 @@ graph.invoke(Command(resume={...}), config)
 {output_prefix}
 ├── images/
 │   ├── sheet-{role}-{name}.png
-│   └── page-01.png … page-08.png
-├── story.json      (03-story.json)
-├── guide.json      (04-guide.json)
-├── design.json     (02-design.json)
-└── cost.json       (99-cost.json)
+│   ├── cover.png           표지 (정사각형, 제목 포함)
+│   └── page-01.png … page-10.png
+├── 00-context.json        최종 StoryInputContext
+├── 01-interview.json      인터뷰 턴, 끝난 이유, 요약
+├── 02-design.json         이야기 설계
+├── 02-strategy.json       프롬프트 전략 (실험용)
+├── 03-draft.json          문장 다듬기 전 원고
+├── 03-story.json          최종 원고
+├── 04-guide.json          독서 가이드
+├── 05-illustrations.json  그림 key와 상태
+├── 99-cost.json           호출별 토큰·이미지 수
+└── book.html              확인용 미리보기
 ```
 
-- 파일 쓰는 곳을 함수 하나로 모아 두면 나중에 S3로 바꾸기 쉽다
-- `book.html`은 운영에서 필요 없다 (프론트가 JSON으로 그림)
+- AI는 파일을 모두 key로 읽고 쓴다(AI 저장소 `storage.py` 하나). 저장소는 양쪽이 같게 맞춘다: 로컬 폴더(AI `FIRSTORY_OUTPUT_ROOT` = Spring `STORAGE_LOCAL_ROOT`) 또는 S3 버킷(AI `FIRSTORY_STORAGE=s3`, `FIRSTORY_S3_BUCKET` = Spring `STORAGE_TYPE=s3`, `STORAGE_S3_BUCKET`). S3는 key가 그대로 객체 key다
+- Spring은 이 JSON 파일을 읽지 않는다. 결과는 `/result`로 받고, 그림은 결과에 든 key로만 찾는다
+- 그림만 다시 그린 실행과 글 다시 만들기 실행은 새로 그린 쪽만 이 폴더에 있고, 안 바뀐 쪽과 캐릭터 시트는 이전 실행의 key를 가리킨다 (G4)
+- `book.html`은 운영에서 필요 없다 (프론트가 JSON으로 그림). 이전 실행 폴더의 그림도 상대 경로로 이어서 보인다
 
 ## 10. LangSmith
 
@@ -368,7 +428,7 @@ Spring                                        AI
   │   [CRT-06 부모 확인]
   │ POST /generate  ────────────────────────▶  202
   │ GET /status (3초마다)  ─────────────────▶  stage 1→4
-  │ GET /result  ───────────────────────────▶  8쪽, 가이드, 경로, checkpoint_id, safety
+  │ GET /result  ───────────────────────────▶  10쪽, 가이드, 경로, checkpoint_id, safety
   │   [REV-01 부모 검토]
   │ POST /review approve   또는
   │ POST /safety/check (메모) → POST /review regenerate → 다시 status 폴링
@@ -383,7 +443,7 @@ Spring                                        AI
 5. 인터뷰 API (7-2, 7-3) — `viewer/app.py`의 `run_until_pause`를 옮기면 됨
 6. 생성, 상태, 결과 API (7-4~7-6)
 7. review, retry (7-7, 7-8)
-8. G2 위기 신호 판단과 /safety/check
+8. ~~G2 위기 신호 판단과 /safety/check~~ (반영)
 9. G7 PostgresSaver (출시 전)
 
 ## 13. 남은 결정
@@ -392,7 +452,7 @@ Spring                                        AI
 |---|---|---|
 | D1 | FastAPI를 누가 만들지 | 팀 |
 | D2 | FastAPI 배포 위치 | 팀 |
-| D3 | 위기 신호 판단(G2)을 누가 맡을지. 프롬프트 설계라 AI 담당 추천 | 팀 |
-| D4 | safety `category` 값 목록 | AI 담당, PM |
+| D3 | ~~위기 신호 판단(G2)을 누가 맡을지~~ AI 담당이 만듦 | 팀 |
+| D4 | ~~safety `category` 값 목록~~ 4장에 확정 (PM 검토는 남음) | AI 담당, PM |
 | D5 | `tone`을 design_story에 전달하는 방식 | AI 담당 |
 | D6 | 이미지 설정의 실제 운영값 (.env) | AI 담당 |

@@ -36,8 +36,11 @@ public interface AiClient {
      *
      * @param outputPrefix 결과물 경로 앞부분 (stories/{storyId}/runs/{runNo}/)
      * @param tone         부모가 고른 분위기. 없으면 null
+     * @param context      지금 입력 전체 (AiContextMapper). 생성 전 확인에서 고친 아이·상황·전하고 싶은 말이 들어 있다
+     * @param summary      부모가 확인한 "이번 이야기에서 나누고 싶은 것" (고쳤을 수 있다)
      */
-    void generate(String threadId, UUID runId, int runNo, String outputPrefix, Tone tone);
+    void generate(String threadId, UUID runId, int runNo, String outputPrefix, Tone tone, Map<String, Object> context,
+                  String summary);
 
     AiGenerationStatus status(String threadId);
 

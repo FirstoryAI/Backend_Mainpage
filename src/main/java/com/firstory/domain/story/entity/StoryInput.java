@@ -123,6 +123,16 @@ public class StoryInput extends BaseTimeEntity {
         this.story = Objects.requireNonNull(story);
     }
 
+    /**
+     * 서재 카드에 보여 줄 상황 분류. 기타(OTHER)면 직접 입력한 분류, 상황을 아직 받지 않았으면 null.
+     */
+    public String categoryLabel() {
+        if (situationCategory == null) {
+            return null;
+        }
+        return situationCategory == SituationCategory.OTHER ? situationCustomCategory : situationCategory.getLabel();
+    }
+
     public static StoryInput begin(Story story) {
         return new StoryInput(story);
     }
@@ -196,6 +206,20 @@ public class StoryInput extends BaseTimeEntity {
      */
     public void markToneRequired() {
         this.toneRequired = true;
+    }
+
+    /**
+     * 전하고 싶은 말만 바꾼다 (CRT-04, 생성 전 확인에서 고치기). 인터뷰가 채운 나머지 parent 칸은 그대로 둔다.
+     */
+    public void writeMessage(String message) {
+        this.parentMessage = message;
+    }
+
+    /**
+     * 생성 전 확인(CRT-06)에서 부모가 "이번 이야기에서 나누고 싶은 것"을 고쳤을 때. 생성할 때 AI에 함께 보낸다.
+     */
+    public void editSummary(String summary) {
+        this.interviewSummary = summary;
     }
 
     public void finishInterview(String interviewSummary, InterviewEndReason reason, Map<String, Object> finalContext) {

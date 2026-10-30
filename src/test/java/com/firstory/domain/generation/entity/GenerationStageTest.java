@@ -15,6 +15,7 @@ class GenerationStageTest {
             "write_story, 2, 글 쓰기",
             "polish_story, 2, 글 쓰기",
             "reading_guide, 3, 그림 그리기",
+            "safety_output, 3, 그림 그리기",
             "illustrate, 3, 그림 그리기",
             "illustrate_only, 3, 그림 그리기",
             "render, 4, 책으로 묶기"

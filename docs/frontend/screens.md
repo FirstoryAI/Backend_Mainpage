@@ -43,11 +43,14 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
+| 이메일 입력 (다음으로 넘어가기 전) | `POST /api/auth/email/check` `{email}` | 200 `{available}`. false면 "이미 가입된 이메일이에요" 안내 |
 | 약관 항목 | (API 없음) `consents` 키: `GUARDIAN`, `TERMS`, `PRIVACY`(필수), `SMS_NOTIFY`(선택) | |
 | 가입 버튼 (AUTH-03 인증을 마친 뒤) | `POST /api/auth/signup` `{email, password, phone, consents: {GUARDIAN: true, ...}, termsVersion: "2026-10-01"}` | 201 MeResponse. **바로 로그인된 상태** |
 | 다음 화면 | ONB-01 | |
 
-오류: 409 `DUPLICATE_EMAIL`, `DUPLICATE_PHONE`, 400 `INVALID_PASSWORD_FORMAT`, `REQUIRED_CONSENT_MISSING`, `PHONE_NOT_VERIFIED`(인증 안 했거나 10분 지남).
+- `email/check`는 같은 IP에서 1분에 10번까지(429 `EMAIL_CHECK_RATE_LIMITED`). 글자를 칠 때마다 부르지 말고 입력을 마쳤을 때(다음 버튼, 입력란을 벗어날 때) 한 번 부른다. 형식이 틀리면 400 `VALIDATION_FAILED`.
+
+오류: 409 `DUPLICATE_EMAIL`(미리 확인했어도 그사이 누가 가입했을 수 있다), `DUPLICATE_PHONE`, 400 `INVALID_PASSWORD_FORMAT`, `REQUIRED_CONSENT_MISSING`, `PHONE_NOT_VERIFIED`(인증 안 했거나 10분 지남).
 
 ## AUTH-03 휴대폰 인증
 
@@ -76,7 +79,7 @@
 | 카드 누름 | 카드 `status`로 화면을 고른다(위 표). 완성된 동화는 LIB-02 | |
 | 새 동화 만들기 | CRT-01로 | |
 
-카드(`StoryCardResponse`): `id, title, status, label, coverUrl, childDisplayName, createdAt, updatedAt`. `title`, `coverUrl`은 그림이 나오기 전엔 null. **차단된 동화(BLOCKED)는 홈과 서재에 나오지 않는다.**
+카드(`StoryCardResponse`): `id, title, status, label, categoryLabel, coverUrl, childDisplayName, createdAt, updatedAt`. `categoryLabel`은 상황 분류 문구("기타"를 골랐으면 직접 입력한 분류)이고, 상황을 아직 입력하지 않았으면 null. `title`, `coverUrl`은 그림이 나오기 전엔 null. `coverUrl`은 **제목이 그림 안에 들어간 정사각형(1:1) 표지**다. 표지가 없는 예전 동화는 캐릭터 시트(16:9) 주소라, 칸은 `object-fit: cover`로 채운다. **차단된 동화(BLOCKED)는 홈과 서재에 나오지 않는다.**
 
 ---
 
@@ -84,7 +87,7 @@
 
 ### 위기 신호 분기 (모든 만들기 응답 공통)
 
-글을 받는 API(상황, 아이, 전하고 싶은 말, 인터뷰 답변, 다시 만들기 메모)의 응답에는 `safety`가 있다.
+글을 받는 API(상황, 아이, 전하고 싶은 말, 나누고 싶은 것, 인터뷰 답변, 다시 만들기 메모)의 응답에는 `safety`가 있다.
 
 ```json
 { "storyId": 12, "status": "DRAFT", "saved": true, "toneRequired": false,
@@ -160,15 +163,18 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `POST /api/stories/{id}/interview/start` | `status: "INTERVIEWING"`, `turn: 1`, `question` |
+| 들어올 때 | `POST /api/stories/{id}/interview/start` | 답변과 같은 `InterviewResponse`. 보통 `type: "QUESTION"`, `status: "INTERVIEWING"`, `turn: 1`, `question`. **바로 `type: "CONFIRM"`일 수 있다**(아래) |
 | 답변 | `POST /api/stories/{id}/interview/answer` `{answer: "..."}` (500자) | 아래 |
 | 건너뛰기 | `POST /api/stories/{id}/interview/answer` `{skip: true}` | 인터뷰가 끝난다 |
 
-답변 응답(`InterviewResponse`): `status, type, turn, question, summary, safety, toneRequired`
+답변 응답(`InterviewResponse`): `status, type, turn, question, choices, summary, safety, toneRequired`
 
 - `type: "QUESTION"` → `question`을 다음 질문으로 보여 준다. `turn`이 질문 번호.
-- `type: "CONFIRM"` → 인터뷰 끝. `status`가 `CONFIRMING`, `summary`(정리한 내용) → CRT-06.
-- **질문 수는 1~5개로 정해져 있지 않다.** "3/5" 같은 고정 진행 표시를 하지 않는다.
+- `choices`(문자열 0~4개) → 질문 아래 답변 카드. 누르면 그 문장을 `{answer: "..."}`로 보낸다(직접 쓴 답과 똑같이 위기 신호를 검사한다). 빈 목록이면 카드 없이 입력만 보여 준다. 질문이 아닌 응답(CONFIRM, 차단)은 항상 빈 목록이다.
+- 카드는 저장하지 않는다. `ASK_REVISE`로 같은 질문을 다시 줄 때와 `GET /draft`로 이어서 만들 때는 카드가 없다.
+- `type: "CONFIRM"` → 인터뷰 끝. `status`가 `CONFIRMING`, `summary`("이번 이야기에서 나누고 싶은 것", 부모에게 보여 줄 해요체 문장) → CRT-06.
+- **질문 수는 0~5개 사이에서 동화마다 다르다.** "3/5" 같은 고정 진행 표시를 하지 않는다.
+- **질문이 0개일 수 있다.** AI가 앞서 받은 입력만으로 충분하다고 보면 인터뷰 시작 응답이 바로 `type: "CONFIRM"`, `status: "CONFIRMING"`, `summary`다. 이때는 채팅 화면을 열지 않고 CRT-06으로 간다. 가짜 AI(local, dev)는 항상 질문 1부터 시작하므로 진짜 AI를 붙였을 때만 나온다.
 - 응답이 수 초 걸린다(가짜 AI도 2초). 로딩 표시와 **중복 클릭 방지** 필수. 두 번 보내면 409 `AI_BUSY`.
 - `ASK_REVISE`면 `question`에 같은 질문이 다시 온다. `CHOOSE_TONE`이면 진행하면서 `toneRequired: true`(CRT-06 전에 ST-04).
 - AI 오류(503 `AI_UNAVAILABLE`, 409 `AI_BUSY`)면 아무것도 저장되지 않았으니 같은 답변으로 다시 보내면 된다.
@@ -178,7 +184,14 @@
 | 때 | API | 볼 것 |
 |---|---|---|
 | 들어올 때 / 이어서 만들기 | `GET /api/stories/{id}/draft` | `situation`, `child`, `parent.message`, `interview.turns[]{turnNo, question, answer}`, `interview.summary`, `tone`, `toneRequired` |
+| 아이 수정하기 | `PUT /api/stories/{id}/child` (CRT-03과 같은 본문) | `{saved, status: "CONFIRMING", safety, toneRequired}` |
+| 상황 수정하기 | `PUT /api/stories/{id}/situation` (CRT-01·02와 같은 본문) | 같음 |
+| 전하고 싶은 말 수정하기 | `PUT /api/stories/{id}/message` | 같음. 인터뷰가 채운 다른 값(방향 등)은 그대로 |
+| 나누고 싶은 것 수정하기 | `PUT /api/stories/{id}/summary` `{summary}` (1~300자) | 같음. `GET /draft`의 `interview.summary`가 바뀐다 |
 | 동화 만들기 버튼 | `POST /api/stories/{id}/confirm` | 202 `{status: "REQUESTED", runNo, stage, ...}` → GEN-01 |
+
+- 수정은 `CONFIRMING`에서 된다(아이·상황·전하고 싶은 말은 `DRAFT`에서도). 인터뷰를 다시 하지 않고, 고친 내용은 "동화 만들기"를 누를 때 AI에 함께 간다. **지우고 다시 만들어 답변을 재생하는 우회는 필요 없다.**
+- 고친 글도 위기 신호를 검사한다. 응답의 `safety`는 위 "위기 신호 분기" 표대로 처리한다(`ASK_REVISE`면 저장되지 않으니 같은 카드에서 다시 쓰게, `CHOOSE_TONE`이면 만들기 전에 ST-04).
 
 `GET /draft`는 모든 상태에서 되므로 "만들던 이야기" 카드에서 이어서 만들 때도 쓴다. `status`를 보고 CRT-01~06 중 어디로 갈지 정한다.
 
@@ -211,8 +224,9 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `GET /api/stories/{id}/preview` | `version{id, versionNo, title}`, `characterSheetUrl`, `pages[]{pageNo, text, imageStatus, imageUrl}`, `regenerateRemaining` |
+| 들어올 때 | `GET /api/stories/{id}/preview` | `version{id, versionNo, title}`, `characterSheetUrl`, `coverUrl`, `pages[]{pageNo, text, imageStatus, imageUrl, textPosition}`, `regenerateRemaining` |
 | 다시 만들기 | REV-02 | |
+| 동화 설명과 부모용 가이드 | GDE-01 (`GET .../guide`, REVIEWING에서도 된다) | 동화 설명은 `beforeReading.intent` |
 | 버전 목록 | 아래 "버전 목록" | |
 | 이대로 확정 | REV-04 | |
 
@@ -220,7 +234,8 @@
 
 - `imageUrl`(예: `/api/stories/12/versions/30/pages/1/image`)을 **`<img src>`에 그대로** 넣는다. 쿠키가 자동으로 붙어 내 동화 그림만 보인다. 주소에 파일 경로는 없다.
 - `imageStatus: "FAILED"`면 `imageUrl`이 null이다. **빈 자리(대체 그림)** 를 보여 주고 "그림만 다시"로 그 쪽을 다시 그리게 안내한다.
-- `characterSheetUrl`은 표지·인물 그림. null일 수 있다.
+- `coverUrl`은 표지(제목이 들어간 정사각형 그림). 표지가 없는 버전이면 캐릭터 시트 주소다. `characterSheetUrl`은 주인공 기준 그림. 둘 다 null일 수 있다.
+- `textPosition`(`TOP` | `BOTTOM`)은 쪽 글을 그림 위에 얹을 자리다. 그림은 그쪽 약 30%를 빈 바닥·벽·하늘로 비워 두므로, 글 상자를 그 안에 가로로 넓게 놓으면 인물을 가리지 않는다. 빈 자리 경계가 딱 잘리지 않아 반투명 배경을 깔면 안전하다. 예전에 만든 동화는 모두 `BOTTOM`이다.
 - 쪽 글의 `**콩닥콩닥**`은 의성어·의태어 강조 표시다. 굵게 등으로 바꿔 보여 준다.
 
 ## REV-02 다시 만들기
@@ -234,9 +249,9 @@
 ```
 
 - `scope` 3가지: `CHARACTER_STORY`(이야기·인물부터 다시), `TEXT`(글 다시), `IMAGES`(그림만 다시).
-- `IMAGES`일 때만 `pages`로 쪽을 고른다(1~8, 비우면 전체). 다른 범위에서 `pages`를 보내면 400 `INVALID_PAGE_SELECTION`.
+- `IMAGES`일 때만 `pages`로 쪽을 고른다(1~10, 비우면 전체). 다른 범위에서 `pages`를 보내면 400 `INVALID_PAGE_SELECTION`.
 - `feedback`(요청 메모)은 300자. 위기 신호를 먼저 검사한다: `ASK_REVISE`면 `saved: false`이고 다시 만들지 않으며 횟수도 그대로(메모를 고치게 안내). `BLOCK`이면 ST-05.
-- `regenerateRemaining`(남은 횟수, 지금 임시 3번)이 0이면 버튼을 막는다. 넘기면 409 `REGENERATION_LIMIT_REACHED`.
+- `regenerateRemaining`(남은 횟수, 처음 1번)이 0이면 버튼을 막는다. 넘기면 409 `REGENERATION_LIMIT_REACHED`.
 - 다시 만들면 **지금 보고 있는 버전**에서 갈라진다.
 
 ## 버전 목록
@@ -271,11 +286,13 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `GET /api/stories/{id}` | `title, status, label, coverUrl, childDisplayName, situation{category, categoryLabel, timing}, summary, pageCount, createdAt, confirmedAt, readCount, lastReadAt, canRead` |
+| 들어올 때 | `GET /api/stories/{id}` | `title, status, label, coverUrl, childDisplayName, situation{category, categoryLabel, timing}, summary, synopsis, pageCount, createdAt, confirmedAt, readCount, lastReadAt, canRead` |
 | 함께 읽기 | `canRead`가 true일 때 RD-01 | |
-| 대화 가이드 | GDE-01 (COMPLETED만) | |
+| 대화 가이드 | GDE-01 (REVIEWING·COMPLETED) | |
 | 이 동화 지우기 | `DELETE /api/stories/{id}` → 204 → 서재로 | |
 
+- **"동화 줄거리"에는 `synopsis`를 보여 준다.** 해요체 2~3문장으로 동화 안에서 일어난 일만 담는다. 지금 보여 주는 버전(확정 전에는 미리보기 중인 버전, 확정 뒤에는 확정 버전)의 것이다. 버전이 없거나 줄거리가 생기기 전에 만든 동화는 null이니 그때는 줄거리 칸을 숨긴다.
+- **`summary`는 줄거리가 아니다.** 인터뷰가 만든 "이번 이야기에서 나누고 싶은 것"(부모의 고민을 담은, 부모가 CRT-06에서 확인한 문장)이다. 보여 준다면 그 제목으로 따로 둔다. `synopsis`가 null일 때 `summary`로 대신 채우지 않는다.
 - 지우기는 만드는 중(`REQUESTED`, `GENERATING_TEXT`, `GENERATING_IMAGES`)에는 안 된다(409 `INVALID_STATUS_TRANSITION`).
 - 지운 동화는 모든 API에서 404 `STORY_NOT_FOUND`.
 - BLOCKED 동화도 상세는 열린다(ST-05 재진입용).
@@ -286,18 +303,18 @@
 |---|---|---|
 | 들어올 때 | `GET /api/stories/{id}/guide` | `beforeReading{intent, tips[]}`, `prompts[]{id, seq, afterPage, question, purpose, parentHint}`, `afterReading{bridgeQuestion, ifUndecided}` |
 
-`parentHint`, `ifUndecided`는 null일 수 있다. COMPLETED가 아니면 409 `INVALID_STATUS_TRANSITION`.
+`parentHint`, `ifUndecided`는 null일 수 있다. 미리보기(REVIEWING)와 확정 뒤(COMPLETED)에 지금 보여 주는 버전의 가이드를 준다. 그 밖의 상태면 409 `INVALID_STATUS_TRANSITION`. 함께 읽기(RD-01~03)는 확정 뒤에만 된다.
 
 ## RD-01 함께 읽기
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `GET /api/stories/{id}/book` | `title, coverUrl, pageCount, pages[]{pageNo, text, imageUrl, imageStatus}, prompts[]{id, afterPage, question, parentHint}` |
+| 들어올 때 | `GET /api/stories/{id}/book` | `title, coverUrl, pageCount, pages[]{pageNo, text, imageUrl, imageStatus, textPosition}, prompts[]{id, afterPage, question, parentHint}` |
 | 이어 읽기 확인 | `GET /api/stories/{id}/reading-sessions/resume` | 200 `{sessionId, lastPage, startedAt}`이면 "이어 읽을까요?", **204면 이어 읽을 것 없음** |
 | 처음부터 읽기 | `POST /api/stories/{id}/reading-sessions` | 201 `{sessionId, lastPage: 0}` |
-| 쪽 넘길 때마다 | `PUT /api/reading-sessions/{sessionId}/progress` `{page}` (1~8) | 204 |
+| 쪽 넘길 때마다 | `PUT /api/reading-sessions/{sessionId}/progress` `{page}` (1~10) | 204 |
 
-`prompts[].afterPage`가 n이면 n쪽을 읽은 뒤 RD-02 대화 질문을 띄운다.
+`prompts[].afterPage`가 n이면 n쪽을 읽은 뒤 RD-02 대화 질문을 띄운다. 쪽 글은 미리보기처럼 `textPosition` 자리에 얹는다.
 
 ## RD-02 대화 질문
 

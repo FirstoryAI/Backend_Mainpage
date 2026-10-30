@@ -17,6 +17,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -88,7 +91,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertThat(run.get("scope")).isEqualTo("ALL");
         assertThat(run.get("input_tokens")).isEqualTo(FakeAiClient.INPUT_TOKENS);
         assertThat(run.get("output_tokens")).isEqualTo(FakeAiClient.OUTPUT_TOKENS);
-        assertThat(run.get("image_count")).isEqualTo(9);
+        assertThat(run.get("image_count")).isEqualTo(12);   // 쪽 10 + 시트 + 표지
         assertThat(run.get("langsmith_trace_id")).isNotNull();
         assertThat(run.get("finished_at")).isNotNull();
         Map<String, Object> version = jdbc.queryForMap("SELECT * FROM story_versions WHERE story_id = ?", id);
@@ -100,10 +103,10 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertThat(jdbc.queryForObject("SELECT title FROM stories WHERE id = ?", String.class, id))
                 .isEqualTo(FakeAiClient.SAMPLE.title(0));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM story_pages WHERE version_id = ? AND image_status = 'DONE'",
-                Integer.class, version.get("id"))).isEqualTo(8);
+                Integer.class, version.get("id"))).isEqualTo(10);
         assertThat(jdbc.queryForList("""
                 SELECT p.after_page FROM guide_prompts p JOIN reading_guides g ON g.id = p.guide_id
-                WHERE g.version_id = ? ORDER BY p.seq""", Integer.class, version.get("id"))).containsExactly(4, 7);
+                WHERE g.version_id = ? ORDER BY p.seq""", Integer.class, version.get("id"))).containsExactly(4, 8);
     }
 
     @Test
@@ -154,7 +157,7 @@ class GenerationIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void 미리보기는_8쪽이고_주소에_파일_key나_경로가_없다() throws Exception {
+    void 미리보기는_10쪽이고_주소에_파일_key나_경로가_없다() throws Exception {
         long id = reviewingStory();
         long versionId = currentVersionId(id);
 
@@ -167,12 +170,15 @@ class GenerationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.version.title").value(FakeAiClient.SAMPLE.title(0)))
                 .andExpect(jsonPath("$.characterSheetUrl")
                         .value(storyUrl(id) + "/versions/" + versionId + "/character-sheet"))
-                .andExpect(jsonPath("$.pages", hasSize(8)))
+                .andExpect(jsonPath("$.coverUrl").value(storyUrl(id) + "/versions/" + versionId + "/cover"))
+                .andExpect(jsonPath("$.pages", hasSize(10)))
                 .andExpect(jsonPath("$.pages[0].text").value(FakeAiClient.SAMPLE.pageText(1)))
+                .andExpect(jsonPath("$.pages[0].textPosition").value("BOTTOM"))
+                .andExpect(jsonPath("$.pages[2].textPosition").value("TOP"))   // 가짜 AI는 3의 배수 쪽만 위
                 .andExpect(jsonPath("$.pages[*].imageStatus", everyItem(org.hamcrest.Matchers.is("DONE"))))
                 .andExpect(jsonPath("$.pages[*].imageUrl", everyItem(matchesPattern(
                         "/api/stories/" + id + "/versions/" + versionId + "/pages/\\d+/image"))))
-                .andExpect(jsonPath("$.regenerateRemaining").value(3))
+                .andExpect(jsonPath("$.regenerateRemaining").value(1))
                 .andReturn().getResponse().getContentAsString();
 
         assertThat(body).doesNotContain("stories/" + id + "/runs").doesNotContain("page-01.png")
@@ -204,6 +210,16 @@ class GenerationIntegrationTest extends IntegrationTest {
         parent.get(storyUrl(id) + "/versions/" + versionId + "/character-sheet")
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "image/png"));
+
+        // 표지는 진짜 AI처럼 정사각형
+        byte[] cover = parent.get(storyUrl(id) + "/versions/" + versionId + "/cover")
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "image/png"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andReturn().getResponse().getContentAsByteArray();
+        BufferedImage coverImage = ImageIO.read(new ByteArrayInputStream(cover));
+        assertThat(coverImage.getWidth()).isEqualTo(1024);
+        assertThat(coverImage.getHeight()).isEqualTo(1024);
     }
 
     @Test
@@ -217,7 +233,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertError(other.get(imageUrl(id, versionId, 1)), ErrorCode.STORY_NOT_FOUND);
         // 다른 동화의 버전 id를 이 동화 주소에 넣어도 404
         assertError(parent.get(imageUrl(id, otherVersionId, 1)), ErrorCode.VERSION_NOT_FOUND);
-        assertError(parent.get(imageUrl(id, versionId, 9)), ErrorCode.IMAGE_NOT_FOUND);
+        assertError(parent.get(imageUrl(id, versionId, 11)), ErrorCode.IMAGE_NOT_FOUND);
         assertError(parent.get(imageUrl(id, versionId, 0)), ErrorCode.IMAGE_NOT_FOUND);
         browser().get(imageUrl(id, versionId, 1)).andExpect(status().isUnauthorized());
     }
@@ -258,12 +274,14 @@ class GenerationIntegrationTest extends IntegrationTest {
                 assertThat(after.get(i)).isEqualTo(before.get(i));
             }
         }
+        // 일부 쪽 그림만 다시는 표지도 버전 1 것
+        assertThat(coverKey(v2)).isEqualTo(coverKey(v1)).contains("/runs/1/images/cover.png");
         Map<String, Object> run = jdbc.queryForMap("SELECT * FROM generation_runs WHERE story_id = ? AND run_no = 2", id);
         assertThat(run.get("trigger_type")).isEqualTo("REGENERATE");
         assertThat(run.get("scope")).isEqualTo("IMAGES");
         assertThat(run.get("target_pages").toString()).isEqualTo("[3]");
         assertThat(((Number) run.get("base_version_id")).longValue()).isEqualTo(v1);
-        parent.get(storyUrl(id) + "/preview").andExpect(jsonPath("$.regenerateRemaining").value(2))
+        parent.get(storyUrl(id) + "/preview").andExpect(jsonPath("$.regenerateRemaining").value(0))
                 .andExpect(jsonPath("$.version.versionNo").value(2));
         parent.get(storyUrl(id) + "/versions")
                 .andExpect(jsonPath("$", hasSize(2)))
@@ -285,7 +303,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertError(regenerate(id, """
                 {"scope": "IMAGES", "pages": [0]}"""), ErrorCode.INVALID_PAGE_SELECTION);
         assertError(regenerate(id, """
-                {"scope": "IMAGES", "pages": [9]}"""), ErrorCode.INVALID_PAGE_SELECTION);
+                {"scope": "IMAGES", "pages": [11]}"""), ErrorCode.INVALID_PAGE_SELECTION);
         assertError(regenerate(id, """
                 {"scope": "IMAGES", "pages": [3, 3]}"""), ErrorCode.INVALID_PAGE_SELECTION);
         assertError(regenerate(id, """
@@ -311,18 +329,16 @@ class GenerationIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void 다시_만들기는_3번까지() throws Exception {
+    void 다시_만들기는_1번까지() throws Exception {
         long id = reviewingStory();
-        for (int i = 0; i < 3; i++) {
-            regenerate(id, """
-                    {"scope": "IMAGES", "pages": [1]}""").andExpect(status().isAccepted());
-            pollTimes(POLLS_TO_REVIEW_IMAGES);
-            assertThat(storyStatus(id)).isEqualTo("REVIEWING");
-        }
+        regenerate(id, """
+                {"scope": "IMAGES", "pages": [1]}""").andExpect(status().isAccepted());
+        pollTimes(POLLS_TO_REVIEW_IMAGES);
+        assertThat(storyStatus(id)).isEqualTo("REVIEWING");
 
         assertError(regenerate(id, """
                 {"scope": "IMAGES", "pages": [1]}"""), ErrorCode.REGENERATION_LIMIT_REACHED);
-        assertThat(regenerateCount(id)).isEqualTo(3);
+        assertThat(regenerateCount(id)).isOne();
         parent.get(storyUrl(id) + "/preview").andExpect(jsonPath("$.regenerateRemaining").value(0));
     }
 
@@ -362,6 +378,8 @@ class GenerationIntegrationTest extends IntegrationTest {
         parent.put(storyUrl(id) + "/current-version", """
                 {"versionId": %d}""".formatted(v1)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.version.versionNo").value(1));
+        // 다시 만들기는 1회지만(firstory.policy.max-regenerations), 횟수를 늘렸을 때의 버전 나무를 보려고 되돌린다
+        jdbc.update("UPDATE stories SET regenerate_count = 0 WHERE id = ?", id);
         regenerate(id, """
                 {"scope": "IMAGES", "pages": [2]}""").andExpect(status().isAccepted());
         pollTimes(POLLS_TO_REVIEW_IMAGES);
@@ -628,7 +646,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM story_versions WHERE story_id = ?", Integer.class, id))
                 .isOne();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM story_pages p JOIN story_versions v ON v.id = p.version_id "
-                + "WHERE v.story_id = ?", Integer.class, id)).isEqualTo(8);
+                + "WHERE v.story_id = ?", Integer.class, id)).isEqualTo(10);
     }
 
     @Test
@@ -756,6 +774,10 @@ class GenerationIntegrationTest extends IntegrationTest {
 
     private int runs(long id) {
         return jdbc.queryForObject("SELECT count(*) FROM generation_runs WHERE story_id = ?", Integer.class, id);
+    }
+
+    private String coverKey(long versionId) {
+        return jdbc.queryForObject("SELECT cover_key FROM story_versions WHERE id = ?", String.class, versionId);
     }
 
     private List<String> imageKeys(long versionId) {

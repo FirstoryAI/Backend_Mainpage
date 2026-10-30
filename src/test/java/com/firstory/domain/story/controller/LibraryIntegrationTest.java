@@ -12,6 +12,7 @@ import com.firstory.support.Browser;
 import com.firstory.support.IntegrationTest;
 import com.firstory.support.StoryFlow;
 import com.firstory.support.StoryStates;
+import com.jayway.jsonpath.JsonPath;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
@@ -102,7 +103,7 @@ class LibraryIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void 서재_카드는_버전이_있어야_제목과_표지가_있다() throws Exception {
+    void 서재_카드는_버전이_있어야_제목과_표지가_있고_표지가_없는_버전은_캐릭터_시트() throws Exception {
         long draft = create(StoryStatus.DRAFT, false);
         long completed = create(StoryStatus.COMPLETED, false);
         long versionId = jdbc.queryForObject("SELECT current_version_id FROM stories WHERE id = ?", Long.class,
@@ -163,6 +164,29 @@ class LibraryIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void 카드의_categoryLabel은_상황_분류이고_기타면_직접_입력한_분류() throws Exception {
+        long friend = StoryFlow.confirming(parent, "괜찮다고 말해 주고 싶어요");
+        long other = newDraft();
+        parent.put(StoryFlow.url(other) + "/situation", """
+                {"timing": "UPCOMING", "category": "OTHER", "customCategory": "이사", "description": "다음 주에 이사를 가요"}""")
+                .andExpect(jsonPath("$.saved").value(true));
+        long empty = newDraft();
+
+        parent.get("/api/stories")
+                .andExpect(jsonPath("$.items[?(@.id == %d)].categoryLabel".formatted(friend)).value("친구와 다툼"))
+                .andExpect(jsonPath("$.items[?(@.id == %d)].categoryLabel".formatted(other)).value("이사"))
+                .andExpect(jsonPath("$.items[?(@.id == %d)].categoryLabel".formatted(empty)).value(hasItem(nullValue())));
+        parent.get("/api/home").andExpect(jsonPath("$.inProgress[?(@.id == %d)].categoryLabel".formatted(friend))
+                .value("친구와 다툼"));
+    }
+
+    private long newDraft() throws Exception {
+        String body = parent.post("/api/stories", null).andExpect(status().isCreated()).andReturn()
+                .getResponse().getContentAsString();
+        return ((Number) JsonPath.read(body, "$.storyId")).longValue();
+    }
+
+    @Test
     void 서재_쿼리_수는_목록_크기와_무관하다() throws Exception {
         for (int i = 0; i < 3; i++) {
             withSavedChild(create(StoryStatus.COMPLETED, false));
@@ -178,7 +202,7 @@ class LibraryIntegrationTest extends IntegrationTest {
         long large = queriesFor("/api/stories?size=20");
 
         assertThat(large).isEqualTo(small);
-        assertThat(large).as("목록 1번 + 개수 1번").isEqualTo(2);
+        assertThat(large).as("목록 1번 + 개수 1번 + 상황 분류 1번").isEqualTo(3);
     }
 
     @Test
@@ -229,8 +253,8 @@ class LibraryIntegrationTest extends IntegrationTest {
         long versionId = jdbc.queryForObject("SELECT current_version_id FROM stories WHERE id = ?", Long.class, id);
         jdbc.update("""
                 INSERT INTO reading_sessions (story_id, version_id, last_page, started_at, completed_at, created_at, updated_at)
-                VALUES (?, ?, 8, '2026-10-01T00:00:00Z', '2026-10-01T00:10:00Z', now(), now()),
-                       (?, ?, 8, '2026-10-02T00:00:00Z', '2026-10-02T00:10:00Z', now(), now()),
+                VALUES (?, ?, 10, '2026-10-01T00:00:00Z', '2026-10-01T00:10:00Z', now(), now()),
+                       (?, ?, 10, '2026-10-02T00:00:00Z', '2026-10-02T00:10:00Z', now(), now()),
                        (?, ?, 3, '2026-10-03T00:00:00Z', NULL, now(), now())""",
                 id, versionId, id, versionId, id, versionId);
 
@@ -241,7 +265,7 @@ class LibraryIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.label").value("함께 읽었어요"))
                 .andExpect(jsonPath("$.coverUrl").isNotEmpty())
-                .andExpect(jsonPath("$.pageCount").value(8))
+                .andExpect(jsonPath("$.pageCount").value(10))
                 .andExpect(jsonPath("$.confirmedAt").isNotEmpty())
                 .andExpect(jsonPath("$.readCount").value(2))
                 .andExpect(jsonPath("$.lastReadAt").value("2026-10-03T00:00:00Z"))
@@ -249,7 +273,7 @@ class LibraryIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void 상세는_입력한_상황과_요약을_보여준다() throws Exception {
+    void 상세는_입력한_상황과_요약과_줄거리를_보여준다() throws Exception {
         long id = StoryFlow.completed(parent, poller);
 
         parent.get("/api/stories/" + id)
@@ -257,6 +281,8 @@ class LibraryIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.situation.categoryLabel").value("친구와 다툼"))
                 .andExpect(jsonPath("$.situation.timing").value("PAST"))
                 .andExpect(jsonPath("$.summary").value(FakeAiClient.SUMMARY))
+                // 줄거리는 인터뷰 요약이 아니라 확정 버전의 가이드에서
+                .andExpect(jsonPath("$.synopsis").value(FakeAiClient.SAMPLE.resultGuide().synopsis()))
                 .andExpect(jsonPath("$.childDisplayName").value("아이 A"))
                 .andExpect(jsonPath("$.readCount").value(0))
                 .andExpect(jsonPath("$.lastReadAt").value(nullValue()));
@@ -273,6 +299,7 @@ class LibraryIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.status").value("BLOCKED"))
                 .andExpect(jsonPath("$.label").value("만들 수 없는 이야기"))
                 .andExpect(jsonPath("$.title").value(nullValue()))
+                .andExpect(jsonPath("$.synopsis").value(nullValue()))
                 .andExpect(jsonPath("$.pageCount").value(nullValue()))
                 .andExpect(jsonPath("$.canRead").value(false));
     }

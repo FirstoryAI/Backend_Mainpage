@@ -33,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class FakeAiClientTest {
 
     static final String THREAD_ID = "thread-1";
-    static final int PAGE_COUNT = 8;
+    static final int PAGE_COUNT = 10;
     static final byte[] PNG_SIGNATURE = {(byte) 0x89, 0x50, 0x4E, 0x47};
 
     @TempDir
@@ -76,7 +76,8 @@ class FakeAiClientTest {
     @Test
     void 답변_2번까지는_다음_질문이고_3번째_답변이면_CONFIRM() {
         InterviewReply first = client.startInterview(THREAD_ID, UUID.randomUUID(), context(), null);
-        assertThat(first).isEqualTo(InterviewReply.question(1, FakeAiClient.FIRST_QUESTION, null));
+        assertThat(first).isEqualTo(InterviewReply.question(1, FakeAiClient.FIRST_QUESTION,
+                FakeAiClient.SAMPLE.questionChoices().getFirst(), null));
 
         InterviewReply second = client.answerInterview(THREAD_ID, "답변 1");
         InterviewReply third = client.answerInterview(THREAD_ID, "답변 2");
@@ -157,7 +158,7 @@ class FakeAiClientTest {
         assertThat(result.pages()).hasSize(PAGE_COUNT);
         assertThat(result.pages().getFirst().text()).isEqualTo("아로는 작은 초록 공룡이에요. 오늘은 새 어린이집에 가는 날이에요.");
         assertThat(result.pages().get(1).text()).contains("**콩닥콩닥**");
-        assertThat(result.guide().prompts()).extracting(AiGenerationResult.Prompt::afterPage).containsExactly(4, 7);
+        assertThat(result.guide().prompts()).extracting(AiGenerationResult.Prompt::afterPage).containsExactly(4, 8);
         assertThat(result.guide().prompts().get(1).parentHint()).isNull();
         assertThat(result.guide().ifUndecided()).isNotBlank();
         assertThat(result.safety()).isEqualTo(SafetyResult.ok());
@@ -354,12 +355,16 @@ class FakeAiClientTest {
         client.startInterview(THREAD_ID, UUID.randomUUID(), context(), null);
 
         List<String> questions = new ArrayList<>(List.of(FakeAiClient.FIRST_QUESTION));
+        List<List<String>> choices = new ArrayList<>(List.of(FakeAiClient.SAMPLE.questionChoices().getFirst()));
         InterviewReply reply;
         while (!(reply = client.answerInterview(THREAD_ID, "답변")).isConfirm()) {
             questions.add(reply.question());
+            choices.add(reply.choices());
         }
 
         assertThat(questions).isEqualTo(FakeAiClient.SAMPLE.questions());
+        assertThat(choices).isEqualTo(FakeAiClient.SAMPLE.questionChoices());
+        assertThat(choices.getLast()).isEmpty();   // 5번째 질문은 카드가 없다
     }
 
     @Test
@@ -367,7 +372,7 @@ class FakeAiClientTest {
         client.startInterview(THREAD_ID, UUID.randomUUID(), context(), null);
         client.answerInterview(THREAD_ID, "답변 " + FakeAiClient.PAGE_FAIL_MARKER);
         client.answerInterview(THREAD_ID, null);
-        client.generate(THREAD_ID, UUID.randomUUID(), 1, "stories/12/runs/1/", null);
+        client.generate(THREAD_ID, UUID.randomUUID(), 1, "stories/12/runs/1/", null, null, null);
         for (int i = 0; i < 5; i++) {
             client.status(THREAD_ID);
         }
@@ -425,7 +430,7 @@ class FakeAiClientTest {
     private void startGeneration(Map<String, Object> context) {
         client.startInterview(THREAD_ID, UUID.randomUUID(), context, null);
         client.answerInterview(THREAD_ID, null);
-        client.generate(THREAD_ID, UUID.randomUUID(), 1, "stories/12/runs/1/", null);
+        client.generate(THREAD_ID, UUID.randomUUID(), 1, "stories/12/runs/1/", null, null, null);
     }
 
     private AiGenerationResult generateToReview() {

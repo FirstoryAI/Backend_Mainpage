@@ -1,5 +1,7 @@
 package com.firstory.global.ai;
 
+import com.firstory.domain.generation.entity.TextPosition;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,7 +16,7 @@ import java.util.stream.Stream;
  * @param safety 완성 본문의 위기 신호. 없으면 OK로 본다
  */
 public record AiGenerationResult(int runNo, String checkpointId, String title, Map<String, Object> design,
-                                 List<CharacterSheet> characterSheets, List<Page> pages, Guide guide, Cost cost,
+                                 String coverPath, List<CharacterSheet> characterSheets, List<Page> pages, Guide guide, Cost cost,
                                  SafetyResult safety) {
 
     public AiGenerationResult {
@@ -29,9 +31,11 @@ public record AiGenerationResult(int runNo, String checkpointId, String title, M
     }
 
     /**
-     * @param imageStatus done | failed (AI 값 그대로)
+     * @param textPosition 그림 위 글 자리 (AI text_position. 없으면 BOTTOM)
+     * @param imageStatus  done | failed (AI 값 그대로)
      */
-    public record Page(int pageNo, String text, String imagePrompt, String imagePath, String imageStatus) {
+    public record Page(int pageNo, String text, String imagePrompt, TextPosition textPosition, String imagePath,
+                       String imageStatus) {
 
         public boolean imageDone() {
             return "done".equalsIgnoreCase(imageStatus) && imagePath != null;
@@ -39,10 +43,11 @@ public record AiGenerationResult(int runNo, String checkpointId, String title, M
     }
 
     /**
-     * 04-guide.json. before_reading → beforeIntent, beforeTips / after_reading → bridgeQuestion, ifUndecided.
+     * 04-guide.json. synopsis(동화 줄거리, 없으면 null) / before_reading → beforeIntent, beforeTips /
+     * after_reading → bridgeQuestion, ifUndecided.
      */
-    public record Guide(String beforeIntent, List<String> beforeTips, String bridgeQuestion, String ifUndecided,
-                        List<Prompt> prompts) {
+    public record Guide(String synopsis, String beforeIntent, List<String> beforeTips, String bridgeQuestion,
+                        String ifUndecided, List<Prompt> prompts) {
 
         public Guide {
             beforeTips = beforeTips == null ? List.of() : List.copyOf(beforeTips);
@@ -64,10 +69,12 @@ public record AiGenerationResult(int runNo, String checkpointId, String title, M
     }
 
     /**
-     * 결과에 들어 있는 모든 파일 key (캐릭터 시트, 쪽 그림).
+     * 결과에 들어 있는 모든 파일 key (표지, 캐릭터 시트, 쪽 그림).
      */
     public List<String> fileKeys() {
-        return Stream.concat(characterSheets.stream().map(CharacterSheet::path), pages.stream().map(Page::imagePath))
+        return Stream.of(Stream.of(coverPath), characterSheets.stream().map(CharacterSheet::path),
+                        pages.stream().map(Page::imagePath))
+                .flatMap(keys -> keys)
                 .filter(Objects::nonNull)
                 .toList();
     }

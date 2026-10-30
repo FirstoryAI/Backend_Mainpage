@@ -46,7 +46,8 @@
 | `PHONE_NOT_VERIFIED` | 400 | 휴대폰 인증을 먼저 해 주세요. | `POST /api/auth/signup`, `POST /api/me/phone` (인증 안 함, 10분 지남, 다른 세션) |
 | `REQUIRED_CONSENT_MISSING` | 400 | 필수 항목에 모두 동의해야 가입할 수 있어요. | `POST /api/auth/signup` |
 | `INVALID_PHONE_FORMAT` | 400 | 010-0000-0000 형식으로 입력해 주세요. | `send-code`, `verify`, `signup`, `POST /api/me/phone` |
-| `DUPLICATE_EMAIL` | 409 | 이미 가입된 이메일이에요. | `POST /api/auth/signup` |
+| `EMAIL_CHECK_RATE_LIMITED` | 429 | 이메일 확인을 너무 많이 했어요. 1분 후 다시 시도해 주세요. | `POST /api/auth/email/check` (같은 IP에서 1분에 11번째부터) |
+| `DUPLICATE_EMAIL` | 409 | 이미 가입된 이메일이에요. | `POST /api/auth/signup` (`email/check`에서 미리 봐도 그사이 누가 가입했을 수 있다) |
 | `DUPLICATE_PHONE` | 409 | 이미 가입된 휴대폰 번호예요. | `send-code`(SIGNUP), `signup`, `POST /api/me/phone` |
 | `INTERESTS_LIMIT_EXCEEDED` | 400 | 좋아하는 것은 고른 것과 직접 입력을 합쳐 5개까지예요. | `POST/PUT /api/children`, `PUT /api/stories/{id}/child` |
 | `CUSTOM_VALUE_REQUIRED` | 400 | 기타를 고르면 내용을 직접 입력해 주세요. | `POST/PUT /api/children`, `PUT /api/stories/{id}/child`, `PUT /api/stories/{id}/situation` |
@@ -61,14 +62,14 @@
 | `MOMENT_ONLY_FOR_PAST` | 400 | 아이의 반응과 감정은 있었던 일에서만 고를 수 있어요. | `PUT /api/stories/{id}/situation` (UPCOMING인데 reactions·emotions를 보냄) |
 | `VERSION_NOT_IN_STORY` | 400 | 이 동화의 버전이 아니에요. | `PUT /api/stories/{id}/current-version` 내부 검사. 보통은 그 전에 `VERSION_NOT_FOUND`가 난다 |
 | `REGENERATION_LIMIT_REACHED` | 409 | 다시 만들기 횟수를 모두 썼어요. | `POST /api/stories/{id}/regenerate` (`regenerateRemaining` 0) |
-| `PAGE_OUT_OF_RANGE` | 400 | 없는 쪽이에요. | `PUT /api/reading-sessions/{sessionId}/progress` (1~8 밖) |
+| `PAGE_OUT_OF_RANGE` | 400 | 없는 쪽이에요. | `PUT /api/reading-sessions/{sessionId}/progress` (1~10 밖) |
 | `STORY_BLOCKED` | 409 | 이 내용으로는 동화를 만들 수 없어요. | 차단된 동화의 변경 요청 전부(입력, 인터뷰, 확인, 다시 만들기, 확정 등) → ST-05 |
 | `STORY_INPUT_INCOMPLETE` | 400 | 상황과 아이 정보를 먼저 입력해 주세요. | `POST /api/stories/{id}/interview/start` (상황이나 아이 정보 없음) |
 | `AI_UNAVAILABLE` | 503 | 동화 도우미가 잠시 응답하지 않아요. 잠시 후 다시 시도해 주세요. | AI를 부르는 요청: 상황·아이·전하고 싶은 말 입력, 인터뷰 시작·답변, 확인, 다시 만들기, 다시 시도. 아무것도 저장되지 않았으니 같은 요청을 다시 보내게 안내 |
 | `AI_BUSY` | 409 | 이전 요청을 처리하고 있어요. 잠시 후 다시 시도해 주세요. | 인터뷰 시작·답변, 확인, 다시 만들기, 다시 시도 (같은 동화에 요청이 겹침). 중복 클릭 방지 |
 | `AI_STATE_MISMATCH` | 409 | 진행 상태가 맞지 않아요. 화면을 새로고침해 주세요. | 인터뷰 시작·답변, 확인, 다시 만들기, 다시 시도 (AI 쪽 진행 상태가 다름) → 상세·draft를 다시 불러 화면을 맞춘다 |
 | `TONE_REQUIRED` | 400 | 이야기 분위기를 먼저 골라 주세요. | `POST /api/stories/{id}/confirm` (분위기 선택이 필요한데 안 고름) → ST-04 |
-| `INVALID_PAGE_SELECTION` | 400 | 다시 그릴 쪽을 다시 골라 주세요. | `POST /api/stories/{id}/regenerate` (IMAGES가 아닌데 pages, 1~8 밖, 중복) |
+| `INVALID_PAGE_SELECTION` | 400 | 다시 그릴 쪽을 다시 골라 주세요. | `POST /api/stories/{id}/regenerate` (IMAGES가 아닌데 pages, 1~10 밖, 중복) |
 | `FEEDBACK_TOO_LONG` | 400 | 요청 메모는 300자까지 쓸 수 있어요. | `POST /api/stories/{id}/regenerate` (메모 300자) |
 | `VERSION_NOT_FOUND` | 404 | 이 동화의 버전을 찾을 수 없어요. | `preview`, `current-version`, `regenerate`, 그림 API (이 동화의 버전이 아님) |
 | `IMAGE_NOT_FOUND` | 404 | 그림을 찾을 수 없어요. | 그림 API (그림이 실패한 쪽, 없는 쪽, 캐릭터 시트 없음) → 빈 자리 |
