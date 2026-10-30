@@ -35,11 +35,11 @@ docker compose up -d                                                        # .e
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-`application-local.yml`은 `firstory.ai.mode: fake`라서 AI 서버 없이 뜬다(아래 "AI 호출 규칙"). 가짜 AI는 local 예시값(`firstory.ai.fake.*`)으로 진짜처럼 느리다: 인터뷰 2초, 글 검사 1초, 생성 단계당 40초(약 2분 40초), 질문 수는 동화마다 1~5개. 인증번호는 `firstory.sms.local-fixed-code`로 항상 `000000`이다. 가짜 AI가 만든 그림 파일은 `./data/storage`(`STORAGE_LOCAL_ROOT`)에 쌓인다. `data/`는 커밋하지 않는다. 지워도 되지만 지우면 이미 만든 동화의 그림은 404가 난다.
+`application-local.yml`은 `firstory.ai.mode: fake`라서 AI 서버 없이 뜬다(아래 "AI 호출 규칙"). 가짜 AI는 local 예시값(`firstory.ai.fake.*`)으로 진짜처럼 느리다: 인터뷰 2초, 글 검사 1초, 생성 단계당 40초(약 2분 40초), 질문 수는 동화마다 1~15개. 인증번호는 `firstory.sms.local-fixed-code`로 항상 `000000`이다. 가짜 AI가 만든 그림 파일은 `./data/storage`(`STORAGE_LOCAL_ROOT`)에 쌓인다. `data/`는 커밋하지 않는다. 지워도 되지만 지우면 이미 만든 동화의 그림은 404가 난다.
 
 `.env`와 `application-local.yml`은 커밋하지 않는다. 설정을 바꾸면 `.example` 파일도 함께 고친다.
 
-전체 흐름 실제 확인(smoke): 서버를 `FIRSTORY_AI_FAKE_STAGE_DURATION=5s ./gradlew bootRun --args='--spring.profiles.active=local'`로 띄우고 다른 창에서 `bash scripts/smoke-local.sh`(Git Bash, curl만 필요). `docs/frontend/firstory.http`, `FullJourneyIntegrationTest`와 같은 순서로 35단계를 돌고 그림이 실제 PNG인지도 본다. 진짜 AI 서버와 붙였으면(`FIRSTORY_AI_MODE=http`, AI 서버의 `FIRSTORY_OUTPUT_ROOT`와 `STORAGE_LOCAL_ROOT`를 같은 폴더로) `AI_MODE=http bash scripts/smoke-local.sh`로 돌린다. 가짜 AI만 만드는 샘플 제목과 `(다시 n)`은 확인하지 않는다. 진짜 AI는 인터뷰 시작에서 질문 없이 바로 CONFIRM을 줄 수 있어 smoke는 질문 0~5개를 모두 통과시킨다. API 흐름을 바꾸면 세 곳을 함께 고친다. Windows에서 curl로 한글 본문을 보낼 때는 인자가 아니라 파일(`--data-binary @file`)로 보낸다(코드 페이지 때문에 깨진다).
+전체 흐름 실제 확인(smoke): 서버를 `FIRSTORY_AI_FAKE_STAGE_DURATION=5s ./gradlew bootRun --args='--spring.profiles.active=local'`로 띄우고 다른 창에서 `bash scripts/smoke-local.sh`(Git Bash, curl만 필요). `docs/frontend/firstory.http`, `FullJourneyIntegrationTest`와 같은 순서로 35단계를 돌고 그림이 실제 PNG인지도 본다. 진짜 AI 서버와 붙였으면(`FIRSTORY_AI_MODE=http`, AI 서버의 `FIRSTORY_OUTPUT_ROOT`와 `STORAGE_LOCAL_ROOT`를 같은 폴더로) `AI_MODE=http bash scripts/smoke-local.sh`로 돌린다. 가짜 AI만 만드는 샘플 제목과 `(다시 n)`은 확인하지 않는다. 진짜 AI는 인터뷰 시작에서 질문 없이 바로 CONFIRM을 줄 수 있어 smoke는 질문 0~15개를 모두 통과시킨다. API 흐름을 바꾸면 세 곳을 함께 고친다. Windows에서 curl로 한글 본문을 보낼 때는 인자가 아니라 파일(`--data-binary @file`)로 보낸다(코드 페이지 때문에 깨진다).
 
 ### 개발 서버 (dev 프로필, Railway)
 
@@ -59,7 +59,7 @@ docker compose up -d                                                        # .e
 2. POST/PUT/PATCH/DELETE는 Swagger UI가 이 쿠키 값을 `X-XSRF-TOKEN` 헤더로 자동으로 붙인다(`springdoc.swagger-ui.csrf.enabled=true`). 따로 입력할 것은 없다.
 3. 가입하려면 `send-code` → `verify`(local은 고정 인증번호 `000000`. 설정을 지우면 서버 로그의 `[SMS] 010-****-1234 ← [FIRSTORY] 인증번호 123456`에서 확인) → `signup` 순서로 같은 브라우저에서 실행한다. 가입하면 바로 로그인된다.
 4. 로그인하면 `FSESSION` 쿠키로 인증된다. 이후 `/api/me`, `/api/children` 등을 바로 실행할 수 있다.
-5. 동화 만들기(CRT-01~05)는 `POST /api/stories` → `situation` → `child` → `message` → `interview/start` → `interview/answer` 순서다. local은 FakeAiClient라 동화마다 정해진 1~5번째 답변이나 `{"skip": true}`에서 인터뷰가 끝난다(CONFIRMING). 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`를 넣으면 그 위기 신호로 판단한다.
+5. 동화 만들기(CRT-01~05)는 `POST /api/stories` → `situation` → `child` → `message` → `interview/start` → `interview/answer` 순서다. local은 FakeAiClient라 동화마다 정해진 1~15번째 답변이나 `{"skip": true}`에서 인터뷰가 끝난다(CONFIRMING). 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`를 넣으면 그 위기 신호로 판단한다.
    이어서 `confirm` → `generation`(local 예시값은 단계당 40초라 약 2분 40초면 REVIEWING. `FIRSTORY_AI_FAKE_STAGE_DURATION=5s`로 띄우면 약 25초) → `preview` → 그림 API(`imageUrl`을 브라우저에서 연다) → `regenerate` → `current-version` → `approve` 순서로 확정까지 해 볼 수 있다. 전하고 싶은 말이나 답변에 `[[FAIL]]`을 넣으면 첫 생성이 실패하고(`retry`로 다시 시도), `[[OUTPUT_REVISE]]`는 결과 위기 신호로 실패, `[[PAGE_FAIL]]`은 5쪽 그림만 실패, `[[AI_DOWN]]`은 다음 AI 호출 한 번이 `AI_UNAVAILABLE`이다(`docs/frontend/fake-ai.md`).
 6. 로그아웃하면 `XSRF-TOKEN`도 지워진다. 다시 쓰려면 1번부터 한다. 403 `FORBIDDEN`이 나오면 대부분 1번을 빠뜨린 것이다.
 
@@ -154,7 +154,8 @@ com.firstory
 - `firstory.ai.mode`로 구현을 고른다(`AiClientConfig`). `http`(기본)는 `HttpAiClient`(RestClient, `X-Internal-Token`, 연결 3초·응답 35초), `fake`는 `FakeAiClient`. local, test 프로필은 `fake`. `http`인데 `AI_INTERNAL_TOKEN`이 비어 있으면 기동하지 않는다.
 - `FakeAiClient`는 고정 동작이고 속도와 질문 수만 `firstory.ai.fake.*`(`FirstoryProperties.Ai.Fake`)로 바꾼다. **test 프로필은 기본값(지연 0, `stage-duration` 0, `turns` 2)이라 아래 동작 그대로다. 테스트가 기대는 동작을 바꾸지 않는다.**
   - 위기 신호는 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`가 있으면 그 level, 없으면 OK.
-  - 인터뷰는 질문 1 → 답변 `turns`번까지 다음 질문 → 그다음 답변이나 skip이면 CONFIRM (`turns` 2면 3번째 답변). `turns` 0이면 thread_id 해시로 질문 1~5개. 질문 문장은 `fake-ai/sample-story.json` 순서대로, 답변 카드는 같은 파일의 `questionChoices`(5번째 질문은 카드 없음).
+  - 인터뷰 차례는 1~`InterviewTurn.MAX_TURNS`(15, DB CHECK V9). AI가 그보다 더 물으면 `AI_STATE_MISMATCH`. 가짜 AI의 `Fake.MAX_QUESTIONS`도 같은 15로 맞춘다.
+  - 인터뷰는 질문 1 → 답변 `turns`번까지 다음 질문 → 그다음 답변이나 skip이면 CONFIRM (`turns` 2면 3번째 답변). `turns` 0이면 thread_id 해시로 질문 1~15개. 질문 문장은 `fake-ai/sample-story.json` 순서대로, 답변 카드는 같은 파일의 `questionChoices`(5번째 질문은 카드 없음).
   - 생성은 design_story → write_story → illustrate → render → REVIEWING (글 다시는 write_story부터, 그림만 다시는 illustrate_only → render). `stage-duration` 0이면 `status`를 부를 때마다 한 단계씩, 0보다 크면 시작 후 지난 시간(`Clock`) / `stage-duration`으로 단계를 정한다. REVIEWING이 될 때 `fake-ai/sample-story.json`(제목, 10쪽 글, 가이드)으로 결과를 만들고 실제 PNG(쪽 1920×1088, 표지 1024×1024, 진짜 AI와 같은 크기)를 `FileStorage`에 쓴다. 그림만 다시(일부 쪽)는 이전 표지 key. 글 자리(`textPosition`)는 3의 배수 쪽만 TOP(AI `mock.py`와 같다). 다시 만들기면 제목 뒤에 `(다시 n)`.
   - 전하고 싶은 말이나 인터뷰 답변의 표시: `[[FAIL]]` 첫 생성 실패, `[[OUTPUT_REVISE]]` 첫 생성 결과의 safety가 REVISE, `[[PAGE_FAIL]]` 첫 생성 결과의 5쪽 그림만 failed, `[[AI_DOWN]]` 위기 신호 검사에서 처음 본 글이면 다음 AI 호출 한 번이 `AI_UNAVAILABLE`(생성 진행 확인 `status`, `result`는 세지 않는다).
   - 지연(`interview-delay`, `safety-delay`)은 `Thread.sleep`이다. local 전용이라 허용한다. thread 상태는 메모리에만 있어 서버를 다시 띄우면 진행 중인 인터뷰와 생성은 이어갈 수 없다. 테스트에서는 `failWith(ErrorCode)`로 장애를, `misdirectOutput()`으로 다른 동화 경로를 흉내 내고(`clearFailure()`로 둘 다 되돌린다), `answerCalls`, `statusCalls`, `lastBaseCheckpointId`로 호출을 본다.

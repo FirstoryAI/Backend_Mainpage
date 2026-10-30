@@ -44,7 +44,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * startInterview   질문 1
  * answerInterview  답변 turns번까지는 다음 질문, 그다음 답변이나 skip이면 CONFIRM (turns 2면 3번째 답변에서)
  *                  질문마다 sample-story.json의 답변 카드(questionChoices). 5번째 질문은 카드가 없다
- *                  turns가 0이면 thread_id로 질문 수 1~5개를 정한다 (같은 동화는 항상 같은 수)
+ *                  turns가 0이면 thread_id로 질문 수 1~15개를 정한다 (같은 동화는 항상 같은 수)
  *                  finalContext는 받은 context에 parent.message_direction만 채운 것
  * generate         RUNNING. design_story → write_story → illustrate → render → REVIEWING
  *                  stage-duration이 0이면 status를 부를 때마다 한 단계씩, 아니면 시작 후 지난 시간 / stage-duration 단계
