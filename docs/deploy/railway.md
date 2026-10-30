@@ -23,26 +23,26 @@ dev 프로필(`application-dev.yml`)이 하는 일:
 
 `${{Postgres.PGHOST}}`처럼 쓴 값은 Railway의 참조 변수다. 그대로 넣으면 Railway가 PostgreSQL 서비스의 값으로 바꿔 준다.
 
-| 환경 변수 | 필수 | 비밀값 | 설명 | dev 예시값 |
-|---|---|---|---|---|
-| `SPRING_PROFILES_ACTIVE` | 필수 | 아니오 | 프로필. 없으면 `SmsSender` 빈이 없어 기동 실패 | `dev` |
+| 환경 변수 | 필수 | 비밀값 |  설명                                                                                               | dev 예시값 |
+|---|---|---|---------------------------------------------------------------------------------------------------|---|
+| `SPRING_PROFILES_ACTIVE` | 필수 | 아니오 | 프로필. 없으면 `SmsSender` 빈이 없어 기동 실패                                                                  | `dev` |
 | `DB_URL` | 필수 | 아니오 | JDBC 주소. Railway의 `DATABASE_URL`(`postgresql://...`)은 JDBC 형식이 아니라서 그대로 못 쓴다. dev는 기본값이 없어 비면 기동 실패 | `jdbc:postgresql://${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}` |
-| `DB_USERNAME` | 필수 | 아니오 | DB 사용자 | `${{Postgres.PGUSER}}` |
-| `DB_PASSWORD` | 필수 | **예** | DB 비밀번호 | `${{Postgres.PGPASSWORD}}` |
-| `PHONE_AES_KEY` | 필수 | **예** | 휴대폰 번호 암호화 키. Base64로 32바이트. 바꾸면 이미 저장된 번호를 못 읽는다 | `openssl rand -base64 32` 결과 |
-| `PHONE_HMAC_KEY` | 필수 | **예** | 휴대폰 번호 중복 확인용 HMAC 키. Base64. 바꾸면 같은 번호로 다시 가입된다 | `openssl rand -base64 32` 결과 |
-| `REMEMBER_ME_KEY` | 필수 | **예** | 로그인 상태 유지(`FREMEMBER`) 서명 키. 바꾸면 기존 토큰이 모두 무효 | `openssl rand -base64 32` 결과 |
-| `COOKIE_SECURE` | 선택 | 아니오 | 쿠키 Secure 속성. dev 기본 `true` (HTTPS) | `true` |
-| `COOKIE_DOMAIN` | 선택 | 아니오 | 쿠키 도메인. 비우면 host-only 쿠키. API와 프론트를 같은 최상위 도메인의 서브도메인으로 나눌 때만 넣는다 | (비움) |
-| `ALLOWED_ORIGINS` | 선택 | 아니오 | CORS 허용 출처. 쉼표로 구분. 비우면 CORS 설정을 등록하지 않는다. 기본 `http://localhost:5173` | `http://localhost:5173` |
-| `AI_MODE` | 선택 | 아니오 | `fake` 또는 `http`. dev 기본 `fake` | `fake` |
-| `AI_BASE_URL` | `http`일 때 | 아니오 | AI 서버(FastAPI) 주소 | (`fake`면 비움) |
-| `AI_INTERNAL_TOKEN` | `http`일 때 | **예** | `X-Internal-Token`. `http`인데 비면 기동 실패 | (`fake`면 비움) |
-| `STORAGE_LOCAL_ROOT` | 선택 | 아니오 | 그림 파일 폴더. 기본 `./data/storage` (이미지 안에서 `/app/data/storage`) | `/app/data/storage` |
-| `SERVER_PORT` | 선택 | 아니오 | 서버 포트. 없으면 `PORT`, 둘 다 없으면 8080. Railway는 `PORT`를 넣어 주므로 비워 둔다 | (비움) |
-| `MAX_REGENERATIONS` | 선택 | 아니오 | 다시 만들기 최대 횟수. 기본 3 (TODO(PM)) | (비움) |
-| `FIRSTORY_AI_FAKE_STAGE_DURATION` | 선택 | 아니오 | 가짜 AI 생성 단계 시간. dev 기본 `40s`. 빠르게 보고 싶으면 줄인다 | `40s` |
-| `JAVA_TOOL_OPTIONS` | 선택 | 아니오 | JVM 옵션. 이미지 기본 `-XX:MaxRAMPercentage=75`. 넣으면 기본값을 덮어쓴다 | (비움) |
+| `DB_USERNAME` | 필수 | 아니오 | DB 사용자                                                                                            | `${{Postgres.PGUSER}}` |
+| `DB_PASSWORD` | 필수 | **예** | DB 비밀번호                                                                                           | `${{Postgres.PGPASSWORD}}` |
+| `PHONE_AES_KEY` | 필수 | **예** | 휴대폰 번호 암호화 키. Base64로 32바이트. 바꾸면 이미 저장된 번호를 못 읽는다                                                 | `openssl rand -base64 32` 결과 |
+| `PHONE_HMAC_KEY` | 필수 | **예** | 휴대폰 번호 중복 확인용 HMAC 키. Base64. 바꾸면 같은 번호로 다시 가입된다                                                  | `openssl rand -base64 32` 결과 |
+| `REMEMBER_ME_KEY` | 필수 | **예** | 로그인 상태 유지(`FREMEMBER`) 서명 키. 바꾸면 기존 토큰이 모두 무효                                                     | `openssl rand -base64 32` 결과 |
+| `COOKIE_SECURE` | 선택 | 아니오 | 쿠키 Secure 속성. dev 기본 `true` (HTTPS)                                                               | `true` |
+| `COOKIE_DOMAIN` | 선택 | 아니오 | 쿠키 도메인. 비우면 host-only 쿠키. API와 프론트를 같은 최상위 도메인의 서브도메인으로 나눌 때만 넣는다                                 | (비움) |
+| `ALLOWED_ORIGINS` | 선택 | 아니오 | CORS 허용 출처. 쉼표로 구분. 비우면 CORS 설정을 등록하지 않는다. 기본 `http://localhost:5173`                             | `http://localhost:5173` |
+| `AI_MODE` | 선택 | 아니오 | `fake` 또는 `http`. dev 기본 `fake`                                                                   | `fake` |
+| `AI_BASE_URL` | `http`일 때 | 아니오 | AI 서버(FastAPI) 주소                                                                                 | (`fake`면 비움) |
+| `AI_INTERNAL_TOKEN` | `http`일 때 | **예** | `X-Internal-Token`. `http`인데 비면 기동 실패                                                             | (`fake`면 비움) |
+| `STORAGE_LOCAL_ROOT` | 선택 | 아니오 | 그림 파일 폴더. 기본 `./data/storage` (이미지 안에서 `/app/data/storage`)                                       | `/app/data/storage` |
+| `SERVER_PORT` | 선택 | 아니오 | 서버 포트. 없으면 `PORT`, 둘 다 없으면 8080. Railway는 `PORT`를 넣어 주므로 비워 둔다                                    | (비움) |
+| `MAX_REGENERATIONS` | 선택 | 아니오 | 다시 만들기 최대 횟수. 기본 3 (TODO(PM))                                                                     | (비움) |
+| `FIRSTORY_AI_FAKE_STAGE_DURATION` | 선택 | 아니오 | 가짜 AI 생성 단계 시간. dev 기본 `40s`. 빠르게 보고 싶으면 줄인다                                                      | `40s` |
+| `JAVA_TOOL_OPTIONS` | 선택 | 아니오 | JVM 옵션. 이미지 기본 `-XX:MaxRAMPercentage=75`. 넣으면 기본값을 덮어쓴다                                           | (비움) |
 
 비밀값은 저장소에 있는 로컬 기본값을 쓰지 않는다. dev는 키 세 개(`PHONE_AES_KEY`, `PHONE_HMAC_KEY`, `REMEMBER_ME_KEY`)에 기본값이 없어서 비면 기동하지 않는다.
 
