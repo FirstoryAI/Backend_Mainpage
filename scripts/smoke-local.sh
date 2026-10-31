@@ -12,7 +12,7 @@
 #
 # 환경 변수: BASE_URL(기본 http://localhost:8081), GENERATION_TIMEOUT(초, 기본 300),
 #           AI_MODE(fake | http, 기본 fake. http면 가짜 AI만 만드는 샘플 제목은 확인하지 않는다)
-#           인터뷰 질문 수는 0~5개 어느 쪽이든 통과한다 (진짜 AI는 질문 없이 바로 확인으로 넘어갈 수 있다)
+#           인터뷰 질문 수는 0~15개 어느 쪽이든 통과한다 (진짜 AI는 질문 없이 바로 확인으로 넘어갈 수 있다)
 # 성공하면 0, 실패하면 실패한 단계와 응답을 보여 주고 1로 끝난다.
 
 set -u
@@ -222,7 +222,7 @@ while [ "$INTERVIEW_DONE" = false ]; do
     case "$BODY" in
         *'"status":"CONFIRMING"'*) break ;;
     esac
-    [ "$ANSWERS" -lt 5 ] || fail "답변 5번 뒤에도 인터뷰가 끝나지 않았어요"
+    [ "$ANSWERS" -lt 15 ] || fail "답변 15번 뒤에도 인터뷰가 끝나지 않았어요"
 done
 ok "질문 ${ANSWERS}개"
 

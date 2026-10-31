@@ -132,7 +132,7 @@ X-XSRF-TOKEN: {{xsrf}}
 POST {{host}}/api/stories/{{storyId}}/interview/start
 X-XSRF-TOKEN: {{xsrf}}
 
-### 3-7. 답변. status가 CONFIRMING이 될 때까지 여러 번 실행한다 (질문은 1~5개)
+### 3-7. 답변. status가 CONFIRMING이 될 때까지 여러 번 실행한다 (질문은 1~15개)
 POST {{host}}/api/stories/{{storyId}}/interview/answer
 Content-Type: application/json
 X-XSRF-TOKEN: {{xsrf}}

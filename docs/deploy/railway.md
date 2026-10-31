@@ -5,7 +5,7 @@
 dev 프로필(`application-dev.yml`)이 하는 일:
 
 - Swagger 켬 (`/swagger-ui/index.html`)
-- 가짜 AI(`AI_MODE=fake`), 속도는 local 예시값과 같다 (인터뷰 2초, 글 검사 1초, 생성 단계당 40초, 질문 1~5개)
+- 가짜 AI(`AI_MODE=fake`), 속도는 local 예시값과 같다 (인터뷰 2초, 글 검사 1초, 생성 단계당 40초, 질문 1~15개)
 - 고정 인증번호 `000000`, 문자는 보내지 않고 로그만 (`LoggingSmsSender`)
 - 쿠키 Secure (`COOKIE_SECURE` 기본 `true`)
 

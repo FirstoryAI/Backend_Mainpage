@@ -26,7 +26,7 @@ firstory:
       interview-delay: 2s
       safety-delay: 1s
       stage-duration: 40s     # 생성 약 2분 40초
-      turns: 0                # 동화마다 질문 1~5개
+      turns: 0                # 동화마다 질문 1~15개
   sms:
     local-fixed-code: "000000"   # local, dev에서만 허용. 다른 프로필에 넣으면 기동 실패
   web:
