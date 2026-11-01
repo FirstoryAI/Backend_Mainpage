@@ -8,9 +8,7 @@ import jakarta.validation.constraints.Size;
 
 import java.util.Map;
 
-/**
- * 비밀번호 형식은 PasswordPolicy가, 필수 동의는 ConsentPolicy가 따로 검사한다.
- */
+
 public record SignupRequest(
         @NotBlank(message = "이메일을 입력해 주세요.")
         @Email(message = "이메일 형식으로 입력해 주세요.")
@@ -18,7 +16,7 @@ public record SignupRequest(
         String email,
 
         @NotBlank(message = "비밀번호를 입력해 주세요.")
-        @Schema(description = "8~64자, 영문과 숫자 각각 1개 이상", example = "firstory123")
+        @Schema(description = "8~20자, 영문·숫자·특수문자 각각 1개 이상. 특수문자는 !@#$%^&*()_+-=[]{}:;,.?/\\ 만, 한글·공백 불가", example = "firstory123!")
         String password,
 
         @NotBlank(message = "휴대폰 번호를 입력해 주세요.")
@@ -35,7 +33,6 @@ public record SignupRequest(
         @Schema(example = "2026-10-01")
         String termsVersion) {
 
-    // 비밀번호가 로그에 남지 않게 한다
     @Override
     public String toString() {
         return "SignupRequest[consents=" + consents + ", termsVersion=" + termsVersion + "]";

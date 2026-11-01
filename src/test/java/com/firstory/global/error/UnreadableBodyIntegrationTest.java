@@ -27,7 +27,7 @@ class UnreadableBodyIntegrationTest extends IntegrationTest {
     @Test
     void 모르는_Map_키는_그_Map_필드이고_키는_응답에_없다(CapturedOutput output) throws Exception {
         String body = """
-                {"email": "a@example.com", "password": "firstory123", "phone": "010-1234-5678",
+                {"email": "a@example.com", "password": "firstory123!", "phone": "010-1234-5678",
                  "consents": {"GUARDIAN": true, "%s": true}, "termsVersion": "2026-10-01"}""".formatted(RAW);
 
         assertField(browser().post("/api/auth/signup", body), "consents", "알 수 없는 항목이 있어요.", output);

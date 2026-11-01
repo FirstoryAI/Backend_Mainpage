@@ -13,7 +13,7 @@ public enum ErrorCode {
     FORBIDDEN(HttpStatus.FORBIDDEN, "접근할 수 없어요."),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 맞지 않아요."),
     ACCOUNT_LOCKED(HttpStatus.LOCKED, "로그인을 여러 번 실패해서 15분 동안 잠겼어요. 잠시 후 다시 시도해 주세요."),
-    INVALID_PASSWORD_FORMAT(HttpStatus.BAD_REQUEST, "비밀번호는 영문과 숫자를 포함해 8~64자로 입력해 주세요."),
+    INVALID_PASSWORD_FORMAT(HttpStatus.BAD_REQUEST, "비밀번호는 영문, 숫자, 특수문자를 하나씩 넣어 8~20자로 입력해 주세요. 한글과 공백은 쓸 수 없어요."),
     CURRENT_PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "현재 비밀번호가 맞지 않아요."),
     SAME_AS_OLD_PASSWORD(HttpStatus.BAD_REQUEST, "지금 쓰는 비밀번호와 다른 비밀번호를 입력해 주세요."),
     SMS_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "인증번호를 너무 많이 요청했어요. 1시간 후 다시 시도해 주세요."),

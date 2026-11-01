@@ -63,9 +63,17 @@ public class PhoneVerificationService {
             throw new BusinessException(ErrorCode.SMS_RESEND_TOO_SOON);
         }
 
+        smsSendLogRepository.save(SmsSendLog.record(phoneHash, purpose));
+        // 비밀번호 재설정은 가입 여부를 드러내지 않는다. 가입되지 않은 번호도 발송 기록과 횟수 제한, 응답이 같고
+        // 맞을 수 없는 인증번호를 세션에 둬서 verify도 같은 오류를 준다. 문자만 보내지 않는다
+        if (purpose == SmsPurpose.PASSWORD_RESET && !userRepository.existsByPhoneHash(phoneHash)) {
+            session.setAttribute(VERIFICATION_ATTRIBUTE,
+                    PhoneVerification.issueUnmatchable(phone, purpose, random, now));
+            return PhoneVerification.VALIDITY;
+        }
+
         String code = newCode();
         session.setAttribute(VERIFICATION_ATTRIBUTE, PhoneVerification.issue(phone, purpose, code, now));
-        smsSendLogRepository.save(SmsSendLog.record(phoneHash, purpose));
         smsSender.send(phone, "[FIRSTORY] 인증번호 " + code + " (3분 안에 입력해 주세요)");
         return PhoneVerification.VALIDITY;
     }

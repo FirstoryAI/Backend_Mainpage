@@ -33,7 +33,7 @@ class OpenApiDocsTest extends IntegrationTest {
     void 오류_코드와_성공_상태가_문서에_들어간다() throws Exception {
         browser().get("/v3/api-docs")
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.paths['/api/auth/signup'].post.summary").value("가입"))
+                .andExpect(jsonPath("$.paths['/api/auth/signup'].post.summary").value("회원가입"))
                 .andExpect(jsonPath("$.paths['/api/auth/signup'].post.responses['201']").exists())
                 .andExpect(jsonPath("$.paths['/api/auth/signup'].post.responses['409'].description",
                         containsString("DUPLICATE_EMAIL")))
@@ -141,7 +141,7 @@ class OpenApiDocsTest extends IntegrationTest {
             assertThat(example(schemas, request, "phone")).as(request).isEqualTo("010-1234-5678");
         }
         assertThat(example(schemas, "VerifyCodeRequest", "code")).isEqualTo("000000");
-        assertThat(example(schemas, "SignupRequest", "password")).isEqualTo("firstory123");
+        assertThat(example(schemas, "SignupRequest", "password")).isEqualTo("firstory123!");
         assertThat(schemas.path("ProgressRequest").path("properties").path("page").path("example").asInt()).isEqualTo(1);
     }
 

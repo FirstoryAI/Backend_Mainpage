@@ -64,6 +64,16 @@
 - 틀리면 400 `VERIFICATION_CODE_MISMATCH`, 5번 틀리면 429 `VERIFICATION_ATTEMPTS_EXCEEDED`(다시 받기), 만료면 400 `VERIFICATION_EXPIRED`.
 - 이미 가입된 번호면 send-code에서 409 `DUPLICATE_PHONE`.
 
+## 비밀번호 찾기 (화면 ID 미정)
+
+| 때 | API | 볼 것 |
+|---|---|---|
+| 인증번호 받기 | `POST /api/auth/phone/send-code` `{phone, purpose: "PASSWORD_RESET"}` | 가입 여부와 상관없이 200 → "가입된 번호라면 인증번호가 발송돼요" |
+| 확인 | `POST /api/auth/phone/verify` `{phone, code}` | 204 → 새 비밀번호 입력 |
+| 새 비밀번호 | `POST /api/auth/password/reset` `{phone, newPassword}` | 204 → 로그인 화면 (모든 기기 로그아웃됨) |
+
+- 가입되지 않은 번호는 문자가 오지 않을 뿐 응답이 같다. "가입되지 않은 번호예요" 같은 문구를 만들지 않는다. 자세한 규칙은 auth.md "비밀번호 찾기".
+
 ## ONB-01 첫 방문 안내
 
 | 때 | API |

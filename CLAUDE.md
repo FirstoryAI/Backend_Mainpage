@@ -223,6 +223,7 @@ com.firstory
 ## 인증 규칙
 
 - 로그인은 이메일 + 비밀번호. 서버 세션(Spring Session JDBC, PostgreSQL)으로 유지한다. **JWT를 쓰지 않는다.**
+- 비밀번호 규칙(기획 확정)은 `PasswordPolicy` 하나로 검사한다: 8~20자, 영문·숫자·특수문자 각각 1개 이상, 특수문자는 `!@#$%^&*()_+-=[]{}:;,.?/\`만, 한글·공백 불가. 규칙을 바꾸면 `INVALID_PASSWORD_FORMAT` 메시지, 요청 DTO의 `@Schema` 설명, `docs/frontend`(auth, errors, status)를 함께 고친다.
 - 세션 유휴 만료 30분, 세션 쿠키 `FSESSION`. 로그인 상태 유지(remember-me)는 persistent token 방식으로 90일, 쿠키 `FREMEMBER`, 기본값 꺼짐.
 - 쿠키는 모두 HttpOnly(CSRF 쿠키 제외), SameSite=Lax, Secure는 `COOKIE_SECURE`.
 - CSRF는 켠다(SPA 방식). 프론트는 앱을 열 때와 로그아웃한 뒤 `GET /api/auth/csrf`를 불러 `XSRF-TOKEN` 쿠키를 받고, 상태를 바꾸는 요청에 `X-XSRF-TOKEN` 헤더로 돌려보낸다. 로그인, 가입도 검사한다.
@@ -292,7 +293,6 @@ com.firstory
 - 알림 문구 (`NotificationTemplate` 임시값). 다시 만들기·다시 시도의 시작 알림을 보낼지 (지금은 보내지 않는다)
 - 삭제한 동화의 입력 원문과 그림 파일 실제 파기 (PRD 36). 지금은 소프트 삭제만
 - 탈퇴 시 개인정보 파기 시점 (PRD 36). 지금은 회원만 소프트 삭제하고 아이, 동화 데이터는 그대로 둔다
-- 비밀번호 규칙 (임시: 8~64자, 영문과 숫자 각각 1개 이상, `PasswordPolicy`)
 - 아이 대상 연령 범위 (임시: 0~144개월, `BirthYmPolicy.MAX_AGE_MONTHS`)
 - 서비스 최상위 도메인(.com, .kr, .co.kr). 코드에는 적지 않는다
 - 웹 푸시(PUSH_SUBSCRIPTIONS)는 2차 범위. 지금 만들지 않는다.

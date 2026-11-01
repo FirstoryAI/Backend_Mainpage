@@ -33,7 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(IntegrationTest.TestBeans.class)
 public abstract class IntegrationTest {
 
-    protected static final String PASSWORD = "firstory123";
+    protected static final String PASSWORD = "firstory123!";
 
     @ServiceConnection
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16");

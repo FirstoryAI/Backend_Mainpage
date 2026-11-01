@@ -41,6 +41,16 @@ public record PhoneVerification(String phoneDigits, SmsPurpose purpose, String c
         return new PhoneVerification(phone.digits(), purpose, hash(code), now.plus(VALIDITY), 0);
     }
 
+    /**
+     * 문자를 보내지 않은 번호용. 6자리 숫자가 아닌 값의 해시라 어떤 입력과도 맞지 않는다.
+     * 가입되지 않은 번호로 비밀번호 재설정을 요청해도 verify가 가입된 번호와 같은 오류(MISMATCH)를 주게 한다.
+     */
+    public static PhoneVerification issueUnmatchable(PhoneNumber phone, SmsPurpose purpose, RandomGenerator random,
+                                                     Instant now) {
+        String neverSent = "x" + Long.toHexString(random.nextLong()) + Long.toHexString(random.nextLong());
+        return new PhoneVerification(phone.digits(), purpose, hash(neverSent), now.plus(VALIDITY), 0);
+    }
+
     public boolean isFor(PhoneNumber phone) {
         return phoneDigits.equals(phone.digits());
     }
@@ -73,8 +83,6 @@ public record PhoneVerification(String phoneDigits, SmsPurpose purpose, String c
             throw new IllegalStateException(e);
         }
     }
-
-    // 번호가 로그에 남지 않게 한다
     @Override
     public String toString() {
         return "PhoneVerification[purpose=" + purpose + ", expiresAt=" + expiresAt + ", attempts=" + attempts + "]";

@@ -35,15 +35,15 @@
 | `FORBIDDEN` | 403 | 접근할 수 없어요. | 상태를 바꾸는 모든 요청 (POST/PUT/PATCH/DELETE)에 `X-XSRF-TOKEN`이 없거나 틀림 → `GET /api/auth/csrf` 후 다시 |
 | `INVALID_CREDENTIALS` | 401 | 이메일 또는 비밀번호가 맞지 않아요. | `POST /api/auth/login` |
 | `ACCOUNT_LOCKED` | 423 | 로그인을 여러 번 실패해서 15분 동안 잠겼어요. 잠시 후 다시 시도해 주세요. | `POST /api/auth/login` (5번 연속 실패, 15분) |
-| `INVALID_PASSWORD_FORMAT` | 400 | 비밀번호는 영문과 숫자를 포함해 8~64자로 입력해 주세요. | `POST /api/auth/signup`, `POST /api/me/password` |
+| `INVALID_PASSWORD_FORMAT` | 400 | 비밀번호는 영문, 숫자, 특수문자를 하나씩 넣어 8~20자로 입력해 주세요. 한글과 공백은 쓸 수 없어요. | `POST /api/auth/signup`, `POST /api/me/password`, `POST /api/auth/password/reset` |
 | `CURRENT_PASSWORD_MISMATCH` | 400 | 현재 비밀번호가 맞지 않아요. | `POST /api/me/password`, `POST /api/me/phone`, `POST /api/me/withdraw` |
-| `SAME_AS_OLD_PASSWORD` | 400 | 지금 쓰는 비밀번호와 다른 비밀번호를 입력해 주세요. | `POST /api/me/password` |
+| `SAME_AS_OLD_PASSWORD` | 400 | 지금 쓰는 비밀번호와 다른 비밀번호를 입력해 주세요. | `POST /api/me/password`, `POST /api/auth/password/reset` |
 | `SMS_RATE_LIMITED` | 429 | 인증번호를 너무 많이 요청했어요. 1시간 후 다시 시도해 주세요. | `POST /api/auth/phone/send-code` |
 | `SMS_RESEND_TOO_SOON` | 429 | 인증번호는 1분 뒤에 다시 받을 수 있어요. | `POST /api/auth/phone/send-code` |
 | `VERIFICATION_CODE_MISMATCH` | 400 | 인증번호가 맞지 않아요. | `POST /api/auth/phone/verify` |
 | `VERIFICATION_EXPIRED` | 400 | 인증번호가 만료됐어요. 다시 받아 주세요. | `POST /api/auth/phone/verify` (3분 지남, 다른 번호, 받은 적 없음) |
 | `VERIFICATION_ATTEMPTS_EXCEEDED` | 429 | 인증번호를 5번 틀렸어요. 인증번호를 다시 받아 주세요. | `POST /api/auth/phone/verify` (5번 틀림 → 다시 받기) |
-| `PHONE_NOT_VERIFIED` | 400 | 휴대폰 인증을 먼저 해 주세요. | `POST /api/auth/signup`, `POST /api/me/phone` (인증 안 함, 10분 지남, 다른 세션) |
+| `PHONE_NOT_VERIFIED` | 400 | 휴대폰 인증을 먼저 해 주세요. | `POST /api/auth/signup`, `POST /api/me/phone`, `POST /api/auth/password/reset` (인증 안 함, 10분 지남, 다른 세션, 다른 purpose로 인증) |
 | `REQUIRED_CONSENT_MISSING` | 400 | 필수 항목에 모두 동의해야 가입할 수 있어요. | `POST /api/auth/signup` |
 | `INVALID_PHONE_FORMAT` | 400 | 010-0000-0000 형식으로 입력해 주세요. | `send-code`, `verify`, `signup`, `POST /api/me/phone` |
 | `EMAIL_CHECK_RATE_LIMITED` | 429 | 이메일 확인을 너무 많이 했어요. 1분 후 다시 시도해 주세요. | `POST /api/auth/email/check` (같은 IP에서 1분에 11번째부터) |

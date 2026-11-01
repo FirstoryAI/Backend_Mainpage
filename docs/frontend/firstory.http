@@ -23,7 +23,7 @@
 @host = http://localhost:8081
 @email = parent1@example.com
 @phone = 010-1234-0001
-@password = firstory123
+@password = firstory123!
 
 ### 1-1. CSRF 토큰 받기 (앱을 열 때, 로그아웃한 뒤)
 GET {{host}}/api/auth/csrf

@@ -36,14 +36,14 @@ class MeIntegrationTest extends IntegrationTest {
         assertThat(rememberMeTokens(email)).isOne();
 
         a.post("/api/me/password", """
-                {"currentPassword": "%s", "newPassword": "newpass123"}""".formatted(PASSWORD))
+                {"currentPassword": "%s", "newPassword": "newpass123!"}""".formatted(PASSWORD))
                 .andExpect(status().isNoContent());
 
         a.get("/api/me").andExpect(status().isOk());
         b.get("/api/me").andExpect(status().isUnauthorized());
         assertThat(rememberMeTokens(email)).isZero();
 
-        logIn(email, "newpass123", false);
+        logIn(email, "newpass123!", false);
     }
 
     @Test
@@ -51,7 +51,7 @@ class MeIntegrationTest extends IntegrationTest {
         Browser browser = signUp(newEmail(), newPhone());
 
         browser.post("/api/me/password", """
-                {"currentPassword": "wrong12345", "newPassword": "newpass123"}""")
+                {"currentPassword": "wrong12345", "newPassword": "newpass123!"}""")
                 .andExpect(jsonPath("$.code").value("CURRENT_PASSWORD_MISMATCH"));
         browser.post("/api/me/password", """
                 {"currentPassword": "%s", "newPassword": "short"}""".formatted(PASSWORD))

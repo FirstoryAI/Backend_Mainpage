@@ -55,7 +55,7 @@ async function api(method, url, body) {
 
 - 앱을 열 때 로그인 여부는 `GET /api/me`로 본다. 200이면 로그인 상태, 401이면 비로그인.
 - 로그인 실패는 401 `INVALID_CREDENTIALS`(이메일·비밀번호 틀림)라서 **같은 401이라도 `code`로 구분한다.** 로그인 화면에서 받은 401을 "로그인 화면으로 이동"으로 처리하지 않는다.
-- 로그인이 필요 없는 API: `GET /api/auth/csrf`, `POST /api/auth/email/check`, `POST /api/auth/phone/send-code`, `POST /api/auth/phone/verify`, `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/logout`. 나머지는 모두 로그인 필요.
+- 로그인이 필요 없는 API: `GET /api/auth/csrf`, `POST /api/auth/email/check`, `POST /api/auth/phone/send-code`, `POST /api/auth/phone/verify`, `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/password/reset`, `POST /api/auth/logout`. 나머지는 모두 로그인 필요.
 
 ## 가입과 로그인 흐름
 
@@ -72,10 +72,24 @@ POST /api/auth/logout                                                           
 
 - **문자 인증과 가입은 같은 브라우저 세션에서** 해야 한다. 인증 결과가 세션(`FSESSION`)에 10분 동안 남는다.
 - 휴대폰 번호는 `010-0000-0000` 형식(하이픈 포함).
-- 비밀번호: 8~64자, 영문과 숫자 각각 1개 이상 (임시 규칙).
+- 비밀번호: 8~20자, 영문·숫자·특수문자 각각 1개 이상. 특수문자는 `!@#$%^&*()_+-=[]{}:;,.?/\`만, 한글·공백 불가.
 - `consents`: `GUARDIAN`, `TERMS`, `PRIVACY`는 필수 `true`, `SMS_NOTIFY`는 선택.
 - 로그인 5번 연속 실패 시 15분 잠김(423 `ACCOUNT_LOCKED`).
 - 응답에 휴대폰 번호는 가린 형태(`phoneMasked: "010-****-5678"`)로만 온다.
+
+## 비밀번호 찾기 (비밀번호 재설정)
+
+```
+GET  /api/auth/csrf
+POST /api/auth/phone/send-code   {"phone": "010-1234-5678", "purpose": "PASSWORD_RESET"}  → 200 {"expiresInSeconds": 180}
+POST /api/auth/phone/verify      {"phone": "010-1234-5678", "code": "000000"}              → 204
+POST /api/auth/password/reset    {"phone": "010-1234-5678", "newPassword": "..."}          → 204
+```
+
+- **가입 여부를 알려 주지 않는다.** 가입되지 않은 번호도 `send-code`는 똑같이 200이고 문자만 가지 않는다. 화면은 "가입된 번호라면 인증번호가 발송돼요"처럼 안내하고, 번호가 없다는 문구를 만들지 않는다.
+- 문자 인증과 재설정은 같은 브라우저 세션에서 10분 안에 한다. 인증 결과는 한 번만 쓸 수 있다.
+- 바꾸면 **모든 기기에서 로그아웃**되고(로그인 상태 유지 포함) 로그인 잠금도 풀린다. 이 요청으로 로그인되지는 않으니 로그인 화면으로 보낸다.
+- 오류: `PHONE_NOT_VERIFIED`(인증 안 함·10분 지남·다른 purpose), `INVALID_PASSWORD_FORMAT`, `SAME_AS_OLD_PASSWORD`. `SAME_AS_OLD_PASSWORD`면 인증은 남아 있어 새 비밀번호만 다시 받으면 된다.
 
 ## 민감 작업은 현재 비밀번호 필요
 
