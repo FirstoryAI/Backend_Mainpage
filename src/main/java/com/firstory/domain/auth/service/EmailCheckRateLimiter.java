@@ -11,18 +11,12 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * 이메일 중복 확인은 가입 여부를 알려 주므로 IP마다 1분에 10번으로 막는다 (계정 탐색 방지).
- * 횟수는 서버 메모리에만 있어 서버가 여러 대면 서버마다 따로 세고, 다시 띄우면 0부터 센다.
- * 서버를 늘리면 DB나 Redis로 옮긴다.
- */
 @Component
 @RequiredArgsConstructor
 public class EmailCheckRateLimiter {
 
     static final int LIMIT_PER_WINDOW = 10;
     static final Duration WINDOW = Duration.ofMinutes(1);
-    // 이만큼 쌓이면 끝난 창을 지운다
     static final int CLEANUP_THRESHOLD = 10_000;
 
     private final Clock clock;

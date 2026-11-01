@@ -6,10 +6,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 가입 정보 입력 단계(AUTH-02)에서 이메일이 이미 가입됐는지 미리 알려 준다.
- * 가입(signup)도 같은 기준으로 다시 확인한다 (그사이 누가 같은 이메일로 가입했을 수 있다).
- */
 @Service
 @RequiredArgsConstructor
 public class EmailCheckService {

@@ -8,9 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 
-/**
- * 로그인 실패·성공 기록. 인증 실패 예외가 나도 실패 횟수는 커밋되도록 따로 트랜잭션을 연다.
- */
 @Component
 @RequiredArgsConstructor
 public class LoginAttemptRecorder {

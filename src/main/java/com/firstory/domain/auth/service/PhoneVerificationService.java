@@ -22,9 +22,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 
-/**
- * 문자 인증. 인증번호와 인증 결과는 세션에, 발송 기록은 sms_send_logs에 둔다.
- */
 @Service
 @RequiredArgsConstructor
 public class PhoneVerificationService {
@@ -40,13 +37,9 @@ public class PhoneVerificationService {
     private final PhoneCrypto phoneCrypto;
     private final SmsSender smsSender;
     private final Clock clock;
-    // local 프로필에서만 빈이 있다
     private final ObjectProvider<LocalFixedVerificationCode> localFixedCode;
     private final SecureRandom random = new SecureRandom();
 
-    /**
-     * @return 인증번호 유효 시간
-     */
     @Transactional
     public Duration sendCode(HttpSession session, PhoneNumber phone, SmsPurpose purpose) {
         String phoneHash = phoneCrypto.hash(phone);
@@ -64,8 +57,6 @@ public class PhoneVerificationService {
         }
 
         smsSendLogRepository.save(SmsSendLog.record(phoneHash, purpose));
-        // 비밀번호 재설정은 가입 여부를 드러내지 않는다. 가입되지 않은 번호도 발송 기록과 횟수 제한, 응답이 같고
-        // 맞을 수 없는 인증번호를 세션에 둬서 verify도 같은 오류를 준다. 문자만 보내지 않는다
         if (purpose == SmsPurpose.PASSWORD_RESET && !userRepository.existsByPhoneHash(phoneHash)) {
             session.setAttribute(VERIFICATION_ATTRIBUTE,
                     PhoneVerification.issueUnmatchable(phone, purpose, random, now));
@@ -105,11 +96,6 @@ public class PhoneVerificationService {
         session.setAttribute(VERIFIED_ATTRIBUTE, VerifiedPhone.of(phone, verification.purpose(), now));
     }
 
-    /**
-     * 세션에 이 번호와 목적으로 10분 안에 인증한 기록이 있는지 확인한다. 다 쓴 뒤에는 clearVerified를 부른다.
-     *
-     * @return 인증한 시각
-     */
     public Instant requireVerified(HttpSession session, PhoneNumber phone, SmsPurpose purpose) {
         VerifiedPhone verified = (VerifiedPhone) session.getAttribute(VERIFIED_ATTRIBUTE);
         if (verified == null || !verified.isUsableFor(phone, purpose, clock.instant())) {

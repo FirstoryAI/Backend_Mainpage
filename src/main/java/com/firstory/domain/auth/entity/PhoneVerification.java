@@ -12,10 +12,6 @@ import java.util.HexFormat;
 import java.util.Objects;
 import java.util.random.RandomGenerator;
 
-/**
- * 발송한 인증번호. 세션에 저장한다 (Spring Session JDBC가 직렬화).
- * 인증번호 평문은 두지 않고 SHA-256 해시만 둔다.
- */
 public record PhoneVerification(String phoneDigits, SmsPurpose purpose, String codeHash, Instant expiresAt,
                                 int attempts) implements Serializable {
 
@@ -30,9 +26,6 @@ public record PhoneVerification(String phoneDigits, SmsPurpose purpose, String c
         Objects.requireNonNull(expiresAt);
     }
 
-    /**
-     * 6자리 숫자. 앞자리 0도 그대로 둔다.
-     */
     public static String newCode(RandomGenerator random) {
         return String.format("%06d", random.nextInt(CODE_BOUND));
     }
@@ -41,10 +34,6 @@ public record PhoneVerification(String phoneDigits, SmsPurpose purpose, String c
         return new PhoneVerification(phone.digits(), purpose, hash(code), now.plus(VALIDITY), 0);
     }
 
-    /**
-     * 문자를 보내지 않은 번호용. 6자리 숫자가 아닌 값의 해시라 어떤 입력과도 맞지 않는다.
-     * 가입되지 않은 번호로 비밀번호 재설정을 요청해도 verify가 가입된 번호와 같은 오류(MISMATCH)를 주게 한다.
-     */
     public static PhoneVerification issueUnmatchable(PhoneNumber phone, SmsPurpose purpose, RandomGenerator random,
                                                      Instant now) {
         String neverSent = "x" + Long.toHexString(random.nextLong()) + Long.toHexString(random.nextLong());

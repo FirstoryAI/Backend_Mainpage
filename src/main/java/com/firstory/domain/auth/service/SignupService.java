@@ -38,9 +38,6 @@ public class SignupService {
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
 
-    /**
-     * 세션의 VerifiedPhone은 지우지 않는다. 커밋 뒤 호출한 쪽에서 지운다.
-     */
     @Transactional
     public User signup(SignupRequest request, HttpSession session) {
         PasswordPolicy.validate(request.password());
@@ -70,8 +67,6 @@ public class SignupService {
         }
         return user;
     }
-
-    // 동시에 같은 이메일이나 번호로 가입하면 위의 중복 확인을 둘 다 통과할 수 있다. DB 부분 UNIQUE 인덱스가 막는다
     private void saveUnique(User user) {
         try {
             userRepository.saveAndFlush(user);

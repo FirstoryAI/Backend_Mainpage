@@ -15,9 +15,6 @@ import lombok.NoArgsConstructor;
 
 import java.util.Objects;
 
-/**
- * 문자 발송 기록. 번호별 발송 횟수 제한에 쓴다. 평문 번호는 저장하지 않는다.
- */
 @Getter
 @Entity
 @Table(name = "sms_send_logs")
