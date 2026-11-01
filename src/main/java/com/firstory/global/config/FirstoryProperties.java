@@ -56,11 +56,12 @@ public record FirstoryProperties(Crypto crypto, Story story, Policy policy, Ai a
          * @param interviewDelay 인터뷰 시작, 답변 응답 전에 기다리는 시간
          * @param safetyDelay    위기 신호 검사 응답 전에 기다리는 시간
          * @param stageDuration  생성 한 단계(노드)에 걸리는 시간. 0이면 status를 부를 때마다 한 단계씩
-         * @param turns          첫 질문 뒤에 더 묻는 질문 수 (2면 질문 3개). 0이면 thread_id로 질문 수 1~5개를 정한다
+         * @param turns          첫 질문 뒤에 더 묻는 질문 수 (2면 질문 3개). 0이면 thread_id로 질문 수 1~15개를 정한다
          */
         public record Fake(Duration interviewDelay, Duration safetyDelay, Duration stageDuration, Integer turns) {
 
-            public static final int MAX_QUESTIONS = 5;
+            // InterviewTurn.MAX_TURNS와 같은 값 (진짜 AI의 질문 상한)
+            public static final int MAX_QUESTIONS = 15;
             public static final Fake INSTANT = new Fake(null, null, null, null);
 
             public Fake {

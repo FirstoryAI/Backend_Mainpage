@@ -335,7 +335,7 @@ class FakeAiClientTest {
     }
 
     @Test
-    void turns가_0이면_thread_id로_질문_수_1에서_5개를_정하고_같은_thread는_항상_같다() {
+    void turns가_0이면_thread_id로_질문_수_1에서_15개를_정하고_같은_thread는_항상_같다() {
         client = new FakeAiClient(storage, PAGE_COUNT, new Fake(null, null, null, 0), Clock.systemUTC());
 
         Set<Integer> counts = new HashSet<>();
@@ -351,7 +351,8 @@ class FakeAiClientTest {
 
     @Test
     void 질문은_샘플_순서대로() {
-        client = new FakeAiClient(storage, PAGE_COUNT, new Fake(null, null, null, 4), Clock.systemUTC());
+        client = new FakeAiClient(storage, PAGE_COUNT, new Fake(null, null, null, Fake.MAX_QUESTIONS - 1),
+                Clock.systemUTC());
         client.startInterview(THREAD_ID, UUID.randomUUID(), context(), null);
 
         List<String> questions = new ArrayList<>(List.of(FakeAiClient.FIRST_QUESTION));
@@ -364,7 +365,8 @@ class FakeAiClientTest {
 
         assertThat(questions).isEqualTo(FakeAiClient.SAMPLE.questions());
         assertThat(choices).isEqualTo(FakeAiClient.SAMPLE.questionChoices());
-        assertThat(choices.getLast()).isEmpty();   // 5번째 질문은 카드가 없다
+        assertThat(questions).hasSize(Fake.MAX_QUESTIONS);
+        assertThat(choices.get(4)).isEmpty();   // 5번째 질문은 카드가 없다
     }
 
     @Test

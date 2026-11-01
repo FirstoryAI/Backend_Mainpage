@@ -35,7 +35,7 @@ class AiPropertiesTest {
     }
 
     @Test
-    void 가짜_AI_turns는_0에서_4() {
+    void 가짜_AI_turns는_0에서_14() {
         assertThatThrownBy(() -> new Ai.Fake(null, null, null, Ai.Fake.MAX_QUESTIONS))
                 .isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> new Ai.Fake(null, null, null, -1)).isInstanceOf(IllegalStateException.class);

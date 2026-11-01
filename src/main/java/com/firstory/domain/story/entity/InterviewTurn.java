@@ -29,7 +29,7 @@ import java.util.Objects;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class InterviewTurn extends BaseTimeEntity {
 
-    public static final int MAX_TURNS = 5;
+    public static final int MAX_TURNS = 15;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
