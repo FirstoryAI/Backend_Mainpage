@@ -4,9 +4,11 @@ package com.firstory.domain.generation.entity;
  * 동화 결과물 파일 key 규칙. 모든 파일은 `stories/{storyId}/` 아래에 있어야 한다.
  *
  * <pre>
- * stories/{storyId}/runs/{runNo}/images/page-01.png
+ * stories/{storyId}/runs/{runNo}/images/page-01.webp   (이전 동화와 가짜 AI는 .png)
+ * stories/{storyId}/runs/{runNo}/images/cover.webp
  * stories/{storyId}/runs/{runNo}/images/sheet-{role}-{n}.png
  * </pre>
+ * 확장자는 AI가 정하고, 그림 API는 확장자로 Content-Type을 정한다 (StorageKeys).
  * 그림만 다시 그린 버전은 바뀌지 않은 쪽이 이전 실행의 key를 그대로 쓴다.
  */
 public final class StoryFiles {

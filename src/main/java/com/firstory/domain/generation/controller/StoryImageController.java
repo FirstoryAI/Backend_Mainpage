@@ -37,12 +37,14 @@ import java.time.Duration;
 public class StoryImageController {
 
     private static final Duration CACHE_FOR = Duration.ofHours(1);
+    private static final String IMAGE_WEBP = "image/webp";   // Content-Type은 key 확장자로 정한다 (StorageKeys)
 
     private final StoryImageService storyImageService;
 
     @Operation(summary = "쪽 그림", description = "그림이 실패한 쪽(FAILED)이나 파일이 없으면 IMAGE_NOT_FOUND")
-    @ApiResponse(responseCode = "200", description = "PNG 그림",
-            content = @Content(mediaType = MediaType.IMAGE_PNG_VALUE, schema = @Schema(type = "string", format = "binary")))
+    @ApiResponse(responseCode = "200", description = "PNG 또는 WebP 그림 (진짜 AI는 WebP, 이전 동화와 가짜 AI는 PNG)",
+            content = {@Content(mediaType = MediaType.IMAGE_PNG_VALUE, schema = @Schema(type = "string", format = "binary")),
+                    @Content(mediaType = IMAGE_WEBP, schema = @Schema(type = "string", format = "binary"))})
     @GetMapping("/pages/{pageNo:\\d+}/image")
     public ResponseEntity<byte[]> pageImage(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id,
                                             @PathVariable Long versionId, @PathVariable int pageNo) {
@@ -59,8 +61,9 @@ public class StoryImageController {
     }
 
     @Operation(summary = "표지", description = "제목이 들어간 정사각형 표지. 표지가 없는 버전(이전 버전, 표지 실패)이면 IMAGE_NOT_FOUND")
-    @ApiResponse(responseCode = "200", description = "PNG 그림",
-            content = @Content(mediaType = MediaType.IMAGE_PNG_VALUE, schema = @Schema(type = "string", format = "binary")))
+    @ApiResponse(responseCode = "200", description = "PNG 또는 WebP 그림 (진짜 AI는 WebP, 가짜 AI는 PNG)",
+            content = {@Content(mediaType = MediaType.IMAGE_PNG_VALUE, schema = @Schema(type = "string", format = "binary")),
+                    @Content(mediaType = IMAGE_WEBP, schema = @Schema(type = "string", format = "binary"))})
     @GetMapping("/cover")
     public ResponseEntity<byte[]> cover(@AuthenticationPrincipal UserPrincipal principal,
                                         @PathVariable Long id, @PathVariable Long versionId) {

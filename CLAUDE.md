@@ -39,7 +39,7 @@ docker compose up -d                                                        # .e
 
 `.env`와 `application-local.yml`은 커밋하지 않는다. 설정을 바꾸면 `.example` 파일도 함께 고친다.
 
-전체 흐름 실제 확인(smoke): 서버를 `FIRSTORY_AI_FAKE_STAGE_DURATION=5s ./gradlew bootRun --args='--spring.profiles.active=local'`로 띄우고 다른 창에서 `bash scripts/smoke-local.sh`(Git Bash, curl만 필요). `docs/frontend/firstory.http`, `FullJourneyIntegrationTest`와 같은 순서로 35단계를 돌고 그림이 실제 PNG인지도 본다. 진짜 AI 서버와 붙였으면(`FIRSTORY_AI_MODE=http`, AI 서버의 `FIRSTORY_OUTPUT_ROOT`와 `STORAGE_LOCAL_ROOT`를 같은 폴더로) `AI_MODE=http bash scripts/smoke-local.sh`로 돌린다. 가짜 AI만 만드는 샘플 제목과 `(다시 n)`은 확인하지 않는다. 진짜 AI는 인터뷰 시작에서 질문 없이 바로 CONFIRM을 줄 수 있어 smoke는 질문 0~15개를 모두 통과시킨다. API 흐름을 바꾸면 세 곳을 함께 고친다. Windows에서 curl로 한글 본문을 보낼 때는 인자가 아니라 파일(`--data-binary @file`)로 보낸다(코드 페이지 때문에 깨진다).
+전체 흐름 실제 확인(smoke): 서버를 `FIRSTORY_AI_FAKE_STAGE_DURATION=5s ./gradlew bootRun --args='--spring.profiles.active=local'`로 띄우고 다른 창에서 `bash scripts/smoke-local.sh`(Git Bash, curl만 필요). `docs/frontend/firstory.http`, `FullJourneyIntegrationTest`와 같은 순서로 35단계를 돌고 그림이 실제 PNG나 WebP인지도 본다(Content-Type과 시그니처가 맞는지). 진짜 AI 서버와 붙였으면(`FIRSTORY_AI_MODE=http`, AI 서버의 `FIRSTORY_OUTPUT_ROOT`와 `STORAGE_LOCAL_ROOT`를 같은 폴더로) `AI_MODE=http bash scripts/smoke-local.sh`로 돌린다. 가짜 AI만 만드는 샘플 제목과 `(다시 n)`은 확인하지 않는다. 진짜 AI는 인터뷰 시작에서 질문 없이 바로 CONFIRM을 줄 수 있어 smoke는 질문 0~15개를 모두 통과시킨다. API 흐름을 바꾸면 세 곳을 함께 고친다. Windows에서 curl로 한글 본문을 보낼 때는 인자가 아니라 파일(`--data-binary @file`)로 보낸다(코드 페이지 때문에 깨진다).
 
 ### 개발 서버 (dev 프로필, Railway)
 
@@ -187,9 +187,9 @@ com.firstory
 - 파일은 `global.storage.FileStorage`로만 읽고 쓴다. `firstory.storage.type`(`STORAGE_TYPE`)으로 고른다(`StorageConfig`). 그림 API 주소와 동작은 어느 쪽이든 같다.
   - `local`(기본): `LocalFileStorage`(`firstory.storage.local-root`, 기본 `./data/storage`, test는 `build/test-storage`). 진짜 AI 서버와 같은 컴퓨터에서 같은 폴더를 볼 때만 쓴다.
   - `s3`: `S3FileStorage`. `STORAGE_S3_BUCKET`(필수, 비면 기동하지 않는다), `STORAGE_S3_REGION`(기본 `ap-northeast-2`). key가 그대로 객체 key다. AI 서버도 같은 버킷에 쓴다(AI 저장소 `FIRSTORY_STORAGE=s3`). 접근 키는 설정 파일에 두지 않고 AWS 기본 방식(`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` 환경 변수, EC2는 IAM 역할)으로 찾는다. 버킷은 공개하지 않는다(그림은 그림 API로만 내려준다).
-- key 형식은 `stories/{storyId}/runs/{runNo}/images/page-01.png`, `.../images/sheet-{role}-{n}.png`, `.../images/cover.png` (`StoryFiles`). AI에 넘기는 `output_prefix`도 `StoryFiles.runPrefix`로 만든다.
+- key 형식은 `stories/{storyId}/runs/{runNo}/images/page-01.webp`, `.../images/sheet-{role}-{n}.png`, `.../images/cover.webp` (`StoryFiles`). 진짜 AI는 쪽·표지를 WebP로, 시트는 PNG로 저장한다. 이전 동화와 가짜 AI는 쪽·표지도 `.png`. AI에 넘기는 `output_prefix`도 `StoryFiles.runPrefix`로 만든다.
 - key 검사는 `StorageKeys.validate` 하나로 한다(`..`, 빈 칸, 절대 경로, 역슬래시, `:` 거부. AI 저장소 `storage.py`와 같은 기준). `LocalFileStorage`는 `normalize()`한 경로가 루트 밖이면 한 번 더 거부한다.
-- 그림 API(`/api/stories/{id}/versions/{versionId}/pages/{pageNo}/image`, `/character-sheet`, `/cover`): 내 동화(`findByIdAndUserId`) → 그 동화의 버전 → 그 버전의 쪽 순서로 확인하고 하나라도 아니면 404. **파일 위치는 DB에 저장된 key로만 찾는다.** key가 `stories/{storyId}/`로 시작하는지 한 번 더 본다. 헤더는 `image/png`, `nosniff`, `private, max-age=3600`, `inline`. 오류를 JSON으로 내려야 해서 `produces`를 걸지 않는다.
+- 그림 API(`/api/stories/{id}/versions/{versionId}/pages/{pageNo}/image`, `/character-sheet`, `/cover`): 내 동화(`findByIdAndUserId`) → 그 동화의 버전 → 그 버전의 쪽 순서로 확인하고 하나라도 아니면 404. **파일 위치는 DB에 저장된 key로만 찾는다.** key가 `stories/{storyId}/`로 시작하는지 한 번 더 본다. 헤더는 key 확장자로 정한 `image/webp`·`image/png`(`StorageKeys.contentTypeOf`), `nosniff`, `private, max-age=3600`, `inline`. 오류를 JSON으로 내려야 해서 `produces`를 걸지 않는다.
 - **응답 어디에도 파일 key나 서버 경로를 넣지 않는다.** 주소는 DB id로만 만든다(`StoryImageUrls`).
 
 ## 알림 규칙
