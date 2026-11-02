@@ -258,17 +258,25 @@ IMAGE_URL="$(json_first_str imageUrl)"
 [ -n "$VERSION1" ] && [ -n "$IMAGE_URL" ] || fail "버전 id나 그림 주소가 없어요"
 ok "versionId=$VERSION1"
 
-step "그림 1장이 실제 PNG (GET $IMAGE_URL)"
+# 가짜 AI는 PNG, 진짜 AI는 쪽·표지를 WebP로 저장한다. Content-Type과 파일 시그니처가 서로 맞는지 본다
+step "그림 1장이 실제 PNG나 WebP (GET $IMAGE_URL)"
 HEADERS="$WORK/headers"
-IMAGE="$WORK/page1.png"
+IMAGE="$WORK/page1"
 STATUS="$(curl -s -D "$HEADERS" -o "$IMAGE" -w '%{http_code}' -b "$JAR" "$BASE_URL$IMAGE_URL")"
 BODY="$(cat "$HEADERS")"
 expect 200
-grep -qi '^content-type: image/png' "$HEADERS" || fail "Content-Type이 image/png가 아니에요"
 grep -qi '^x-content-type-options: nosniff' "$HEADERS" || fail "nosniff 헤더가 없어요"
-MAGIC="$(head -c 8 "$IMAGE" | od -An -tx1 | tr -d ' \n')"
-[ "$MAGIC" = "89504e470d0a1a0a" ] || fail "PNG 시그니처가 아니에요 ($MAGIC)"
-ok "$(wc -c < "$IMAGE" | tr -d ' ')바이트, 시그니처 89 50 4E 47"
+MAGIC="$(head -c 12 "$IMAGE" | od -An -tx1 | tr -d ' \n')"
+if grep -qi '^content-type: image/png' "$HEADERS"; then
+    [ "${MAGIC:0:16}" = "89504e470d0a1a0a" ] || fail "PNG 시그니처가 아니에요 ($MAGIC)"
+    KIND=PNG
+elif grep -qi '^content-type: image/webp' "$HEADERS"; then
+    [ "${MAGIC:0:8}" = "52494646" ] && [ "${MAGIC:16:8}" = "57454250" ] || fail "WebP 시그니처가 아니에요 ($MAGIC)"
+    KIND=WebP
+else
+    fail "Content-Type이 image/png나 image/webp가 아니에요"
+fi
+ok "$KIND $(wc -c < "$IMAGE" | tr -d ' ')바이트"
 
 # 5. 그림만 다시, 버전 전환, 확정
 step "그림만 다시 3쪽 (POST regenerate)"

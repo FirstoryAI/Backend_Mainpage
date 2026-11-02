@@ -171,7 +171,7 @@ GET {{host}}/api/stories/{{storyId}}/preview
     client.global.set("imageUrl", response.body.pages[0].imageUrl);
 %}
 
-### 4-4. 그림 1장 → image/png
+### 4-4. 그림 1장 → image/webp (가짜 AI는 image/png)
 GET {{host}}{{imageUrl}}
 
 ### 5-1. 그림만 다시 (3쪽) → 202

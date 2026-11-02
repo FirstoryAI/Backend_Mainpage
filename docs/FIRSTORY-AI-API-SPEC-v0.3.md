@@ -298,10 +298,10 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
   "checkpoint_id": "1ef8a…",
   "title": "공룡 아로의 새 친구",
   "design": { "...": "02-design.json" },
-  "cover_path": "stories/123/runs/1/images/cover.png",
+  "cover_path": "stories/123/runs/1/images/cover.webp",
   "character_sheets": [ { "role": "main", "name": "아로", "path": "stories/123/runs/1/images/sheet-main-아로.png" } ],
   "pages": [
-    { "page_no": 1, "text": "아로는 **쿵쿵** 걸어서…", "image_prompt": "…", "text_position": "bottom", "image_path": "stories/123/runs/1/images/page-01.png", "image_status": "done" }
+    { "page_no": 1, "text": "아로는 **쿵쿵** 걸어서…", "image_prompt": "…", "text_position": "bottom", "image_path": "stories/123/runs/1/images/page-01.webp", "image_status": "done" }
   ],
   "guide": { "...": "04-guide.json 그대로 (synopsis, before_reading, prompts[], after_reading)" },
   "cost": { "input_tokens": 41230, "output_tokens": 8120, "image_count": 9 },
@@ -384,8 +384,8 @@ graph.invoke(None, branch)   # 실제로는 백그라운드에서 stream으로 �
 {output_prefix}
 ├── images/
 │   ├── sheet-{role}-{name}.png
-│   ├── cover.png           표지 (정사각형, 제목 포함)
-│   └── page-01.png … page-10.png
+│   ├── cover.webp          표지 (정사각형, 제목 포함)
+│   └── page-01.webp … page-10.webp   쪽·표지는 WebP(AI IMAGE_FORMAT, 기본 webp), 시트는 PNG
 ├── 00-context.json        최종 StoryInputContext
 ├── 01-interview.json      인터뷰 턴, 끝난 이유, 요약
 ├── 02-design.json         이야기 설계
