@@ -41,9 +41,9 @@ docker compose up -d                                                        # .e
 
 전체 흐름 실제 확인(smoke): 서버를 `FIRSTORY_AI_FAKE_STAGE_DURATION=5s ./gradlew bootRun --args='--spring.profiles.active=local'`로 띄우고 다른 창에서 `bash scripts/smoke-local.sh`(Git Bash, curl만 필요). `docs/frontend/firstory.http`, `FullJourneyIntegrationTest`와 같은 순서로 35단계를 돌고 그림이 실제 PNG나 WebP인지도 본다(Content-Type과 시그니처가 맞는지). 진짜 AI 서버와 붙였으면(`FIRSTORY_AI_MODE=http`, AI 서버의 `FIRSTORY_OUTPUT_ROOT`와 `STORAGE_LOCAL_ROOT`를 같은 폴더로) `AI_MODE=http bash scripts/smoke-local.sh`로 돌린다. 가짜 AI만 만드는 샘플 제목과 `(다시 n)`은 확인하지 않는다. 진짜 AI는 인터뷰 시작에서 질문 없이 바로 CONFIRM을 줄 수 있어 smoke는 질문 0~15개를 모두 통과시킨다. API 흐름을 바꾸면 세 곳을 함께 고친다. Windows에서 curl로 한글 본문을 보낼 때는 인자가 아니라 파일(`--data-binary @file`)로 보낸다(코드 페이지 때문에 깨진다).
 
-### 개발 서버 (dev 프로필, Railway)
+### 개발 서버 (dev 프로필, EC2 · Railway)
 
-`application-dev.yml`(커밋함). 루트 `Dockerfile`(Gradle bootJar → temurin 21 JRE, root 아닌 사용자)로 빌드하고 `SPRING_PROFILES_ACTIVE=dev`로 띄운다. Swagger 켬, 가짜 AI(local 예시값과 같은 속도), 고정 인증번호 `000000`, `LoggingSmsSender`, `COOKIE_SECURE` 기본 true. DB 주소와 키 세 개(`PHONE_AES_KEY`, `PHONE_HMAC_KEY`, `REMEMBER_ME_KEY`)는 기본값 없이 받아 비면 기동하지 않는다. 포트는 `SERVER_PORT` → `PORT`(Railway) → 8080. 헬스체크는 `GET /api/health`(로그인 불필요, `{"status":"ok"}`). 환경 변수 전체는 `docs/deploy/railway.md`. 환경 변수를 추가하면 그 표도 고친다.
+`application-dev.yml`(커밋함). 루트 `Dockerfile`(Gradle bootJar → temurin 21 JRE, root 아닌 사용자)로 빌드하고 `SPRING_PROFILES_ACTIVE=dev`로 띄운다. Swagger 켬, 가짜 AI(local 예시값과 같은 속도), 고정 인증번호 `000000`, `LoggingSmsSender`, `COOKIE_SECURE` 기본 true. DB 주소와 키 세 개(`PHONE_AES_KEY`, `PHONE_HMAC_KEY`, `REMEMBER_ME_KEY`)는 기본값 없이 받아 비면 기동하지 않는다. 포트는 `SERVER_PORT` → `PORT`(Railway) → 8080. 헬스체크는 `GET /api/health`(로그인 불필요, `{"status":"ok"}`). 환경 변수 전체는 `docs/deploy/railway.md`. 환경 변수를 추가하면 그 표도 고친다. EC2는 `deploy/ec2/`의 docker compose(Postgres, Spring, AI 워커, Caddy HTTPS)로 띄우고 방법은 `docs/deploy/ec2.md`. compose의 `environment`와 `.env.example`도 함께 고친다.
 
 ### 프론트 전달 문서 (`docs/frontend/`)
 
@@ -304,4 +304,5 @@ com.firstory
 - `docs/FIRSTORY-AI-API-SPEC-v0.3.md`: AI 서비스(FastAPI) API 스펙
 - `docs/frontend/`: 프론트 담당자용 문서 (위 "프론트 전달 문서")
 - `docs/deploy/railway.md`: 개발 서버(Railway) 배포와 환경 변수 목록
+- `docs/deploy/ec2.md`: 개발 서버(EC2, docker compose) 배포, Railway DB 옮기기, 업데이트·백업
 - TASK-01~08 작업 문서는 끝나서 지웠다. 규칙은 이 파일에 모두 옮겼고, 원문은 git 기록(태그 `v0.1.0-frontend`)에 있다. 코드 주석의 `TASK-0n`은 그 작업에서 만든 것이라는 표시다.

@@ -1,0 +1,6 @@
+# API_DOMAIN(.env)에 Let's Encrypt 인증서를 자동으로 붙이고 Spring으로 넘긴다.
+# 도메인의 A 레코드가 이 EC2의 고정 IP(Elastic IP)를 가리켜야 인증서가 나온다.
+{$API_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy backend:8080
+}
