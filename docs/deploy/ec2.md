@@ -86,7 +86,7 @@ cp .env.example .env && chmod 600 .env && vi .env
 
 - `PHONE_AES_KEY`, `PHONE_HMAC_KEY`, `REMEMBER_ME_KEY`는 **Railway 백엔드 서비스와 같은 값**을 넣는다. 다르면 옮긴 회원의 휴대폰 번호를 못 읽고 같은 번호로 다시 가입되며, 로그인 유지 토큰이 모두 무효가 된다.
 - `OPENAI_API_KEY`, `S3_BUCKET`도 Railway AI 서비스와 같은 값이다. `AI_INTERNAL_TOKEN`은 새로 만들어도 된다(Spring과 AI가 같은 `.env`를 읽는다).
-- `POSTGRES_IMAGE`는 Railway DB와 같은 메이저 버전으로 한다(Railway DB에서 `SELECT version();`). 더 높은 버전의 `pg_dump` 파일은 낮은 버전에 복원되지 않을 수 있다.
+- `POSTGRES_IMAGE`는 Railway DB와 같은 메이저 버전으로 한다(Railway DB에서 `SELECT version();`, 11/2 기준 18.6). 더 높은 버전의 `pg_dump` 파일은 낮은 버전에 복원되지 않을 수 있다. 18부터 공식 이미지의 데이터 위치가 바뀌어 compose는 볼륨을 `/var/lib/postgresql`에 붙인다. 16 이하 이미지를 쓰면 볼륨 경로를 `/var/lib/postgresql/data`로 되돌린다.
 - AWS 접근 키는 넣지 않는다(IAM 역할).
 
 ## 4. Railway DB 옮기기
@@ -99,7 +99,7 @@ docker compose up -d postgres
 
 # Railway Postgres의 공개 연결 주소 (Railway → Postgres → Connect → Public Network, DATABASE_PUBLIC_URL)
 read -s RAILWAY_DB_URL
-docker run --rm postgres:16 pg_dump --format=custom --no-owner --no-acl "$RAILWAY_DB_URL" > firstory.dump
+docker run --rm postgres:18 pg_dump --format=custom --no-owner --no-acl "$RAILWAY_DB_URL" > firstory.dump
 docker compose exec -T postgres pg_restore -U firstory -d firstory --no-owner --no-acl < firstory.dump
 docker compose exec postgres psql -U firstory -d firstory -c "select max(version) from flyway_schema_history; select count(*) from stories;"
 rm firstory.dump
