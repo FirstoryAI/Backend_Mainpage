@@ -1,0 +1,89 @@
+# EC2 개발 서버: Postgres + Spring + AI 워커 + Caddy(HTTPS). 설명은 docs/deploy/ec2.md
+#
+#   cd deploy/ec2 && cp .env.example .env   # 값 채우기
+#   docker compose up -d --build
+#
+# 공개되는 것은 Caddy(80, 443)뿐이다. Postgres와 AI 워커는 compose 내부망에서만 보인다.
+# 그림은 S3 버킷 하나를 Spring과 AI가 같이 쓴다. 접근 키 대신 EC2 IAM 역할 (IMDS hop limit 2 필요)
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:16}   # Railway DB와 같은 메이저 버전으로 (pg_dump·복원)
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: firstory
+      POSTGRES_USER: firstory
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD를 .env에 넣어 주세요}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U firstory -d firstory"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 512m
+
+  ai:
+    build: ${AI_DIR:-../../../AI_worker}   # AI_worker 저장소. 기본은 이 저장소 옆에 clone한 폴더
+    restart: unless-stopped
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY를 .env에 넣어 주세요}
+      FIRSTORY_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:?AI_INTERNAL_TOKEN을 .env에 넣어 주세요}
+      FIRSTORY_STORAGE: s3
+      FIRSTORY_S3_BUCKET: ${S3_BUCKET:?S3_BUCKET을 .env에 넣어 주세요}
+      FIRSTORY_S3_REGION: ${S3_REGION:-ap-northeast-2}
+      IMAGE_CONCURRENCY: ${IMAGE_CONCURRENCY:-3}
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+    volumes:
+      - ai-data:/data   # 체크포인트 (/data/checkpoints.db). 지워지면 만들던 동화가 409로 끊긴다
+    mem_limit: 1g
+
+  backend:
+    build: ../..
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}   # prod는 문자 발송 구현이 없어 아직 못 뜬다
+      DB_URL: jdbc:postgresql://postgres:5432/firstory
+      DB_USERNAME: firstory
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      # 키 세 개는 Railway와 같은 값을 쓴다. 다르면 옮긴 회원의 휴대폰 번호·로그인 유지가 깨진다
+      PHONE_AES_KEY: ${PHONE_AES_KEY:?PHONE_AES_KEY를 .env에 넣어 주세요}
+      PHONE_HMAC_KEY: ${PHONE_HMAC_KEY:?PHONE_HMAC_KEY를 .env에 넣어 주세요}
+      REMEMBER_ME_KEY: ${REMEMBER_ME_KEY:?REMEMBER_ME_KEY를 .env에 넣어 주세요}
+      COOKIE_SECURE: "true"
+      ALLOWED_ORIGINS: ""   # 프론트(Vercel)가 /api를 프록시해서 같은 출처. 비워야 CORS 403이 안 난다
+      AI_MODE: http
+      AI_BASE_URL: http://ai:8000
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN}
+      STORAGE_TYPE: s3
+      STORAGE_S3_BUCKET: ${S3_BUCKET}
+      STORAGE_S3_REGION: ${S3_REGION:-ap-northeast-2}
+    mem_limit: 1536m   # 힙은 이 값의 75% (Dockerfile JAVA_TOOL_OPTIONS)
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"     # Let's Encrypt 인증과 HTTPS로 넘기기
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?API_DOMAIN을 .env에 넣어 주세요}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data       # 인증서. 지우면 다시 받는다 (Let's Encrypt 발급 횟수 제한 주의)
+      - caddy-config:/config
+    mem_limit: 128m
+
+volumes:
+  postgres-data:
+  ai-data:
+  caddy-data:
+  caddy-config:
