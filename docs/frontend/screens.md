@@ -193,13 +193,14 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 / 이어서 만들기 | `GET /api/stories/{id}/draft` | `situation`, `child`, `parent.message`, `interview.turns[]{turnNo, question, answer}`, `interview.summary`, `tone`, `toneRequired` |
+| 들어올 때 / 이어서 만들기 | `GET /api/stories/{id}/draft` | `situation`, `child`, `parent.message`, `interview.turns[]{turnNo, question, answer}`, `interview.summary`, `interview.situationSummary`, `tone`, `toneRequired` |
 | 아이 수정하기 | `PUT /api/stories/{id}/child` (CRT-03과 같은 본문) | `{saved, status: "CONFIRMING", safety, toneRequired}` |
-| 상황 수정하기 | `PUT /api/stories/{id}/situation` (CRT-01·02와 같은 본문) | 같음 |
+| 상황 수정하기 | `PUT /api/stories/{id}/situation` (CRT-01·02와 같은 본문) | 같음. 상황이 바뀌면 `GET /draft`의 `interview.situationSummary`가 null이 된다 |
 | 전하고 싶은 말 수정하기 | `PUT /api/stories/{id}/message` | 같음. 인터뷰가 채운 다른 값(방향 등)은 그대로 |
 | 나누고 싶은 것 수정하기 | `PUT /api/stories/{id}/summary` `{summary}` (1~300자) | 같음. `GET /draft`의 `interview.summary`가 바뀐다 |
 | 동화 만들기 버튼 | `POST /api/stories/{id}/confirm` | 202 `{status: "REQUESTED", runNo, stage, ...}` → GEN-01 |
 
+- '상황' 카드는 `interview.situationSummary`(AI가 인터뷰 끝에 정리한 상황, 해요체 1~2문장)를 보여 주고, null이면 `situation.description`(부모가 쓴 원문)을 보여 준다. 상황을 고치면 AI가 다시 정리하지 않고 null이 되어 고친 원문이 보인다. 수정 폼은 늘 `situation.*` 원문으로 채운다.
 - 수정은 `CONFIRMING`에서 된다(아이·상황·전하고 싶은 말은 `DRAFT`에서도). 인터뷰를 다시 하지 않고, 고친 내용은 "동화 만들기"를 누를 때 AI에 함께 간다. **지우고 다시 만들어 답변을 재생하는 우회는 필요 없다.**
 - 고친 글도 위기 신호를 검사한다. 응답의 `safety`는 위 "위기 신호 분기" 표대로 처리한다(`ASK_REVISE`면 저장되지 않으니 같은 카드에서 다시 쓰게, `CHOOSE_TONE`이면 만들기 전에 ST-04).
 

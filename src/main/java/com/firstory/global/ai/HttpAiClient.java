@@ -282,7 +282,7 @@ public class HttpAiClient implements AiClient {
             return switch (body.type()) {
                 case "question" -> InterviewReply.question(body.turn(), body.question(), body.choices(),
                         body.contextUpdate());
-                case "confirm" -> InterviewReply.confirm(body.summary(),
+                case "confirm" -> InterviewReply.confirm(body.summary(), body.situationSummary(),
                         InterviewEndReason.valueOf(body.endReason().toUpperCase(Locale.ROOT)), body.context());
                 default -> throw new IllegalArgumentException("type");
             };
@@ -313,6 +313,7 @@ public class HttpAiClient implements AiClient {
     record InterviewBody(String type, Integer turn, String question, List<String> choices,
                          @JsonProperty("context_update") Map<String, Object> contextUpdate,
                          String summary,
+                         @JsonProperty("situation_summary") String situationSummary,
                          @JsonProperty("end_reason") String endReason,
                          Map<String, Object> context) {
     }

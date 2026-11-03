@@ -110,6 +110,10 @@ public class StoryInput extends BaseTimeEntity {
     @Column(name = "interview_summary", columnDefinition = "text")
     private String interviewSummary;
 
+    // AI가 인터뷰 끝에 정리한 상황 (CRT-06 표시용). 상황을 고치면 비운다
+    @Column(name = "situation_summary", columnDefinition = "text")
+    private String situationSummary;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "interview_end_reason", length = 20)
     private InterviewEndReason interviewEndReason;
@@ -158,10 +162,21 @@ public class StoryInput extends BaseTimeEntity {
         if (timing == SituationTiming.UPCOMING && (!reactionList.isEmpty() || !emotionList.isEmpty())) {
             throw new BusinessException(ErrorCode.MOMENT_ONLY_FOR_PAST);
         }
-        this.situationCustomCategory = CustomText.resolve(category == SituationCategory.OTHER, customCategory,
+        String resolvedCategory = CustomText.resolve(category == SituationCategory.OTHER, customCategory,
                 CUSTOM_CATEGORY_MAX_LENGTH);
-        this.momentCustomReaction = CustomText.resolve(reactionList.contains(MomentReaction.OTHER), customReaction,
+        String resolvedReaction = CustomText.resolve(reactionList.contains(MomentReaction.OTHER), customReaction,
                 CUSTOM_REACTION_MAX_LENGTH);
+        // 상황이 바뀌면 AI가 정리한 문장은 맞지 않으니 비운다 (다시 정리하지 않고 화면은 고친 원문을 보여 준다)
+        if (timing != this.situationTiming || category != this.situationCategory
+                || !Objects.equals(resolvedCategory, this.situationCustomCategory)
+                || !Objects.equals(strippedDescription, this.description)
+                || !reactionList.equals(this.momentReactions)
+                || !Objects.equals(resolvedReaction, this.momentCustomReaction)
+                || !emotionList.equals(this.emotions)) {
+            this.situationSummary = null;
+        }
+        this.situationCustomCategory = resolvedCategory;
+        this.momentCustomReaction = resolvedReaction;
         this.situationTiming = timing;
         this.situationCategory = category;
         this.description = strippedDescription;
@@ -222,8 +237,13 @@ public class StoryInput extends BaseTimeEntity {
         this.interviewSummary = summary;
     }
 
-    public void finishInterview(String interviewSummary, InterviewEndReason reason, Map<String, Object> finalContext) {
+    /**
+     * @param situationSummary AI가 정리한 상황. 이전 AI는 주지 않아 null일 수 있다
+     */
+    public void finishInterview(String interviewSummary, String situationSummary, InterviewEndReason reason,
+                                Map<String, Object> finalContext) {
         this.interviewSummary = interviewSummary;
+        this.situationSummary = CustomText.strip(situationSummary);
         this.interviewEndReason = Objects.requireNonNull(reason);
         this.finalContext = finalContext == null ? null : new LinkedHashMap<>(finalContext);
     }

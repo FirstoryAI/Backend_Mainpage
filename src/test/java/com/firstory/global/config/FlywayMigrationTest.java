@@ -13,10 +13,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class FlywayMigrationTest extends IntegrationTest {
 
     @Test
-    void V1부터_V9까지_순서로_모두_성공한다() {
+    void V1부터_V10까지_순서로_모두_성공한다() {
         assertThat(jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE version IS NOT NULL ORDER BY installed_rank",
-                String.class)).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9");
+                String.class)).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10");
         assertThat(jdbc.queryForObject("SELECT bool_and(success) FROM flyway_schema_history", Boolean.class))
                 .isTrue();
     }
@@ -70,6 +70,11 @@ class FlywayMigrationTest extends IntegrationTest {
                 SELECT pg_get_constraintdef(oid) FROM pg_constraint
                 WHERE conname = 'interview_turns_turn_no_check'""", String.class))
                 .contains(">= 1").contains("<= 15");
+    }
+
+    @Test
+    void V10_입력에_상황_정리_컬럼이_있다() {
+        assertThat(columns("story_inputs")).contains("situation_summary");
     }
 
     private List<String> columns(String table) {

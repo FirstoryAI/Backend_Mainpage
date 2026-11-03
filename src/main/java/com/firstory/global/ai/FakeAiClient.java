@@ -68,6 +68,7 @@ public class FakeAiClient implements AiClient {
     public static final Sample SAMPLE = Sample.load();
     public static final String FIRST_QUESTION = SAMPLE.questions().getFirst();
     public static final String SUMMARY = "아이가 겪은 일과 부모님이 전하고 싶은 마음을 정리했어요.";
+    public static final String SITUATION_SUMMARY = "아이가 겪은 일을 인터뷰에서 들은 내용과 함께 정리했어요.";
     public static final MessageDirection DIRECTION = MessageDirection.COMFORT_FIRST;
     public static final String FAIL_MARKER = "[[FAIL]]";
     public static final String OUTPUT_REVISE_MARKER = "[[OUTPUT_REVISE]]";
@@ -430,7 +431,7 @@ public class FakeAiClient implements AiClient {
 
     private InterviewReply finish(ThreadState state, InterviewEndReason reason) {
         state.interviewDone = true;
-        return InterviewReply.confirm(SUMMARY, reason, finalContext(state.context));
+        return InterviewReply.confirm(SUMMARY, SITUATION_SUMMARY, reason, finalContext(state.context));
     }
 
     private AiGenerationResult buildResult(ThreadState state) {

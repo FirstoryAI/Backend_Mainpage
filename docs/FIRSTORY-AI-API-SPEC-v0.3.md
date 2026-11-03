@@ -240,12 +240,14 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 {
   "type": "confirm",
   "summary": "속상했던 마음을 먼저 알아주고 싶어요. 친구를 나쁘게 말하지는 않고 싶어요.",
+  "situation_summary": "어린이집에서 친구가 블록을 먼저 가져가서 아이가 울었어요.",
   "end_reason": "sufficient",
   "context": { "...": "인터뷰가 채운 parent 값까지 포함한 최종 StoryInputContext" }
 }
 ```
 
 - `summary`: 생성 전 확인 화면(CRT-06)에 "이번 이야기에서 나누고 싶은 것"으로 **부모에게 그대로 보이는** 해요체 1~2문장. 부모가 고칠 수 있다. 동화 생성기가 읽는 정리("이 부모는 ~")는 AI 안에만 둔다
+- `situation_summary`: 생성 전 확인 화면(CRT-06)에 "상황"으로 보이는 해요체 1~2문장. 언제·무슨 일인지와 인터뷰에서 새로 알게 된 상황 사실만 담는다(고민·바람은 `summary`의 몫). 화면 표시용이라 생성할 때 다시 받지 않는다. 이전 AI는 주지 않아 없을 수 있다. Spring은 `story_inputs.situation_summary`에 저장하고 상황을 고치면 비운다
 - `end_reason`: `sufficient` | `max_turns` | `user_skip` (코드의 `interview_done_by`)
 - 위기 신호는 이 API가 판단하지 않는다. Spring이 보내기 전에 `/safety/check`로 검사한다.
 - Spring은 `context`를 `story_inputs.final_context`에 저장한다

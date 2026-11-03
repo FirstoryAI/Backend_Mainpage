@@ -201,13 +201,14 @@ class HttpAiClientTest {
                 .andExpect(content().json("""
                         {"skip": true}""", JsonCompareMode.STRICT))
                 .andRespond(withSuccess("""
-                        {"type": "confirm", "summary": "요약", "end_reason": "user_skip",
+                        {"type": "confirm", "summary": "요약", "situation_summary": "상황 정리", "end_reason": "user_skip",
                          "context": {"parent": {"message_direction": "comfort_first"}}}""", MediaType.APPLICATION_JSON));
 
         InterviewReply reply = client.answerInterview(THREAD_ID, null);
 
         assertThat(reply.isConfirm()).isTrue();
         assertThat(reply.summary()).isEqualTo("요약");
+        assertThat(reply.situationSummary()).isEqualTo("상황 정리");
         assertThat(reply.endReason()).isEqualTo(InterviewEndReason.USER_SKIP);
         assertThat(reply.finalContext()).isEqualTo(Map.of("parent", Map.of("message_direction", "comfort_first")));
         assertThat(reply.choices()).isEmpty();

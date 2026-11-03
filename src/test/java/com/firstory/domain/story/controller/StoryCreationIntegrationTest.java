@@ -308,6 +308,34 @@ class StoryCreationIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void 생성_전_확인의_상황은_AI가_정리한_문장이고_상황을_고치면_비운다() throws Exception {
+        long id = readyToInterview();
+        parent.get(draftUrl(id)).andExpect(jsonPath("$.interview.situationSummary").value(nullValue()));
+        start(id);
+        for (String a : new String[]{"울었어요", "모르겠어요", "괜찮다고 말해 주고 싶어요"}) {
+            answer(id, a).andExpect(status().isOk());
+        }
+        parent.get(draftUrl(id))
+                .andExpect(jsonPath("$.interview.situationSummary").value(FakeAiClient.SITUATION_SUMMARY))
+                .andExpect(jsonPath("$.situation.description").value("친구가 밀쳤어요"));
+
+        // 같은 내용으로 다시 저장하면 그대로
+        writeSituation(id, "친구가 밀쳤어요").andExpect(jsonPath("$.saved").value(true));
+        parent.get(draftUrl(id))
+                .andExpect(jsonPath("$.interview.situationSummary").value(FakeAiClient.SITUATION_SUMMARY));
+
+        // 위기 신호로 저장되지 않으면 그대로
+        writeSituation(id, "바꾼 상황 " + REVISE).andExpect(jsonPath("$.saved").value(false));
+        parent.get(draftUrl(id))
+                .andExpect(jsonPath("$.interview.situationSummary").value(FakeAiClient.SITUATION_SUMMARY));
+
+        writeSituation(id, "놀이터에서 그네를 안 비켜 줬어요").andExpect(jsonPath("$.saved").value(true));
+        parent.get(draftUrl(id))
+                .andExpect(jsonPath("$.interview.situationSummary").value(nullValue()))
+                .andExpect(jsonPath("$.situation.description").value("놀이터에서 그네를 안 비켜 줬어요"));
+    }
+
+    @Test
     void 나누고_싶은_것은_확인_화면에서만_고치고_위기_신호를_검사한다() throws Exception {
         long draft = create();
         assertError(editSummary(draft, "고쳐요"), ErrorCode.INVALID_STATUS_TRANSITION);

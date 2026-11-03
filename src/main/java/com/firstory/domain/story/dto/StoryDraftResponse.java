@@ -46,10 +46,13 @@ public record StoryDraftResponse(Long storyId, StoryStatus status, Tone tone, bo
     }
 
     /**
-     * @param summary   인터뷰가 끝났으면 요약. 아니면 null
-     * @param endReason 인터뷰가 끝났으면 끝난 이유. 아니면 null
+     * @param summary          인터뷰가 끝났으면 요약. 아니면 null
+     * @param situationSummary AI가 정리한 상황(CRT-06 '상황' 카드). 인터뷰 전이거나 상황을 고쳤으면 null.
+     *                         null이면 화면은 situation.description을 보여 준다
+     * @param endReason        인터뷰가 끝났으면 끝난 이유. 아니면 null
      */
-    public record Interview(List<Turn> turns, String summary, InterviewEndReason endReason) {
+    public record Interview(List<Turn> turns, String summary, String situationSummary,
+                            InterviewEndReason endReason) {
     }
 
     public record Turn(int turnNo, String question, String answer) {
@@ -69,7 +72,7 @@ public record StoryDraftResponse(Long storyId, StoryStatus status, Tone tone, bo
                 new Parent(input.getParentResponse(), input.getParentConcern(), input.getParentMessage(),
                         input.getMessageDirection()),
                 new Interview(turns.stream().map(t -> new Turn(t.getTurnNo(), t.getQuestion(), t.getAnswer())).toList(),
-                        input.getInterviewSummary(), input.getInterviewEndReason()));
+                        input.getInterviewSummary(), input.getSituationSummary(), input.getInterviewEndReason()));
     }
 
     private static ChildInfo childInfo(Child child, ChildSnapshot snapshot) {

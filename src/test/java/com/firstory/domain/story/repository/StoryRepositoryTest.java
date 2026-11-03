@@ -87,7 +87,7 @@ class StoryRepositoryTest extends RepositoryTest {
         Map<String, Object> finalContext = Map.of(
                 "parent", Map.of("concern", "걱정", "message_direction", "perspective_taking"),
                 "moment", Map.of("reactions", List.of("cried", "other")));
-        input.finishInterview("요약", InterviewEndReason.SUFFICIENT, finalContext);
+        input.finishInterview("요약", "상황 정리", InterviewEndReason.SUFFICIENT, finalContext);
         storyInputRepository.save(input);
         em.flush();
         em.clear();
