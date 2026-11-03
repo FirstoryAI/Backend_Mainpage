@@ -168,7 +168,7 @@ com.firstory
 ## 생성 흐름 (CRT-06 ~ REV-04)
 
 - `POST /confirm`(CONFIRMING → REQUESTED)이 `AiClient.generate`를 부르고 `GenerationRun`(INITIAL, ALL)을 만든다. AI는 바로 받아들이고 뒤에서 만든다. 생성 전 확인에서 고쳤을 수 있어 지금 입력 전체(`AiContextMapper.toContext`)와 `interviewSummary`를 함께 보낸다. AI가 인터뷰 결과와 합친다(상황을 안 고쳤으면 인터뷰가 보충한 moment를 지킨다).
-- 생성 전 확인(CRT-06)에서 아이·상황·전하고 싶은 말(`DRAFT`, `CONFIRMING`)과 "이번 이야기에서 나누고 싶은 것"(`PUT /summary`, `CONFIRMING`만, 1~300자)을 고칠 수 있다. 인터뷰는 다시 하지 않는다. 전하고 싶은 말은 `StoryInput.writeMessage`로 그 칸만 바꾼다(`writeParent`는 인터뷰가 채운 response·concern·방향까지 덮어쓴다). `interviewSummary`는 AI가 만든 부모용 문장이고 부모가 고치면 그 문장이 된다.
+- 생성 전 확인(CRT-06)에서 아이·상황·전하고 싶은 말(`DRAFT`, `CONFIRMING`)과 "이번 이야기에서 나누고 싶은 것"(`PUT /summary`, `CONFIRMING`만, 1~300자)을 고칠 수 있다. 인터뷰는 다시 하지 않는다. 전하고 싶은 말은 `StoryInput.writeMessage`로 그 칸만 바꾼다(`writeParent`는 인터뷰가 채운 response·concern·방향까지 덮어쓴다). `interviewSummary`는 AI가 만든 부모용 문장이고 부모가 고치면 그 문장이 된다. '상황' 카드는 AI가 인터뷰 끝에 정리한 `situationSummary`(V10, `GET /draft`의 `interview.situationSummary`)를 보여 준다. 화면 표시용이라 생성할 때 AI에 보내지 않고, 상황 값이 바뀌면 `writeSituation`이 비운다(AI를 다시 부르지 않고 화면은 원문을 보여 준다).
 - **진행은 `GenerationPoller`가 AI에 묻는다.** `firstory.generation.poll-interval`(5s)마다 RUNNING 실행을 `FOR UPDATE SKIP LOCKED`로 최대 20개 짧게 잡고, 실행마다 트랜잭션 밖에서 `AiClient.status`를 부른다. 저장할 때는 실행을 `findByIdForUpdate`로 다시 잠가 아직 RUNNING일 때만 바꾼다. 그래서 서버가 여러 대여도 같은 실행을 두 번 저장하지 않는다. test 프로필은 `poll-enabled: false`이고 테스트가 `pollOnce()`를 직접 부른다.
   - AI RUNNING: 노드로 단계를 정해(`GenerationStage`, 모르는 노드는 그대로) `run.progress`, 스토리는 1~2단계 GENERATING_TEXT, 3~4단계 GENERATING_IMAGES (`Story.advanceGenerationTo`가 허용된 전이를 차례로 밟는다. 뒤로 가지 않는다)
   - AI REVIEWING: `AiClient.result` → `GenerationResultRecorder`

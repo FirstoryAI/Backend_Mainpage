@@ -137,7 +137,7 @@ public class InterviewService {
     private InterviewResponse apply(Story story, StoryInput input, int lastTurnNo, InterviewReply reply,
                                     SafetyOutcome outcome) {
         if (reply.isConfirm()) {
-            input.finishInterview(reply.summary(), reply.endReason(), reply.finalContext());
+            input.finishInterview(reply.summary(), reply.situationSummary(), reply.endReason(), reply.finalContext());
             writeParentFrom(story, input, reply.finalContext());
             story.changeStatus(StoryStatus.CONFIRMING);
             return InterviewResponse.confirm(story.getId(), story.getStatus(), reply.summary(), outcome,

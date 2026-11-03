@@ -117,10 +117,33 @@ class StoryInputTest {
 
     @Test
     void 인터뷰를_마치면_확정된_context를_저장한다() {
-        input.finishInterview("요약", InterviewEndReason.SUFFICIENT, Map.of("parent", Map.of("concern", "걱정")));
+        input.finishInterview("요약", "상황 정리", InterviewEndReason.SUFFICIENT, Map.of("parent", Map.of("concern", "걱정")));
 
         assertThat(input.getInterviewEndReason()).isEqualTo(InterviewEndReason.SUFFICIENT);
         assertThat(input.getFinalContext()).containsKey("parent");
+    }
+
+    @Test
+    void 상황이_바뀌면_AI가_정리한_상황을_비우고_그대로면_둔다() {
+        input.writeSituation(SituationTiming.PAST, SituationCategory.FEAR, null, "처음", List.of(MomentReaction.CRIED),
+                null, List.of(Emotion.SAD));
+        input.finishInterview("요약", " 상황 정리 ", InterviewEndReason.SUFFICIENT, Map.of());
+        assertThat(input.getSituationSummary()).isEqualTo("상황 정리");
+
+        input.writeSituation(SituationTiming.PAST, SituationCategory.FEAR, null, " 처음 ", List.of(MomentReaction.CRIED),
+                null, List.of(Emotion.SAD));
+        assertThat(input.getSituationSummary()).isEqualTo("상황 정리");
+
+        input.writeSituation(SituationTiming.PAST, SituationCategory.FEAR, null, "처음", List.of(MomentReaction.CRIED),
+                null, List.of(Emotion.SAD, Emotion.ANGRY));
+        assertThat(input.getSituationSummary()).isNull();
+    }
+
+    @Test
+    void 이전_AI가_상황_정리를_주지_않으면_null() {
+        input.finishInterview("요약", null, InterviewEndReason.SUFFICIENT, Map.of());
+
+        assertThat(input.getSituationSummary()).isNull();
     }
 
     private static void assertError(ThrowingCallable call, ErrorCode code) {

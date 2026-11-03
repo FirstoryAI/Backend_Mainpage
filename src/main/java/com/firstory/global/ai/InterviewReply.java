@@ -9,14 +9,16 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * 인터뷰 응답. QUESTION이면 turn, question, choices, contextUpdate가, CONFIRM이면 summary, endReason, finalContext가 있다.
+ * 인터뷰 응답. QUESTION이면 turn, question, choices, contextUpdate가, CONFIRM이면 summary, situationSummary,
+ * endReason, finalContext가 있다.
  *
+ * @param situationSummary 생성 전 확인(CRT-06)에 보여 줄 AI가 정리한 상황. 이전 AI는 주지 않아 null일 수 있다
  * @param choices      질문에 부모가 눌러서 답할 수 있는 답변 카드. 빈 것과 겹치는 것을 빼고 {@link #MAX_CHOICES}개까지. 없으면 빈 목록
  * @param finalContext 인터뷰가 채운 parent 값까지 포함한 최종 StoryInputContext
  */
 public record InterviewReply(Type type, Integer turn, String question, List<String> choices,
-                             Map<String, Object> contextUpdate, String summary, InterviewEndReason endReason,
-                             Map<String, Object> finalContext) {
+                             Map<String, Object> contextUpdate, String summary, String situationSummary,
+                             InterviewEndReason endReason, Map<String, Object> finalContext) {
 
     public static final int MAX_CHOICES = 4;
 
@@ -36,13 +38,13 @@ public record InterviewReply(Type type, Integer turn, String question, List<Stri
     public static InterviewReply question(int turn, String question, List<String> choices,
                                           Map<String, Object> contextUpdate) {
         return new InterviewReply(Type.QUESTION, turn, Objects.requireNonNull(question), choices, contextUpdate,
-                null, null, null);
+                null, null, null, null);
     }
 
-    public static InterviewReply confirm(String summary, InterviewEndReason endReason,
+    public static InterviewReply confirm(String summary, String situationSummary, InterviewEndReason endReason,
                                          Map<String, Object> finalContext) {
-        return new InterviewReply(Type.CONFIRM, null, null, null, null, summary, Objects.requireNonNull(endReason),
-                finalContext);
+        return new InterviewReply(Type.CONFIRM, null, null, null, null, summary, situationSummary,
+                Objects.requireNonNull(endReason), finalContext);
     }
 
     public boolean isConfirm() {
