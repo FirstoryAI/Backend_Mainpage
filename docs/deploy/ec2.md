@@ -152,7 +152,8 @@ Actions는 SSH를 쓰지 않는다. GitHub OIDC로 AWS 역할을 받아 **SSM Ru
 
 1. EC2 역할 `firstory-ec2`에 AWS 관리형 정책 `AmazonSSMManagedInstanceCore`를 붙인다. 서버의 SSM 에이전트(snap `amazon-ssm-agent`)는 Ubuntu 이미지에 들어 있다. 붙이고 몇 분 뒤 Systems Manager → Fleet Manager에 인스턴스가 보이면 된다
 2. IAM → 자격 증명 공급자 → 공급자 추가: OpenID Connect, URL `https://token.actions.githubusercontent.com`, 대상 `sts.amazonaws.com`
-3. IAM 역할 `firstory-github-deploy`를 만든다 (웹 자격 증명, 위 공급자). 신뢰 정책은 두 저장소의 main만 믿는다
+3. IAM 역할 `firstory-github-deploy`를 만든다 (웹 자격 증명, 위 공급자). 신뢰 정책은 두 저장소의 main만 믿는다.
+   두 저장소는 GitHub의 immutable subject를 써서 `sub`에 조직·저장소 번호가 붙는다(`repo:FirstoryAI@<조직 번호>/<저장소>@<저장소 번호>:ref:refs/heads/main`). `repo:FirstoryAI/...`로 쓰면 `Not authorized to perform sts:AssumeRoleWithWebIdentity`가 난다. 값은 `gh api repos/FirstoryAI/<저장소>/actions/oidc/customization/sub`의 `sub_claim_prefix`
 
     ```json
     {
@@ -165,8 +166,8 @@ Actions는 SSH를 쓰지 않는다. GitHub OIDC로 AWS 역할을 받아 **SSM Ru
           "StringEquals": {
             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
             "token.actions.githubusercontent.com:sub": [
-              "repo:FirstoryAI/Backend_Mainpage:ref:refs/heads/main",
-              "repo:FirstoryAI/AI_worker:ref:refs/heads/main"
+              "repo:FirstoryAI@338010585/Backend_Mainpage@1428046423:ref:refs/heads/main",
+              "repo:FirstoryAI@338010585/AI_worker@1401639206:ref:refs/heads/main"
             ]
           }
         }
