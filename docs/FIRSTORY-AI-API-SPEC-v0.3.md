@@ -40,7 +40,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 | 요청 입력 형식 | 백엔드가 만든 형식 | **AI의 `StoryInputContext`를 그대로** 보냄 |
 | 위기 신호 | flagged true/false | **level 4단계** (OK, SENSITIVE, REVISE, CRISIS) |
 | 위기 신호 검사 위치 | 폼, 인터뷰 | 폼, 인터뷰, **다시 만들기 메모, 완성 본문** |
-| 그림만 다시 | feedback 문자열 | **`pages: [3, 5]`** (FastAPI가 feedback으로 변환) |
+| 그림만 다시 | feedback 문자열 | **`pages: [3, 5]`** + 부모 메모 `feedback`을 따로 (메모는 다시 그리는 쪽 그림에 반영, FirstoryAI/AI_worker#46) |
 | 버전 fork | 확인 요청 | **[확정] 가능** (아래 7장) |
 | mock 모드 | 없음 | **환경 변수로 켜기** |
 
@@ -345,7 +345,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 |---|---|---|---|
 | `story` (화면: 이야기·인물) | `design_story` | 설계부터 전부 | `feedback` (G0 PR로 반영됨) |
 | `text` (화면: 글) | `write_story` | 글부터, **그림도 전부 다시** | `feedback` |
-| `images` (화면: 그림만) | `illustrate_only` | `pages`의 쪽만. 비어 있으면 전부 | `pages`를 `"3,5"`로 바꿔 feedback에 넣음 |
+| `images` (화면: 그림만) | `illustrate_only` | `pages`의 쪽만. 비어 있으면 전부 | `feedback`(메모)은 다시 그리는 쪽 그림 프롬프트에 붙음 |
 
 - 코드에는 `character`도 있지만 `story`와 같은 경로라 Spring은 `story`만 쓴다
 - `base_checkpoint_id`: 어느 버전에서 다시 만들지 (8장)
