@@ -25,15 +25,15 @@ class StoryInputTest {
     }
 
     @Test
-    void 상황_설명은_60자까지() {
-        input.writeSituation(SituationTiming.PAST, SituationCategory.FEAR, null, "가".repeat(60), null, null, null);
+    void 상황_설명은_300자까지() {
+        input.writeSituation(SituationTiming.PAST, SituationCategory.FEAR, null, "가".repeat(300), null, null, null);
 
-        assertThat(input.getDescription()).hasSize(60);
+        assertThat(input.getDescription()).hasSize(300);
     }
 
     @Test
-    void 상황_설명이_61자면_예외() {
-        assertError(() -> input.writeSituation(SituationTiming.PAST, SituationCategory.FEAR, null, "가".repeat(61),
+    void 상황_설명이_301자면_예외() {
+        assertError(() -> input.writeSituation(SituationTiming.PAST, SituationCategory.FEAR, null, "가".repeat(301),
                 null, null, null), ErrorCode.DESCRIPTION_TOO_LONG);
     }
 

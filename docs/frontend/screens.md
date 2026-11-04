@@ -132,7 +132,7 @@
 - `category`: `FRIEND_CONFLICT`, `NEW_ENVIRONMENT`, `SEPARATION`, `SAFETY`, `RULES`, `FAMILY_CHANGE`, `FEAR`, `OTHER`
 - `reactions`: `CRIED`, `SILENT`, `ANGRY_OUTBURST`, `CLINGY`, `AVOIDED`, `ASKED_QUESTIONS`, `OTHER`
 - `emotions`: `SAD`, `ANGRY`, `SCARED`, `CONFUSED`, `ASHAMED`, `EXCITED`, `UNKNOWN`
-- `OTHER`를 고르면 `customCategory`/`customReaction` 필수(30자). `description`은 60자.
+- `OTHER`를 고르면 `customCategory`/`customReaction` 필수(30자). `description`은 300자.
 - 상황·반응·감정의 화면 문구는 아직 선택지 API가 없다([status.md](status.md)). 위 코드에 맞춰 임시 문구를 쓴다.
 
 ### CRT-03 아이 정보
