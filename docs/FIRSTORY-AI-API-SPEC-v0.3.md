@@ -303,7 +303,11 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
   "cover_path": "stories/123/runs/1/images/cover.webp",
   "character_sheets": [ { "role": "main", "name": "아로", "path": "stories/123/runs/1/images/sheet-main-아로.png" } ],
   "pages": [
-    { "page_no": 1, "text": "아로는 **쿵쿵** 걸어서…", "image_prompt": "…", "text_position": "bottom", "image_path": "stories/123/runs/1/images/page-01.webp", "image_status": "done" }
+    { "page_no": 1, "text": "아로는 **쿵쿵** 걸어서…", "image_prompt": "…", "text_position": "bottom", "image_path": "stories/123/runs/1/images/page-01.webp", "image_status": "done",
+      "text_blocks": [
+        { "paragraphs": [["유치원 그림 시간이었어요.", "토끼 라라는 분홍 앞치마를 입었어요."]], "x": 5.0, "y": 7.0, "color": "dark" },
+        { "paragraphs": [["라라는 고양이 미나에게 꽃을 보여 주고 싶었어요."]], "x": 55.0, "y": 7.0, "color": "light" }
+      ] }
   ],
   "guide": { "...": "04-guide.json 그대로 (synopsis, before_reading, prompts[], after_reading)" },
   "cost": { "input_tokens": 41230, "output_tokens": 8120, "image_count": 9 },
@@ -313,12 +317,17 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 
 - `pages`는 **10개** (`firstory.story.page-count`)
 - `cover_path`: 표지 key. 캐릭터 시트를 참조해 따로 그린 **정사각형(1024×1024, `COVER_SIZE`)** 그림이고 제목이 한글로 그림 안에 들어 있다. 못 그렸으면 null(실행은 실패하지 않는다). 처음 만들기·이야기 다시·그림만 다시(전체)는 새로 그리고, 그림만 다시(일부 쪽)는 이전 표지 key, 글 다시는 제목이 그대로면 이전 표지 key이고 제목이 바뀌면 표지만 새로 그린다
-- `text_position`: `top` | `bottom`. 화면에서 글을 얹을 자리로, 그림은 이쪽 25%를 빈 바닥·벽·하늘로 비워 둔다(FirstoryAI/AI_worker#51, 그 전 그림은 30%). 작가(write_story)가 쪽마다 정한다(기본 bottom, 바닥이 장면의 핵심이거나 넓은 하늘이면 top). 없으면 bottom으로 본다
+- `text_position`: `top` | `bottom`. `text_blocks`가 없을 때(`null`이거나 이 필드가 생기기 전 옛 그림)만 쓰는 대체 글 자리다. 새 그림은 이쪽을 따로 비우지 않고 글 자리를 `text_blocks`로 따로 정한다(옛 그림은 이쪽 25%를 빈 바닥·벽·하늘로 비웠다. FirstoryAI/AI_worker#51, 그 전 그림은 30%). 작가(write_story)가 쪽마다 정한다(기본 bottom, 바닥이 장면의 핵심이거나 넓은 하늘이면 top). 없으면 bottom으로 본다
+- `text_blocks` (선택): 쪽 글을 그림 위 어디에 얹을지 AI가 정한 덩어리 1~2개. 없거나 `null`일 수 있다(이 필드가 생기기 전 AI, 그림이 실패한 쪽). Spring은 없어도 받는다. 기존 칸(`text`, `text_position`)은 그대로이고 `text_position`은 옛 화면용으로 계속 채운다(첫 덩어리가 위쪽 띠면 `top`, 아래쪽 띠면 `bottom`)
+  - `paragraphs`: 문단 > 줄. 줄바꿈(그림 폭의 38%)까지 끝난 상태라 프론트는 받은 줄 그대로 그린다. `**강조**`는 그대로 둔다
+  - `x`, `y`: 덩어리 왼쪽 위 모서리. 그림 전체 폭·높이에 대한 %(0~100)
+  - `color`: `dark` | `light` (글자색. Spring은 `DARK` | `LIGHT`로 저장하고 응답에 싣는다)
+  - 형식이 어긋나면(덩어리 0개나 3개 이상, x·y가 0~100 밖, 색이 다른 값, 문단이나 줄이 빈 값) Spring은 그 쪽만 `null`로 저장하고 경고 로그(thread_id, 쪽 번호)만 남긴다. 생성은 실패시키지 않는다
 - review interrupt payload에는 이미지 정보가 없으므로 `graph.get_state(cfg).values["illustrations"]`에서 읽어 합친다
 - `checkpoint_id`: `parent_review`에서 멈춘 시점 (`get_state(cfg).config["configurable"]["checkpoint_id"]`)
 - `safety`: 완성 본문 판단 (4장)
 - `guide.synopsis`: 서재에서 부모가 보는 동화 줄거리. 해요체 2~3문장, 동화 안에서 일어난 일만(부모 고민·교훈 없음). 대화 가이드 단계가 본문과 함께 만들어 글 다시 만들기 때도 본문과 맞는다. 이 필드가 생기기 전 결과는 없거나 빈 문자열
-- 그림만 다시 그린 경우, 안 바뀐 쪽의 `image_path`는 이전 실행 경로 그대로 (G4). 글 다시 만들기도 장면(그림 지시·등장인물·글 위치)이 바뀐 쪽만 새로 그리고 나머지 쪽과 캐릭터 시트는 이전 실행 경로 그대로
+- 그림만 다시 그린 경우, 안 바뀐 쪽의 `image_path`는 이전 실행 경로 그대로 (G4). 글 다시 만들기도 장면(그림 지시·등장인물)이 바뀐 쪽만 새로 그리고 나머지 쪽과 캐릭터 시트는 이전 실행 경로 그대로. 글만 바뀐 쪽은 그림 key는 그대로 두고 `text_blocks`만 새 글로 다시 정한다. 글 자리(`text_position`)만 바뀐 쪽은 그림도 `text_blocks`도 그대로다
 
 ### 7-7. POST /v1/threads/{thread_id}/review
 

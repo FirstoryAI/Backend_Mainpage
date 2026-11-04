@@ -142,7 +142,7 @@ public class GenerationResultRecorder {
     private void savePages(StoryVersion version, List<AiGenerationResult.Page> pages) {
         pages.stream().sorted(Comparator.comparingInt(AiGenerationResult.Page::pageNo)).forEach(page -> {
             StoryPage storyPage = StoryPage.create(version, page.pageNo(), page.text(), page.imagePrompt(),
-                    page.textPosition());
+                    page.textPosition(), page.textBlocks());
             if (page.imageDone()) {
                 storyPage.imageDone(page.imagePath());
             } else {

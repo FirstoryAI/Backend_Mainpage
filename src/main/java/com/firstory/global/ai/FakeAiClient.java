@@ -1,6 +1,8 @@
 package com.firstory.global.ai;
 
+import com.firstory.domain.generation.entity.PageTextBlock;
 import com.firstory.domain.generation.entity.RegenerateScope;
+import com.firstory.domain.generation.entity.TextColor;
 import com.firstory.domain.generation.entity.TextPosition;
 import com.firstory.domain.safety.entity.SafetyLevel;
 import com.firstory.domain.safety.entity.SafetySource;
@@ -447,15 +449,15 @@ public class FakeAiClient implements AiClient {
             String text = previous != null ? previous.text() : SAMPLE.pageText(pageNo);
             if (!redraw) {
                 pages.add(new AiGenerationResult.Page(pageNo, text, previous.imagePrompt(), previous.textPosition(),
-                        previous.imagePath(), previous.imageStatus()));
+                        previous.imagePath(), previous.imageStatus(), previous.textBlocks()));
             } else if (state.mishaps.pageFail() && pageNo == FAILED_PAGE) {
                 pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, textPosition(pageNo), null,
-                        "failed"));
+                        "failed", null));   // 진짜 AI도 그림이 실패한 쪽에는 textBlocks를 주지 않는다
             } else {
                 String key = prefix + "images/page-%02d.png".formatted(pageNo);
                 storage.write(key, png(color(pageNo, runNo)), "image/png");
                 pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, textPosition(pageNo), key,
-                        "done"));
+                        "done", textBlocks(text, textPosition(pageNo))));
             }
         }
 
@@ -488,6 +490,14 @@ public class FakeAiClient implements AiClient {
     // AI 가짜 원고(mock.py)처럼 3의 배수 쪽만 위
     private static TextPosition textPosition(int pageNo) {
         return pageNo % 3 == 0 ? TextPosition.TOP : TextPosition.BOTTOM;
+    }
+
+    // 쪽마다 덩어리 하나: 글의 첫 줄(문장), 왼쪽 위 모서리 x 5, y는 위 자리면 7, 아래 자리면 80, 글자색 DARK
+    // (진짜 AI는 그림을 보고 정하지만 가짜 AI는 고정값이다. 그림에 실제 빈 자리는 없다)
+    private static List<PageTextBlock> textBlocks(String text, TextPosition position) {
+        String firstLine = text.strip().split("(?<=[.!?])\\s+", 2)[0];
+        return List.of(new PageTextBlock(List.of(List.of(firstLine)), 5.0,
+                position == TextPosition.TOP ? 7.0 : 80.0, TextColor.DARK));
     }
 
     private Color color(int pageNo, int runNo) {

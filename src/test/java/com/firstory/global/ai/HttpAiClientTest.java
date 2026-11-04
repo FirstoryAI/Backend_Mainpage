@@ -1,7 +1,9 @@
 package com.firstory.global.ai;
 
 import com.firstory.domain.child.entity.Child;
+import com.firstory.domain.generation.entity.PageTextBlock;
 import com.firstory.domain.generation.entity.RegenerateScope;
+import com.firstory.domain.generation.entity.TextColor;
 import com.firstory.domain.generation.entity.TextPosition;
 import com.firstory.domain.safety.entity.SafetyLevel;
 import com.firstory.domain.safety.entity.SafetySource;
@@ -22,6 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -333,6 +336,66 @@ class HttpAiClientTest {
                 List.of(new AiGenerationResult.Prompt(3, "질문", "emotion", "힌트"))));
         assertThat(result.cost()).isEqualTo(new AiGenerationResult.Cost(41230, 8120, 9));
         assertThat(result.safety()).isEqualTo(SafetyResult.ok());
+    }
+
+    private static final String PAGE_WITH = """
+            {"run_no": 1, "checkpoint_id": "cp", "title": "제목",
+             "pages": [{"page_no": 1, "text": "글", "image_prompt": "p", "text_position": "top",
+                        "image_path": "stories/123/runs/1/images/page-01.png", "image_status": "done",
+                        "text_blocks": %s}]}""";
+
+    private AiGenerationResult resultWith(String textBlocksJson) {
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/result"))
+                .andRespond(withSuccess(PAGE_WITH.formatted(textBlocksJson), MediaType.APPLICATION_JSON));
+        return client.result(THREAD_ID);
+    }
+
+    @Test
+    void 결과의_text_blocks를_읽고_light는_LIGHT가_된다() {
+        AiGenerationResult result = resultWith("""
+                [{"paragraphs": [["유치원 그림 시간이었어요.", "토끼 라라는 분홍 앞치마를 입었어요."]], "x": 5.0, "y": 7.0, "color": "dark"},
+                 {"paragraphs": [["첫째."], ["둘째."]], "x": 55, "y": 7.5, "color": "light"}]""");
+
+        assertThat(result.pages().getFirst().textBlocks()).containsExactly(
+                new PageTextBlock(List.of(List.of("유치원 그림 시간이었어요.", "토끼 라라는 분홍 앞치마를 입었어요.")), 5.0, 7.0,
+                        TextColor.DARK),
+                new PageTextBlock(List.of(List.of("첫째."), List.of("둘째.")), 55.0, 7.5, TextColor.LIGHT));
+        assertThat(result.pages().getFirst().textPosition()).isEqualTo(TextPosition.TOP);
+    }
+
+    @Test
+    void text_blocks가_없거나_null인_옛_AI_결과도_읽는다() {
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/result"))
+                .andRespond(withSuccess("""
+                        {"run_no": 1, "checkpoint_id": "cp", "title": "제목",
+                         "pages": [{"page_no": 1, "text": "글", "image_prompt": "p", "text_position": "top",
+                                    "image_path": "stories/123/runs/1/images/page-01.png", "image_status": "done"}]}""",
+                        MediaType.APPLICATION_JSON));
+        assertThat(client.result(THREAD_ID).pages().getFirst().textBlocks()).isNull();
+
+        server.reset();
+        assertThat(resultWith("null").pages().getFirst().textBlocks()).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "[]",
+            "\"문자열\"",
+            "{\"paragraphs\": []}",
+            "[{\"paragraphs\": [[\"줄.\"]], \"x\": 120, \"y\": 7, \"color\": \"dark\"}]",
+            "[{\"paragraphs\": [[\"줄.\"]], \"x\": 5, \"y\": 7, \"color\": \"red\"}]",
+            "[{\"paragraphs\": [[\"줄.\"]], \"x\": 5, \"y\": 7}]",
+            "[{\"paragraphs\": [[\"\"]], \"x\": 5, \"y\": 7, \"color\": \"dark\"}]",
+            "[{\"paragraphs\": [\"줄.\"], \"x\": 5, \"y\": 7, \"color\": \"dark\"}]",
+            "[{\"paragraphs\": [[\"줄.\"]], \"x\": \"5\", \"y\": 7, \"color\": \"dark\"}]",
+            "[{\"paragraphs\": [[1]], \"x\": 5, \"y\": 7, \"color\": \"dark\"}]",
+            "[7]"
+    })
+    void 깨진_text_blocks는_그_쪽만_null이고_결과는_읽힌다(String broken) {
+        AiGenerationResult result = resultWith(broken);
+
+        assertThat(result.pages().getFirst().textBlocks()).isNull();
+        assertThat(result.pages().getFirst().text()).isEqualTo("글");
     }
 
     @Test

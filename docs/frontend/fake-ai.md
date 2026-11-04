@@ -31,7 +31,7 @@ local 프로필은 AI 서버 없이 **가짜 AI**(`FakeAiClient`)로 돈다. 흐
 | `[[CRISIS]]` | 같은 곳 | 바로 `BLOCK`(helpKind `CHILD_SAFETY`) → ST-05 |
 | `[[FAIL]]` | 전하고 싶은 말이나 인터뷰 답변 | 첫 생성이 "글 쓰기" 단계에서 실패 → ST-03. 다시 시도하면 성공 |
 | `[[OUTPUT_REVISE]]` | 전하고 싶은 말이나 인터뷰 답변 | 첫 생성 결과에 위기 신호 → 실패(ST-03). 다시 시도하면 성공 |
-| `[[PAGE_FAIL]]` | 전하고 싶은 말이나 인터뷰 답변 | 첫 생성 결과에서 **5쪽 그림만** 실패 (`imageStatus: FAILED`, `imageUrl: null`). 그림만 다시(5쪽)로 고칠 수 있다 |
+| `[[PAGE_FAIL]]` | 전하고 싶은 말이나 인터뷰 답변 | 첫 생성 결과에서 **5쪽 그림만** 실패 (`imageStatus: FAILED`, `imageUrl: null`, `textBlocks: null`). 그림만 다시(5쪽)로 고칠 수 있다 |
 | `[[AI_DOWN]]` | 글을 받는 곳 어디든 | 그 글을 처음 보낸 뒤 **다음 AI 호출 한 번**이 503 `AI_UNAVAILABLE`. 같은 글로 다시 보내면 성공 |
 
 `[[AI_DOWN]]` 예시
@@ -66,4 +66,4 @@ $env:FIRSTORY_AI_FAKE_STAGE_DURATION="5s"; .\gradlew.bat bootRun --args="--sprin
 
 ## 가짜 그림
 
-가짜 AI의 그림은 진짜와 같은 1920×1088 PNG로, 쪽마다 다른 바탕색에 밝은 원이 하나 있다. 글 자리(`textPosition`)는 3·6·9쪽만 `TOP`, 나머지는 `BOTTOM`이다(그림에 실제 빈 자리는 없다). 표지는 1024×1024 단색 그림(제목 글자 없음)이고, 일부 쪽 그림만 다시면 이전 표지를 그대로 쓴다. 서버의 `./data/storage`에 쌓인다. 지우면 이미 만든 동화의 그림은 404 `IMAGE_NOT_FOUND`가 된다.
+가짜 AI의 그림은 진짜와 같은 1920×1088 PNG로, 쪽마다 다른 바탕색에 밝은 원이 하나 있다. 글 자리(`textPosition`)는 3·6·9쪽만 `TOP`, 나머지는 `BOTTOM`이다(그림에 실제 빈 자리는 없다). 글 덩어리 배치(`textBlocks`)는 쪽마다 덩어리 하나로 고정이다: 그 쪽 글의 첫 문장 한 줄, `x` 5, `y`는 `TOP`이면 7·`BOTTOM`이면 80, `color` `DARK`(진짜 AI는 그림을 보고 1~2개와 자리를 정하고, 가짜는 그림에 맞추지 않는다). 그림이 실패한 쪽(`[[PAGE_FAIL]]`)은 진짜 AI처럼 `textBlocks`가 `null`이다(옛 동화와 같이 `textPosition` 자리에 그린다). 그림만 다시에서 그리지 않는 쪽은 이전 값을 그대로 쓴다. 표지는 1024×1024 단색 그림(제목 글자 없음)이고, 일부 쪽 그림만 다시면 이전 표지를 그대로 쓴다. 서버의 `./data/storage`에 쌓인다. 지우면 이미 만든 동화의 그림은 404 `IMAGE_NOT_FOUND`가 된다.
