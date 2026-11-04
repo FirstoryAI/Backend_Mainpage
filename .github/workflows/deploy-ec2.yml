@@ -23,7 +23,8 @@ jobs:
     timeout-minutes: 30
     env:
       INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
-      COMMAND: bash /home/ubuntu/firstory/Backend_Mainpage/deploy/ec2/deploy.sh backend
+      # deploy.sh가 바뀌었을 수 있어서 백엔드 저장소를 먼저 받고 실행한다 (서버에 아직 없을 때도)
+      COMMAND: sudo -u ubuntu -H git -C /home/ubuntu/firstory/Backend_Mainpage pull --ff-only && bash /home/ubuntu/firstory/Backend_Mainpage/deploy/ec2/deploy.sh backend
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
