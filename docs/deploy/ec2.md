@@ -131,11 +131,73 @@ BASE_URL=https://api.<도메인> AI_MODE=http bash scripts/smoke-local.sh
 
 ## 업데이트 배포
 
+main에 합치면 GitHub Actions(`.github/workflows/deploy-ec2.yml`, AI_worker 저장소에도 같은 이름)가 자동으로 배포한다. 서버에서 직접 할 때는 같은 스크립트를 쓴다.
+
 ```bash
-cd ~/firstory/AI_worker && git pull
-cd ~/firstory/Backend_Mainpage && git pull
-cd deploy/ec2 && docker compose up -d --build
+bash ~/firstory/Backend_Mainpage/deploy/ec2/deploy.sh backend   # 백엔드 받기 → 전부 다시 빌드
+bash ~/firstory/Backend_Mainpage/deploy/ec2/deploy.sh ai        # AI 워커 받기 → ai만 다시 빌드
 ```
+
+`deploy.sh`는 그 저장소를 `git pull --ff-only`(저장소 주인 ubuntu로) → `docker compose up -d --build` → 헬스 체크(AI `/health`, 백엔드면 `/api/health`까지, 5분)를 한다. 두 저장소 배포가 겹치면 `flock`으로 차례를 기다린다.
+
+### 자동 배포 (GitHub Actions + SSM)
+
+Actions는 SSH를 쓰지 않는다. GitHub OIDC로 AWS 역할을 받아 **SSM Run Command**로 서버에서 `deploy.sh`를 실행하고, 끝날 때까지 기다려 출력을 보여 준다. 그래서 22번은 내 IP에만 열어 두면 된다. AWS 키를 GitHub에 저장하지 않는다.
+
+- 끄기(데모 중): 두 저장소의 Settings → Secrets and variables → Actions → Variables에서 `EC2_DEPLOY_ENABLED`를 `false`로. main에 합쳐도 배포하지 않는다. Actions 탭의 수동 실행(Run workflow)은 된다
+- 수동 배포: Actions 탭 → EC2 배포 → Run workflow (main)
+- 실패하면 Actions 로그에 서버 출력과 실패한 서비스의 마지막 로그 50줄이 나온다
+
+처음 한 번 할 것 (AWS 콘솔, 계정 주인)
+
+1. EC2 역할 `firstory-ec2`에 AWS 관리형 정책 `AmazonSSMManagedInstanceCore`를 붙인다. 서버의 SSM 에이전트(snap `amazon-ssm-agent`)는 Ubuntu 이미지에 들어 있다. 붙이고 몇 분 뒤 Systems Manager → Fleet Manager에 인스턴스가 보이면 된다
+2. IAM → 자격 증명 공급자 → 공급자 추가: OpenID Connect, URL `https://token.actions.githubusercontent.com`, 대상 `sts.amazonaws.com`
+3. IAM 역할 `firstory-github-deploy`를 만든다 (웹 자격 증명, 위 공급자). 신뢰 정책은 두 저장소의 main만 믿는다
+
+    ```json
+    {
+      "Version": "2012-10-17",
+      "Statement": [{
+        "Effect": "Allow",
+        "Principal": {"Federated": "arn:aws:iam::<계정 ID>:oidc-provider/token.actions.githubusercontent.com"},
+        "Action": "sts:AssumeRoleWithWebIdentity",
+        "Condition": {
+          "StringEquals": {
+            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+            "token.actions.githubusercontent.com:sub": [
+              "repo:FirstoryAI/Backend_Mainpage:ref:refs/heads/main",
+              "repo:FirstoryAI/AI_worker:ref:refs/heads/main"
+            ]
+          }
+        }
+      }]
+    }
+    ```
+
+    권한(인라인 정책)은 이 인스턴스에 `AWS-RunShellScript`를 보내고 결과를 보는 것만
+
+    ```json
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": "ssm:SendCommand",
+          "Resource": [
+            "arn:aws:ec2:ap-northeast-2:<계정 ID>:instance/<인스턴스 ID>",
+            "arn:aws:ssm:ap-northeast-2::document/AWS-RunShellScript"
+          ]
+        },
+        {
+          "Effect": "Allow",
+          "Action": ["ssm:GetCommandInvocation", "ssm:ListCommandInvocations"],
+          "Resource": "*"
+        }
+      ]
+    }
+    ```
+
+4. 두 저장소의 Actions 변수(Variables, 비밀값 아님): `AWS_DEPLOY_ROLE_ARN`(위 역할 ARN), `EC2_INSTANCE_ID`
 
 - AI 워커를 다시 띄우면 그 순간 돌던 생성은 FAILED가 된다(부모가 다시 시도하면 체크포인트에서 이어 간다). 인터뷰와 미리보기 중인 동화는 볼륨의 체크포인트로 이어 간다. **데모 중에는 다시 배포하지 않는다.**
 - `docker compose down -v`는 볼륨(DB, 체크포인트, 인증서)까지 지운다. 쓰지 않는다.
