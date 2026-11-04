@@ -23,7 +23,7 @@ public record BookResponse(Long storyId, Long versionId, String title, String co
 
     /**
      * @param imageUrl     그림이 실패한 쪽(FAILED)은 null
-     * @param textPosition 글을 얹을 자리. 그림의 이쪽 30%가 비어 있다
+     * @param textPosition 글을 얹을 자리. 그림의 이쪽 25%가 비어 있다
      */
     public record Page(int pageNo, String text, String imageUrl, ImageStatus imageStatus,
                        TextPosition textPosition) {

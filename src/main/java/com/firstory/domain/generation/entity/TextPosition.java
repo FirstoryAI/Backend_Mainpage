@@ -3,7 +3,7 @@ package com.firstory.domain.generation.entity;
 import com.firstory.global.entity.AiValue;
 
 /**
- * 그림 위에 글을 얹을 자리. AI가 그림의 이쪽 30%를 비워 둔다.
+ * 그림 위에 글을 얹을 자리. AI가 그림의 이쪽 25%를 비워 둔다.
  */
 public enum TextPosition implements AiValue {
     TOP,
