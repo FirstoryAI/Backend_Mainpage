@@ -1,11 +1,13 @@
 package com.firstory.domain.generation.dto;
 
 import com.firstory.domain.generation.entity.ImageStatus;
+import com.firstory.domain.generation.entity.PageTextBlock;
 import com.firstory.domain.generation.entity.StoryPage;
 import com.firstory.domain.generation.entity.StoryVersion;
 import com.firstory.domain.generation.entity.TextPosition;
 import com.firstory.domain.story.entity.Story;
 import com.firstory.domain.story.entity.StoryStatus;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.List;
 
@@ -19,15 +21,22 @@ import java.util.List;
 public record PreviewResponse(Long storyId, StoryStatus status, VersionSummary version, String characterSheetUrl,
                               String coverUrl, List<Page> pages, int regenerateRemaining) {
 
+    public static final String TEXT_BLOCKS_EXAMPLE = "[{\"paragraphs\": [[\"유치원 그림 시간이었어요.\", "
+            + "\"토끼 라라는 분홍 앞치마를 입었어요.\"]], \"x\": 5.0, \"y\": 7.0, \"color\": \"DARK\"}, "
+            + "{\"paragraphs\": [[\"라라는 고양이 미나에게 꽃을 보여 주고 싶었어요.\"]], \"x\": 55.0, \"y\": 7.0, "
+            + "\"color\": \"LIGHT\"}]";
+
     public record VersionSummary(Long id, int versionNo, String title) {
     }
 
     /**
      * @param imageUrl     그림이 실패한 쪽(FAILED)은 null
-     * @param textPosition 글을 얹을 자리. 그림의 이쪽 25%가 비어 있다
+     * @param textPosition 옛 화면용 글 자리. textBlocks가 null일 때만 이걸로 그린다
+     * @param textBlocks   글 덩어리 배치(1~2개). 옛 동화와 그림이 실패한 쪽은 null
      */
     public record Page(int pageNo, String text, ImageStatus imageStatus, String imageUrl,
-                       TextPosition textPosition) {
+                       TextPosition textPosition,
+                       @Schema(example = TEXT_BLOCKS_EXAMPLE) List<PageTextBlock> textBlocks) {
     }
 
     public static PreviewResponse of(Story story, StoryVersion version, List<StoryPage> pages,
@@ -41,7 +50,7 @@ public record PreviewResponse(Long storyId, StoryStatus status, VersionSummary v
                 pages.stream().map(page -> new Page(page.getPageNo(), page.getText(), page.getImageStatus(),
                         page.getImageStatus() == ImageStatus.DONE
                                 ? StoryImageUrls.page(storyId, version.getId(), page.getPageNo()) : null,
-                        page.getTextPosition()))
+                        page.getTextPosition(), page.getTextBlocks()))
                         .toList(),
                 regenerateRemaining);
     }

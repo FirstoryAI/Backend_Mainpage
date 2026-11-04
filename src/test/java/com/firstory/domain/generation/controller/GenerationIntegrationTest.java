@@ -175,6 +175,15 @@ class GenerationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.pages[0].text").value(FakeAiClient.SAMPLE.pageText(1)))
                 .andExpect(jsonPath("$.pages[0].textPosition").value("BOTTOM"))
                 .andExpect(jsonPath("$.pages[2].textPosition").value("TOP"))   // 가짜 AI는 3의 배수 쪽만 위
+                // 가짜 AI는 쪽마다 덩어리 하나: 첫 줄, x 5, y는 위 7 / 아래 80, DARK
+                .andExpect(jsonPath("$.pages[*].textBlocks", hasSize(10)))
+                .andExpect(jsonPath("$.pages[*].textBlocks[*]", hasSize(10)))
+                .andExpect(jsonPath("$.pages[0].textBlocks[0].paragraphs[0][0]")
+                        .value(FakeAiClient.SAMPLE.pageText(1).split("(?<=[.!?])\\s+")[0]))
+                .andExpect(jsonPath("$.pages[0].textBlocks[0].x").value(5.0))
+                .andExpect(jsonPath("$.pages[0].textBlocks[0].y").value(80.0))
+                .andExpect(jsonPath("$.pages[2].textBlocks[0].y").value(7.0))
+                .andExpect(jsonPath("$.pages[0].textBlocks[0].color").value("DARK"))
                 .andExpect(jsonPath("$.pages[*].imageStatus", everyItem(org.hamcrest.Matchers.is("DONE"))))
                 .andExpect(jsonPath("$.pages[*].imageUrl", everyItem(matchesPattern(
                         "/api/stories/" + id + "/versions/" + versionId + "/pages/\\d+/image"))))

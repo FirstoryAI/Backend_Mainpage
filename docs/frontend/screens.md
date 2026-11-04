@@ -235,7 +235,7 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `GET /api/stories/{id}/preview` | `version{id, versionNo, title}`, `characterSheetUrl`, `coverUrl`, `pages[]{pageNo, text, imageStatus, imageUrl, textPosition}`, `regenerateRemaining` |
+| 들어올 때 | `GET /api/stories/{id}/preview` | `version{id, versionNo, title}`, `characterSheetUrl`, `coverUrl`, `pages[]{pageNo, text, imageStatus, imageUrl, textPosition, textBlocks}`, `regenerateRemaining` |
 | 다시 만들기 | REV-02 | |
 | 동화 설명과 부모용 가이드 | GDE-01 (`GET .../guide`, REVIEWING에서도 된다) | 동화 설명은 `beforeReading.intent` |
 | 버전 목록 | 아래 "버전 목록" | |
@@ -247,6 +247,12 @@
 - `imageStatus: "FAILED"`면 `imageUrl`이 null이다. **빈 자리(대체 그림)** 를 보여 주고 "그림만 다시"로 그 쪽을 다시 그리게 안내한다.
 - `coverUrl`은 표지(제목이 들어간 정사각형 그림). 표지가 없는 버전이면 캐릭터 시트 주소다. `characterSheetUrl`은 주인공 기준 그림. 둘 다 null일 수 있다.
 - `textPosition`(`TOP` | `BOTTOM`)은 쪽 글을 그림 위에 얹을 자리다. 그림은 그쪽 약 25%(11/4 전에 그린 그림은 30%)를 빈 바닥·벽·하늘로 비워 두므로, 글 상자를 그 안에 가로로 넓게 놓으면 인물을 가리지 않는다. 빈 자리 경계가 딱 잘리지 않아 반투명 배경을 깔면 안전하다. 예전에 만든 동화는 모두 `BOTTOM`이다.
+- `textBlocks`는 쪽 글을 그림 위 어디에 얹을지 AI가 정한 덩어리 1~2개다: `[{paragraphs, x, y, color}]` (`paragraphs`는 문단 > 줄, `x`·`y`는 덩어리 왼쪽 위 모서리의 그림 폭·높이 대비 %, `color`는 `DARK` | `LIGHT`). 옛 동화와 그림이 실패한 쪽은 `null`이다. 미리보기와 함께 읽기(`/book`, 가이드 화면도 이걸 쓴다)가 같은 방식으로 그린다.
+  - `textBlocks`가 있으면 덩어리마다 그림 칸 안에 `position: absolute; left: x%; top: y%`로 놓는다. 배경 상자 없이 왼쪽 정렬이다. 그림 칸 비율이 그림(약 1.765)과 같아야 % 좌표가 맞는다.
+  - 글자색은 `DARK` = 진한 회색(`#4a4a4a`), `LIGHT` = 흰색이다.
+  - **글자 크기는 그림 칸 폭의 1.5%** (그림 칸에 `container-type: inline-size` → `1.5cqw`), 줄 높이 1.55, 문단 사이 0.6줄이다. AI가 이 크기로 자리를 잡았으므로 화면마다 px로 따로 정하면 덩어리가 넘친다.
+  - 줄은 받은 대로 그린다(`white-space: nowrap`). 직접 줄바꿈하지 않는다. `**강조**`는 굵게 그린다(바로 아래 설명).
+  - `textBlocks`가 `null`이면 지금처럼 `textPosition` 자리에 그린다. 휴대폰(760px 이하)도 지금 방식 그대로를 권한다(새 그림은 위·아래 띠를 비우지 않아 상자가 인물을 가릴 수 있다. 어떻게 할지는 프론트가 정한다).
 - 쪽 글의 `**콩닥콩닥**`은 의성어·의태어 강조 표시다. 굵게 등으로 바꿔 보여 준다.
 
 ## REV-02 다시 만들기
@@ -325,7 +331,7 @@
 | 처음부터 읽기 | `POST /api/stories/{id}/reading-sessions` | 201 `{sessionId, lastPage: 0}` |
 | 쪽 넘길 때마다 | `PUT /api/reading-sessions/{sessionId}/progress` `{page}` (1~10) | 204 |
 
-`prompts[].afterPage`가 n이면 n쪽을 읽은 뒤 RD-02 대화 질문을 띄운다. 쪽 글은 미리보기처럼 `textPosition` 자리에 얹는다.
+`prompts[].afterPage`가 n이면 n쪽을 읽은 뒤 RD-02 대화 질문을 띄운다. 쪽 글은 미리보기처럼 `textBlocks` 자리에 얹고, 없으면(`null`) `textPosition` 자리에 얹는다.
 
 ## RD-02 대화 질문
 

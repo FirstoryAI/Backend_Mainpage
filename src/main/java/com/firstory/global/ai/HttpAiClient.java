@@ -2,7 +2,9 @@ package com.firstory.global.ai;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.firstory.domain.generation.entity.PageTextBlock;
 import com.firstory.domain.generation.entity.RegenerateScope;
+import com.firstory.domain.generation.entity.TextColor;
 import com.firstory.domain.generation.entity.TextPosition;
 import com.firstory.domain.safety.entity.SafetyLevel;
 import com.firstory.domain.safety.entity.SafetySource;
@@ -18,9 +20,11 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.net.http.HttpClient;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -155,7 +159,7 @@ public class HttpAiClient implements AiClient {
             throw invalidResponse(threadId, "result");
         }
         try {
-            return body.toResult();
+            return body.toResult(threadId);
         } catch (NullPointerException | IllegalArgumentException | ClassCastException e) {
             throw invalidResponse(threadId, "result");
         }
@@ -356,14 +360,15 @@ public class HttpAiClient implements AiClient {
                       CostBody cost,
                       SafetyBody safety) {
 
-        AiGenerationResult toResult() {
+        AiGenerationResult toResult(String threadId) {
             return new AiGenerationResult(runNo, checkpointId, title, design, coverPath,
                     characterSheets == null ? List.of() : characterSheets.stream()
                             .map(sheet -> new AiGenerationResult.CharacterSheet(sheet.role(), sheet.name(), sheet.path()))
                             .toList(),
                     pages == null ? List.of() : pages.stream()
                             .map(page -> new AiGenerationResult.Page(page.pageNo(), page.text(), page.imagePrompt(),
-                                    TextPosition.fromAi(page.textPosition()), page.imagePath(), page.imageStatus()))
+                                    TextPosition.fromAi(page.textPosition()), page.imagePath(), page.imageStatus(),
+                                    textBlocks(threadId, page)))
                             .toList(),
                     guide(guide),
                     cost == null ? null : new AiGenerationResult.Cost(cost.inputTokens(), cost.outputTokens(),
@@ -371,6 +376,51 @@ public class HttpAiClient implements AiClient {
                     safety == null || safety.level() == null ? null : new SafetyResult(
                             SafetyLevel.valueOf(safety.level().toUpperCase(Locale.ROOT)), safety.category(),
                             safety.reason()));
+        }
+
+        // 없거나(옛 AI, 그림이 실패한 쪽) 형식이 어긋나면 그 쪽만 null. 생성은 실패시키지 않는다.
+        // 로그에는 글이 들어 있을 수 있어 thread_id와 쪽 번호만 남긴다
+        private static List<PageTextBlock> textBlocks(String threadId, PageBody page) {
+            JsonNode node = page.textBlocks();
+            if (node == null || node.isNull() || node.isMissingNode()) {
+                return null;
+            }
+            List<PageTextBlock> blocks = PageTextBlock.validated(parseTextBlocks(node));
+            if (blocks == null) {
+                log.warn("text_blocks 형식이 맞지 않아 뺐어요: thread_id={}, page_no={}", threadId, page.pageNo());
+            }
+            return blocks;
+        }
+
+        // 모양이 하나라도 다르면 null (검사는 PageTextBlock.validated가 한다)
+        private static List<PageTextBlock> parseTextBlocks(JsonNode node) {
+            if (!node.isArray()) {
+                return null;
+            }
+            List<PageTextBlock> blocks = new ArrayList<>();
+            for (JsonNode item : node) {
+                if (!item.isObject() || !item.path("paragraphs").isArray() || !item.path("x").isNumber()
+                        || !item.path("y").isNumber()) {
+                    return null;
+                }
+                List<List<String>> paragraphs = new ArrayList<>();
+                for (JsonNode paragraph : item.path("paragraphs")) {
+                    if (!paragraph.isArray()) {
+                        return null;
+                    }
+                    List<String> lines = new ArrayList<>();
+                    for (JsonNode line : paragraph) {
+                        if (!line.isString()) {
+                            return null;
+                        }
+                        lines.add(line.asString());
+                    }
+                    paragraphs.add(lines);
+                }
+                blocks.add(new PageTextBlock(paragraphs, item.path("x").asDouble(), item.path("y").asDouble(),
+                        TextColor.fromAi(item.path("color").isString() ? item.path("color").asString() : null)));
+            }
+            return blocks;
         }
 
         // FakeAiClient도 샘플 가이드를 같은 구조로 읽는다
@@ -403,7 +453,8 @@ public class HttpAiClient implements AiClient {
                     @JsonProperty("image_prompt") String imagePrompt,
                     @JsonProperty("text_position") String textPosition,
                     @JsonProperty("image_path") String imagePath,
-                    @JsonProperty("image_status") String imageStatus) {
+                    @JsonProperty("image_status") String imageStatus,
+                    @JsonProperty("text_blocks") JsonNode textBlocks) {
     }
 
     record CostBody(@JsonProperty("input_tokens") int inputTokens, @JsonProperty("output_tokens") int outputTokens,

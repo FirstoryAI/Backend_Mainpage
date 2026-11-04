@@ -1,6 +1,8 @@
 package com.firstory.domain.reading.controller;
 
 import com.firstory.domain.generation.entity.GenerationRun;
+import com.firstory.domain.generation.entity.PageTextBlock;
+import com.firstory.domain.generation.entity.TextColor;
 import com.firstory.domain.generation.entity.TextPosition;
 import com.firstory.domain.generation.repository.GenerationRunRepository;
 import com.firstory.domain.generation.repository.StoryVersionRepository;
@@ -151,6 +153,40 @@ class ReadingIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void text_blocks가_없는_쪽은_textBlocks_null이고_있는_쪽은_그대로_내려간다() throws Exception {
+        Long userId = userId(parent);
+        StoryStates states = new StoryStates(tx, userRepository, storyRepository, storyInputRepository,
+                runRepository, versionRepository);
+        long id = states.create(userId, StoryStatus.GENERATING_IMAGES, false, clock.instant());
+        long runId = tx.execute(status -> runRepository.save(Fixtures.run(storyRepository.getReferenceById(id), 1)))
+                .getId();
+        String prefix = "stories/" + id + "/runs/1/images/";
+        List<PageTextBlock> blocks = List.of(
+                new PageTextBlock(List.of(List.of("첫째 줄.", "둘째 줄."), List.of("셋째 줄.")), 5.0, 7.0, TextColor.DARK),
+                new PageTextBlock(List.of(List.of("오른쪽 글.")), 55.5, 80.0, TextColor.LIGHT));
+        List<AiGenerationResult.Page> pages = IntStream.rangeClosed(1, 10)
+                .mapToObj(n -> new AiGenerationResult.Page(n, n + "쪽", null, TextPosition.BOTTOM,
+                        prefix + "page-0" + n + ".png", "done", n == 1 ? blocks : null))
+                .toList();
+        recorder.record(runId, new AiGenerationResult(1, "cp-1", "제목", null, null, List.of(), pages, null, null,
+                null));
+        parent.post("/api/stories/" + id + "/approve", null).andExpect(status().isOk());
+
+        parent.get("/api/stories/" + id + "/book")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pages[0].textBlocks", hasSize(2)))
+                .andExpect(jsonPath("$.pages[0].textBlocks[0].paragraphs[0]", contains("첫째 줄.", "둘째 줄.")))
+                .andExpect(jsonPath("$.pages[0].textBlocks[0].paragraphs[1]", contains("셋째 줄.")))
+                .andExpect(jsonPath("$.pages[0].textBlocks[0].x").value(5.0))
+                .andExpect(jsonPath("$.pages[0].textBlocks[0].y").value(7.0))
+                .andExpect(jsonPath("$.pages[0].textBlocks[0].color").value("DARK"))
+                .andExpect(jsonPath("$.pages[0].textBlocks[1].x").value(55.5))
+                .andExpect(jsonPath("$.pages[0].textBlocks[1].color").value("LIGHT"))
+                .andExpect(jsonPath("$.pages[1].textBlocks").value(nullValue()))
+                .andExpect(jsonPath("$.pages[9].textBlocks").value(nullValue()));
+    }
+
+    @Test
     void 읽기_흐름은_book_시작_쪽_넘김_대화_끝이고_서재에_함께_읽었어요로_보인다() throws Exception {
         long id = StoryFlow.completed(parent, poller);
         long versionId = currentVersionId(id);
@@ -169,6 +205,10 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.pages[0].imageStatus").value("DONE"))
                 .andExpect(jsonPath("$.pages[0].textPosition").value("BOTTOM"))
                 .andExpect(jsonPath("$.pages[2].textPosition").value("TOP"))   // 가짜 AI는 3의 배수 쪽만 위
+                .andExpect(jsonPath("$.pages[0].textBlocks[0].x").value(5.0))
+                .andExpect(jsonPath("$.pages[0].textBlocks[0].y").value(80.0))
+                .andExpect(jsonPath("$.pages[0].textBlocks[0].color").value("DARK"))
+                .andExpect(jsonPath("$.pages[2].textBlocks[0].y").value(7.0))
                 .andExpect(jsonPath("$.prompts[*].afterPage", contains(4, 8)))
                 .andExpect(jsonPath("$.prompts[0].question").isNotEmpty())
                 .andExpect(jsonPath("$.prompts[0].parentHint").isNotEmpty());

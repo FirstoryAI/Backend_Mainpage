@@ -1,13 +1,16 @@
 package com.firstory.domain.reading.dto;
 
+import com.firstory.domain.generation.dto.PreviewResponse;
 import com.firstory.domain.generation.dto.StoryImageUrls;
 import com.firstory.domain.generation.entity.ImageStatus;
+import com.firstory.domain.generation.entity.PageTextBlock;
 import com.firstory.domain.generation.entity.StoryPage;
 import com.firstory.domain.generation.entity.StoryVersion;
 import com.firstory.domain.generation.entity.TextPosition;
 import com.firstory.domain.guide.entity.GuidePrompt;
 import com.firstory.domain.story.dto.StoryCardResponse;
 import com.firstory.domain.story.entity.Story;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.List;
 
@@ -23,10 +26,12 @@ public record BookResponse(Long storyId, Long versionId, String title, String co
 
     /**
      * @param imageUrl     그림이 실패한 쪽(FAILED)은 null
-     * @param textPosition 글을 얹을 자리. 그림의 이쪽 25%가 비어 있다
+     * @param textPosition 옛 화면용 글 자리. textBlocks가 null일 때만 이걸로 그린다
+     * @param textBlocks   글 덩어리 배치(1~2개). 옛 동화와 그림이 실패한 쪽은 null
      */
     public record Page(int pageNo, String text, String imageUrl, ImageStatus imageStatus,
-                       TextPosition textPosition) {
+                       TextPosition textPosition,
+                       @Schema(example = PreviewResponse.TEXT_BLOCKS_EXAMPLE) List<PageTextBlock> textBlocks) {
     }
 
     public record Prompt(Long id, int afterPage, String question, String parentHint) {
@@ -40,7 +45,7 @@ public record BookResponse(Long storyId, Long versionId, String title, String co
                 pages.stream().map(page -> new Page(page.getPageNo(), page.getText(),
                         page.getImageStatus() == ImageStatus.DONE
                                 ? StoryImageUrls.page(storyId, version.getId(), page.getPageNo()) : null,
-                        page.getImageStatus(), page.getTextPosition())).toList(),
+                        page.getImageStatus(), page.getTextPosition(), page.getTextBlocks())).toList(),
                 prompts.stream().map(prompt -> new Prompt(prompt.getId(), prompt.getAfterPage(), prompt.getQuestion(),
                         prompt.getParentHint())).toList());
     }
