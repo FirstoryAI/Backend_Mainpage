@@ -39,7 +39,7 @@ import java.util.Set;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class StoryInput extends BaseTimeEntity {
 
-    public static final int DESCRIPTION_MAX_LENGTH = 60;
+    public static final int DESCRIPTION_MAX_LENGTH = 300;
     public static final int CUSTOM_CATEGORY_MAX_LENGTH = 30;
     public static final int CUSTOM_REACTION_MAX_LENGTH = 30;
 

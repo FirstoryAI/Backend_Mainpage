@@ -387,7 +387,7 @@ class StoryCreationIntegrationTest extends IntegrationTest {
                 ErrorCode.MOMENT_ONLY_FOR_PAST);
         assertError(parent.put(storyUrl(id) + "/situation", """
                 {"timing": "PAST", "category": "OTHER", "description": "설명"}"""), ErrorCode.CUSTOM_VALUE_REQUIRED);
-        assertError(writeSituation(id, "가".repeat(61)), ErrorCode.DESCRIPTION_TOO_LONG);
+        assertError(writeSituation(id, "가".repeat(301)), ErrorCode.DESCRIPTION_TOO_LONG);
         assertError(writeChild(id, false, "가".repeat(21)), ErrorCode.CUSTOM_VALUE_TOO_LONG);
     }
 

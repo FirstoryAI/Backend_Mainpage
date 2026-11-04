@@ -142,7 +142,7 @@ com.firstory
 
 - 값 이름은 AI 저장소(`schemas.py`의 `StoryInputContext`)와 같은 단어를 쓴다. DB와 Java는 대문자(`name()`), AI로 보낼 때는 소문자(`AiValue.aiValue()`)로 바꾼다. 이름을 따로 짓고 변환표를 두지 않는다. AI로 보내는 enum은 `AiValue`를 구현한다.
 - 화면 문구(label)는 enum 한곳에만 두고 선택지 API(`GET /api/children/options` 등)로 내려준다.
-- "기타"(OTHER)를 고르면 직접 입력이 필수이고(`CUSTOM_VALUE_REQUIRED`), 고르지 않았으면 직접 입력은 버린다. 길이는 `CustomText`로 검사한다(`CUSTOM_VALUE_TOO_LONG`, 메시지의 `{n}`은 항목별 글자 수). 성향 20자, 좋아하는 것 한 개당 20자, 상황 분류·반응 30자, 상황 설명 60자.
+- "기타"(OTHER)를 고르면 직접 입력이 필수이고(`CUSTOM_VALUE_REQUIRED`), 고르지 않았으면 직접 입력은 버린다. 길이는 `CustomText`로 검사한다(`CUSTOM_VALUE_TOO_LONG`, 메시지의 `{n}`은 항목별 글자 수). 성향 20자, 좋아하는 것 한 개당 20자, 상황 분류·반응 30자, 상황 설명 300자.
 - 좋아하는 것은 목록(`interestCodes`)과 직접 입력(`customInterests`)을 합쳐 5개까지다(`Interests.normalize`).
 - 앞으로 겪을 일(UPCOMING)에는 반응과 감정을 고를 수 없다(`MOMENT_ONLY_FOR_PAST`).
 - AI 입력은 `AiContextMapper.toContext(StoryInput)`으로만 만든다. 좋아하는 것 직접 입력이 있으면 `interests`에 `"other"`를 더하고 `custom_interest`에 `", "`로 이어 붙인다(AI가 한 칸만 받는다).

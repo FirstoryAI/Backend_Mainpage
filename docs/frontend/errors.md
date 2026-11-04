@@ -58,7 +58,7 @@
 | `INVALID_BIRTH_YM` | 400 | 생년월을 다시 확인해 주세요. | `POST/PUT /api/children`, `PUT /api/stories/{id}/child` (형식 `yyyy-MM`, 미래, 범위 밖) |
 | `STORY_NOT_FOUND` | 404 | 동화를 찾을 수 없어요. | `/api/stories/{id}` 아래 전부 (없음, 지움, 다른 회원의 동화) |
 | `INVALID_STATUS_TRANSITION` | 409 | 지금 상태에서는 할 수 없는 작업이에요. | 지금 상태에서 못 하는 요청 전부. 예: DRAFT 아닌데 입력, 확정 전 가이드·읽기, 만드는 중 삭제, 끝난 세션 쪽 넘김 → 상세를 다시 불러 화면을 맞춘다 |
-| `DESCRIPTION_TOO_LONG` | 400 | 상황 설명은 60자까지 쓸 수 있어요. | `PUT /api/stories/{id}/situation` (60자) |
+| `DESCRIPTION_TOO_LONG` | 400 | 상황 설명은 300자까지 쓸 수 있어요. | `PUT /api/stories/{id}/situation` (300자) |
 | `MOMENT_ONLY_FOR_PAST` | 400 | 아이의 반응과 감정은 있었던 일에서만 고를 수 있어요. | `PUT /api/stories/{id}/situation` (UPCOMING인데 reactions·emotions를 보냄) |
 | `VERSION_NOT_IN_STORY` | 400 | 이 동화의 버전이 아니에요. | `PUT /api/stories/{id}/current-version` 내부 검사. 보통은 그 전에 `VERSION_NOT_FOUND`가 난다 |
 | `REGENERATION_LIMIT_REACHED` | 409 | 다시 만들기 횟수를 모두 썼어요. | `POST /api/stories/{id}/regenerate` (`regenerateRemaining` 0) |
