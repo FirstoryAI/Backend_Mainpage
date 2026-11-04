@@ -452,7 +452,7 @@ public class FakeAiClient implements AiClient {
                         previous.imagePath(), previous.imageStatus(), previous.textBlocks()));
             } else if (state.mishaps.pageFail() && pageNo == FAILED_PAGE) {
                 pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, textPosition(pageNo), null,
-                        "failed", textBlocks(text, textPosition(pageNo))));
+                        "failed", null));   // 진짜 AI도 그림이 실패한 쪽에는 textBlocks를 주지 않는다
             } else {
                 String key = prefix + "images/page-%02d.png".formatted(pageNo);
                 storage.write(key, png(color(pageNo, runNo)), "image/png");
