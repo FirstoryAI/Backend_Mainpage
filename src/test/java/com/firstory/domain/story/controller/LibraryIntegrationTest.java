@@ -70,7 +70,7 @@ class LibraryIntegrationTest extends IntegrationTest {
     void setUp() throws Exception {
         states = new StoryStates(tx, userRepository, storyRepository, storyInputRepository, runRepository,
                 versionRepository);
-        parent = signUp(newEmail(), newPhone());
+        parent = signUp(newEmail());
         userId = userId(parent);
     }
 
@@ -157,7 +157,7 @@ class LibraryIntegrationTest extends IntegrationTest {
     @Test
     void 서재는_다른_회원의_동화를_보여주지_않는다() throws Exception {
         create(StoryStatus.COMPLETED, false);
-        Browser other = signUp(newEmail(), newPhone());
+        Browser other = signUp(newEmail());
 
         other.get("/api/stories").andExpect(jsonPath("$.totalElements").value(0));
         other.get("/api/home").andExpect(jsonPath("$.counts.unread").value(0));
@@ -307,7 +307,7 @@ class LibraryIntegrationTest extends IntegrationTest {
     @Test
     void 다른_회원의_동화_상세는_404() throws Exception {
         long id = create(StoryStatus.COMPLETED, false);
-        Browser other = signUp(newEmail(), newPhone());
+        Browser other = signUp(newEmail());
 
         other.get("/api/stories/" + id).andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("STORY_NOT_FOUND"));

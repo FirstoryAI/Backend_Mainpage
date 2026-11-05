@@ -64,7 +64,7 @@ class GenerationIntegrationTest extends IntegrationTest {
 
     @BeforeEach
     void signUpParent() throws Exception {
-        parent = signUp(newEmail(), newPhone());
+        parent = signUp(newEmail());
     }
 
     @AfterEach
@@ -238,7 +238,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         long otherStory = reviewingStory();
         long otherVersionId = currentVersionId(otherStory);
 
-        Browser other = signUp(newEmail(), newPhone());
+        Browser other = signUp(newEmail());
         assertError(other.get(imageUrl(id, versionId, 1)), ErrorCode.STORY_NOT_FOUND);
         // 다른 동화의 버전 id를 이 동화 주소에 넣어도 404
         assertError(parent.get(imageUrl(id, otherVersionId, 1)), ErrorCode.VERSION_NOT_FOUND);
@@ -437,8 +437,7 @@ class GenerationIntegrationTest extends IntegrationTest {
 
     @Test
     void 확정하면_COMPLETED이고_알림을_보내지_않는다() throws Exception {
-        Browser smsParent = signUpWithSms();
-        parent = smsParent;
+        parent = signUpWithEmailNotify(newEmail());
         long id = reviewingStory();
         int notifications = notifications(id);
 
@@ -469,8 +468,8 @@ class GenerationIntegrationTest extends IntegrationTest {
 
     @Test
     void 실패하면_알림을_보내고_다시_시도하면_횟수_없이_성공한다() throws Exception {
-        String phone = newPhone();
-        parent = signUpWithSms(phone);
+        String email = newEmail();
+        parent = signUpWithEmailNotify(email);
         long id = confirmingStory("용기 " + FakeAiClient.FAIL_MARKER);
         confirm(id);
 
@@ -480,7 +479,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         generation(id).andExpect(jsonPath("$.status").value("FAILED"))
                 .andExpect(jsonPath("$.error").value(FakeAiClient.FAILURE_CODE));
         assertThat(notificationTypes(id)).containsExactlyInAnyOrder("STORY_STARTED", "STORY_FAILED");
-        assertThat(sms.lastText(phone)).contains("만들지 못했어요");
+        assertThat(mail.lastText(email)).contains("만들지 못했어요");
         // 결과 위기 신호가 아닌 실패는 retry
         int regenerateCalls = ai.regenerateCalls(threadId(id));
 
@@ -590,21 +589,24 @@ class GenerationIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void 문자_알림에_동의했으면_시작과_완료를_한_번씩_기록한다() throws Exception {
-        String phone = newPhone();
-        parent = signUpWithSms(phone);
+    void 이메일_알림에_동의했으면_시작과_완료를_한_번씩_기록한다() throws Exception {
+        String email = newEmail();
+        parent = signUpWithEmailNotify(email);
         long id = confirmingStory(MESSAGE);
 
         confirm(id);
-        assertThat(sms.lastText(phone)).contains("만들기 시작했어요");
+        assertThat(mail.lastText(email)).contains("만들기 시작했어요");
+        assertThat(mail.lastSubject(email)).startsWith("[FIRSTORY]");
         pollTimes(POLLS_TO_REVIEW);
 
         assertThat(notificationTypes(id)).containsExactlyInAnyOrder("STORY_STARTED", "STORY_COMPLETED");
         assertThat(jdbc.queryForList("SELECT status FROM notifications WHERE story_id = ?", String.class, id))
                 .containsOnly("SENT");
         assertThat(jdbc.queryForList("SELECT template_code FROM notifications WHERE story_id = ?", String.class, id))
-                .containsExactlyInAnyOrder("STORY_STARTED_V1", "STORY_COMPLETED_V1");
-        String text = sms.lastText(phone);
+                .containsExactlyInAnyOrder("STORY_STARTED_V2", "STORY_COMPLETED_V2");
+        assertThat(jdbc.queryForList("SELECT channel FROM notifications WHERE story_id = ?", String.class, id))
+                .containsOnly("EMAIL");
+        String text = mail.lastText(email);
         assertThat(text).contains("완성됐어요").doesNotContain(FakeAiClient.SAMPLE.title(0)).doesNotContain(MESSAGE);
 
         // 같은 실행의 같은 알림은 다시 보내지 않는다
@@ -661,7 +663,7 @@ class GenerationIntegrationTest extends IntegrationTest {
     @Test
     void 다른_회원의_동화는_생성_검토_API가_모두_404() throws Exception {
         long id = reviewingStory();
-        Browser other = signUp(newEmail(), newPhone());
+        Browser other = signUp(newEmail());
 
         assertError(other.post(storyUrl(id) + "/confirm", null), ErrorCode.STORY_NOT_FOUND);
         assertError(other.get(storyUrl(id) + "/generation"), ErrorCode.STORY_NOT_FOUND);
@@ -728,17 +730,9 @@ class GenerationIntegrationTest extends IntegrationTest {
         return id;
     }
 
-    private Browser signUpWithSms() throws Exception {
-        return signUpWithSms(newPhone());
-    }
-
-    private Browser signUpWithSms(String phone) throws Exception {
-        Browser browser = browser();
-        verifyPhone(browser, phone, "SIGNUP");
-        browser.post("/api/auth/signup", signupJson(newEmail(), phone, """
-                {"GUARDIAN": true, "TERMS": true, "PRIVACY": true, "SMS_NOTIFY": true}"""))
-                .andExpect(status().isCreated());
-        return browser;
+    private Browser signUpWithEmailNotify(String email) throws Exception {
+        return signUp(email, """
+                {"GUARDIAN": true, "TERMS": true, "PRIVACY": true, "EMAIL_NOTIFY": true}""");
     }
 
     private ResultActions confirm(long id) throws Exception {

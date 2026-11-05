@@ -13,10 +13,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class FlywayMigrationTest extends IntegrationTest {
 
     @Test
-    void V1부터_V11까지_순서로_모두_성공한다() {
+    void V1부터_V12까지_순서로_모두_성공한다() {
         assertThat(jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE version IS NOT NULL ORDER BY installed_rank",
-                String.class)).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11");
+                String.class)).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12");
         assertThat(jdbc.queryForObject("SELECT bool_and(success) FROM flyway_schema_history", Boolean.class))
                 .isTrue();
     }
@@ -86,6 +86,19 @@ class FlywayMigrationTest extends IntegrationTest {
         assertThat(jdbc.queryForObject("""
                 SELECT data_type FROM information_schema.columns
                 WHERE table_name = 'story_pages' AND column_name = 'text_blocks'""", String.class)).isEqualTo("jsonb");
+    }
+
+    @Test
+    void V12_휴대폰_컬럼과_문자_기록이_없고_카카오_회원번호와_이메일_인증_시각이_있다() {
+        assertThat(columns("users")).contains("email_verified_at", "kakao_id")
+                .doesNotContain("phone_enc", "phone_hash", "phone_verified_at");
+        assertThat(columns("email_send_logs")).contains("email_hash", "purpose");
+        assertThat(columns("sms_send_logs")).isEmpty();
+        assertThat(jdbc.queryForObject("""
+                SELECT is_nullable FROM information_schema.columns
+                WHERE table_name = 'users' AND column_name = 'password_hash'""", String.class)).isEqualTo("YES");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM pg_indexes WHERE indexname = 'ux_users_kakao_id_active'",
+                Integer.class)).isOne();
     }
 
     private List<String> columns(String table) {

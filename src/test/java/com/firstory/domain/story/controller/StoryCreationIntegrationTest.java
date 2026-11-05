@@ -44,7 +44,7 @@ class StoryCreationIntegrationTest extends IntegrationTest {
 
     @BeforeEach
     void signUpParent() throws Exception {
-        parent = signUp(newEmail(), newPhone());
+        parent = signUp(newEmail());
     }
 
     @AfterEach
@@ -394,7 +394,7 @@ class StoryCreationIntegrationTest extends IntegrationTest {
     @Test
     void 다른_회원의_동화는_모든_API가_404() throws Exception {
         long id = readyToInterview();
-        Browser other = signUp(newEmail(), newPhone());
+        Browser other = signUp(newEmail());
 
         assertError(other.put(storyUrl(id) + "/situation", SITUATION.formatted("상황")), ErrorCode.STORY_NOT_FOUND);
         assertError(other.put(storyUrl(id) + "/child", CHILD.formatted(false, "기차")), ErrorCode.STORY_NOT_FOUND);
@@ -412,7 +412,7 @@ class StoryCreationIntegrationTest extends IntegrationTest {
 
     @Test
     void 다른_회원의_아이를_고르면_CHILD_NOT_FOUND() throws Exception {
-        Browser other = signUp(newEmail(), newPhone());
+        Browser other = signUp(newEmail());
         long othersChild = ((Number) JsonPath.read(other.post("/api/children", """
                 {"birthYm": "2021-03", "gender": "MALE"}""").andReturn().getResponse().getContentAsString(), "$.id"))
                 .longValue();

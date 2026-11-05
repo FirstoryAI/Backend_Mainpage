@@ -15,7 +15,7 @@ class LocalFixedVerificationCodeTest {
 
     @Test
     void local이면_고정_인증번호를_쓴다() {
-        runner.withPropertyValues("spring.profiles.active=local", "firstory.sms.local-fixed-code=000000")
+        runner.withPropertyValues("spring.profiles.active=local", "firstory.auth.local-fixed-code=000000")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context.getBean(LocalFixedVerificationCode.class).code()).contains("000000");
@@ -24,7 +24,7 @@ class LocalFixedVerificationCodeTest {
 
     @Test
     void dev도_고정_인증번호를_쓴다() {
-        runner.withPropertyValues("spring.profiles.active=dev", "firstory.sms.local-fixed-code=000000")
+        runner.withPropertyValues("spring.profiles.active=dev", "firstory.auth.local-fixed-code=000000")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context.getBean(LocalFixedVerificationCode.class).code()).contains("000000");
@@ -33,7 +33,7 @@ class LocalFixedVerificationCodeTest {
 
     @Test
     void prod에_설정하면_기동_실패() {
-        runner.withPropertyValues("spring.profiles.active=prod", "firstory.sms.local-fixed-code=000000")
+        runner.withPropertyValues("spring.profiles.active=prod", "firstory.auth.local-fixed-code=000000")
                 .run(context -> assertThat(context).hasFailed());
     }
 
@@ -45,19 +45,19 @@ class LocalFixedVerificationCodeTest {
 
     @Test
     void local이어도_숫자_6자리가_아니면_기동_실패() {
-        runner.withPropertyValues("spring.profiles.active=local", "firstory.sms.local-fixed-code=0000")
+        runner.withPropertyValues("spring.profiles.active=local", "firstory.auth.local-fixed-code=0000")
                 .run(context -> assertThat(context).hasFailed());
     }
 
     @Test
     void local이_아닌_프로필에_설정하면_기동_실패() {
-        runner.withPropertyValues("spring.profiles.active=test", "firstory.sms.local-fixed-code=000000")
+        runner.withPropertyValues("spring.profiles.active=test", "firstory.auth.local-fixed-code=000000")
                 .run(context -> {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure()).rootCause()
                             .hasMessageContaining("local, dev 프로필에서만");
                 });
-        runner.withPropertyValues("firstory.sms.local-fixed-code=000000")
+        runner.withPropertyValues("firstory.auth.local-fixed-code=000000")
                 .run(context -> assertThat(context).as("프로필 없음(운영)").hasFailed());
     }
 

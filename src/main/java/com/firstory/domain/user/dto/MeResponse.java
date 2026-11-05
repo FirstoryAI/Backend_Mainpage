@@ -1,7 +1,13 @@
 package com.firstory.domain.user.dto;
 
-/**
- * 휴대폰 번호는 가린 형태(010-****-5678)만 내려준다. 전체 번호를 응답하는 API는 없다.
- */
-public record MeResponse(Long id, String email, String phoneMasked, boolean onboardingSeen, boolean smsNotify) {
+import io.swagger.v3.oas.annotations.media.Schema;
+
+public record MeResponse(
+        Long id,
+        String email,
+        boolean onboardingSeen,
+        @Schema(description = "동화 제작 소식을 이메일로 받기 (EMAIL_NOTIFY 동의)") boolean emailNotify,
+        @Schema(description = "카카오로 가입한 회원") boolean kakaoLinked,
+        @Schema(description = "비밀번호가 있는지. 카카오로만 가입했으면 false (비밀번호 변경 대신 비밀번호 찾기로 만든다)")
+        boolean hasPassword) {
 }

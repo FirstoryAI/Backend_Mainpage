@@ -13,7 +13,7 @@ public class LocalFixedVerificationCode {
 
     static final String LOCAL_PROFILE = "local";
     static final String DEV_PROFILE = "dev";
-    static final String PROPERTY = "firstory.sms.local-fixed-code";
+    static final String PROPERTY = "firstory.auth.local-fixed-code";
     private static final Pattern SIX_DIGITS = Pattern.compile("\\d{6}");
 
     private final String code;

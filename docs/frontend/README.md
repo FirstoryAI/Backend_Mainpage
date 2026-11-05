@@ -69,9 +69,11 @@ Swagger에서 직접 눌러 볼 때는 먼저 `GET /api/auth/csrf`를 실행한�
 
 ## 4. 고정 인증번호 `000000`
 
-local에서는 문자를 실제로 보내지 않고, 인증번호가 항상 **`000000`** 이다 (`application-local.yml`의 `firstory.sms.local-fixed-code`). 만료(3분), 5번 틀리면 다시 받기, 60초 재발송 제한 같은 규칙은 운영과 같다.
+local에서는 메일을 실제로 보내지 않고, 이메일 인증번호가 항상 **`000000`** 이다 (`application-local.yml`의 `firstory.auth.local-fixed-code`, `firstory.mail.mode: log`). 만료(5분), 5번 틀리면 다시 받기, 60초 재발송 제한 같은 규칙은 운영과 같다.
 
-이 설정을 지우면 무작위 번호가 서버 로그에 `[SMS] 010-****-1234 ← [FIRSTORY] 인증번호 123456`처럼 찍힌다. 이 설정은 local 프로필에서만 동작하고, 다른 프로필에 넣으면 서버가 뜨지 않는다.
+이 설정을 지우면 무작위 번호가 서버 로그에 `[MAIL] p*****@example.com ← [FIRSTORY] 인증번호를 알려 드려요 / FIRSTORY 인증번호는 123456 예요.`처럼 찍힌다. 이 설정은 local, dev 프로필에서만 동작하고, 다른 프로필에 넣으면 서버가 뜨지 않는다.
+
+카카오 로그인도 local은 가짜 카카오(`firstory.kakao.mode: fake`)라 카카오 키 없이 된다. 아무 `code`로 `POST /api/auth/kakao/login`을 부르면 `kakao-{code}@example.com` 회원이 된다 (auth.md "카카오 로그인").
 
 ## 5. 프론트 개발 서버 연결
 
@@ -108,7 +110,7 @@ export default {
 | `Port 8081 was already in use` | 이미 서버가 떠 있다. 이전 bootRun 창을 끈다. Windows: `netstat -ano \| findstr :8081`로 PID를 찾아 `taskkill /PID {PID} /F` |
 | `Connection to localhost:55432 refused` | Docker Desktop이 꺼져 있거나 DB를 안 띄웠다. Docker Desktop을 켜고 `docker compose up -d` |
 | DB 포트 충돌(`55432 ... address already in use`) | `.env`의 `POSTGRES_PORT`와 `application-local.yml`의 DB 주소 포트를 같은 다른 값으로 바꾼다 |
-| `No qualifying bean of type 'SmsSender'`로 기동 실패 | **프로필 없이 실행했다.** `--spring.profiles.active=local`을 꼭 붙인다 |
+| `MAIL_USERNAME과 MAIL_PASSWORD가 필요해요`, `KAKAO_REST_API_KEY가 필요해요`로 기동 실패 | **프로필 없이 실행했다.** `--spring.profiles.active=local`을 꼭 붙인다 |
 | `AI_INTERNAL_TOKEN이 필요해요`로 기동 실패 | 마찬가지로 local 프로필이 빠졌다 (local은 가짜 AI) |
 | `local-fixed-code는 local 프로필에서만` | local이 아닌 프로필 설정에 고정 인증번호가 들어갔다. 지운다 |
 | 상태를 바꾸는 요청이 403 `FORBIDDEN` | CSRF 헤더가 없다. 앱을 열 때와 로그아웃 뒤 `GET /api/auth/csrf`를 불렀는지 확인 |

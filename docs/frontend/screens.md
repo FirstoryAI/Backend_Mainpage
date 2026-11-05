@@ -34,45 +34,61 @@
 | 때 | API | 볼 것 |
 |---|---|---|
 | 들어올 때 | `GET /api/auth/csrf` (앱 시작 시 한 번 했으면 생략) | 204 |
-| 로그인 버튼 | `POST /api/auth/login` `{email, password, rememberMe}` | 200 `{id, email, phoneMasked, onboardingSeen, smsNotify}` |
+| 로그인 버튼 | `POST /api/auth/login` `{email, password, rememberMe}` | 200 `{id, email, onboardingSeen, emailNotify, kakaoLinked, hasPassword}` |
+| 카카오로 시작하기 | 카카오 인가 → `POST /api/auth/kakao/login` `{code, redirectUri, rememberMe}` | `LOGGED_IN`이면 위와 같은 `me`, `SIGNUP_REQUIRED`면 AUTH-04 |
 | 다음 화면 | `onboardingSeen`이 false면 ONB-01, 아니면 HOME-01 | |
 
-오류: 401 `INVALID_CREDENTIALS`(입력란 아래 메시지), 423 `ACCOUNT_LOCKED`.
+오류: 401 `INVALID_CREDENTIALS`(입력란 아래 메시지), 423 `ACCOUNT_LOCKED`. 카카오: 409 `KAKAO_EMAIL_REGISTERED`(같은 이메일의 이메일 회원. 이메일 로그인으로 안내), 400 `KAKAO_LOGIN_FAILED`(카카오 로그인부터 다시), 503 `KAKAO_UNAVAILABLE`. 자세한 흐름은 auth.md "카카오 로그인".
 
 ## AUTH-02 가입 정보·약관 동의
 
 | 때 | API | 볼 것 |
 |---|---|---|
 | 이메일 입력 (다음으로 넘어가기 전) | `POST /api/auth/email/check` `{email}` | 200 `{available}`. false면 "이미 가입된 이메일이에요" 안내 |
-| 약관 항목 | (API 없음) `consents` 키: `GUARDIAN`, `TERMS`, `PRIVACY`(필수), `SMS_NOTIFY`(선택) | |
-| 가입 버튼 (AUTH-03 인증을 마친 뒤) | `POST /api/auth/signup` `{email, password, phone, consents: {GUARDIAN: true, ...}, termsVersion: "2026-10-01"}` | 201 MeResponse. **바로 로그인된 상태** |
+| 약관 항목 | (API 없음) `consents` 키: `GUARDIAN`, `TERMS`, `PRIVACY`(필수), `EMAIL_NOTIFY`(선택, 동화 제작 소식을 이메일로 받기) | |
+| 가입 버튼 (AUTH-03 인증을 마친 뒤) | `POST /api/auth/signup` `{email, password, consents: {GUARDIAN: true, ...}, termsVersion: "2026-10-01"}` | 201 MeResponse. **바로 로그인된 상태** |
 | 다음 화면 | ONB-01 | |
 
 - `email/check`는 같은 IP에서 1분에 10번까지(429 `EMAIL_CHECK_RATE_LIMITED`). 글자를 칠 때마다 부르지 말고 입력을 마쳤을 때(다음 버튼, 입력란을 벗어날 때) 한 번 부른다. 형식이 틀리면 400 `VALIDATION_FAILED`.
 
-오류: 409 `DUPLICATE_EMAIL`(미리 확인했어도 그사이 누가 가입했을 수 있다), `DUPLICATE_PHONE`, 400 `INVALID_PASSWORD_FORMAT`, `REQUIRED_CONSENT_MISSING`, `PHONE_NOT_VERIFIED`(인증 안 했거나 10분 지남).
+오류: 409 `DUPLICATE_EMAIL`(미리 확인했어도 그사이 누가 가입했을 수 있다), 400 `INVALID_PASSWORD_FORMAT`, `REQUIRED_CONSENT_MISSING`, `EMAIL_NOT_VERIFIED`(인증 안 했거나 10분 지남, 인증한 이메일과 다름).
 
-## AUTH-03 휴대폰 인증
+## AUTH-03 이메일 인증
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 인증번호 받기 | `POST /api/auth/phone/send-code` `{phone: "010-1234-5678", purpose: "SIGNUP"}` | 200 `{expiresInSeconds: 180}` → 3분 타이머 |
-| 확인 | `POST /api/auth/phone/verify` `{phone, code}` | 204 → 인증 완료 표시 |
+| 인증번호 받기 | `POST /api/auth/email/send-code` `{email: "parent@example.com", purpose: "SIGNUP"}` | 200 `{expiresInSeconds: 300}` → 5분 타이머, "메일함을 확인해 주세요" |
+| 확인 | `POST /api/auth/email/verify` `{email, code}` | 204 → 인증 완료 표시 |
 
-- local 인증번호는 `000000`.
-- 다시 받기는 60초 뒤부터(429 `SMS_RESEND_TOO_SOON`), 1시간에 5번(429 `SMS_RATE_LIMITED`).
+- local, dev(메일을 보내지 않는 서버) 인증번호는 `000000`. 실제로 메일을 보내는 서버는 무작위 6자리.
+- 다시 받기는 60초 뒤부터(429 `VERIFICATION_RESEND_TOO_SOON`), 1시간에 5번(429 `VERIFICATION_RATE_LIMITED`). 메일 서버 장애면 503 `EMAIL_SEND_FAILED`.
 - 틀리면 400 `VERIFICATION_CODE_MISMATCH`, 5번 틀리면 429 `VERIFICATION_ATTEMPTS_EXCEEDED`(다시 받기), 만료면 400 `VERIFICATION_EXPIRED`.
-- 이미 가입된 번호면 send-code에서 409 `DUPLICATE_PHONE`.
+- 이미 가입된 이메일이면 send-code에서 409 `DUPLICATE_EMAIL`.
+- 스팸함에 들어갈 수 있으니 "메일이 안 오면 스팸함도 확인해 주세요" 안내를 둔다.
+
+## AUTH-04 카카오 가입 (화면 ID 미정)
+
+카카오 로그인(AUTH-01)에서 `SIGNUP_REQUIRED`를 받았을 때. 같은 브라우저에서 10분 안에 끝낸다.
+
+| 때 | API | 볼 것 |
+|---|---|---|
+| 들어올 때 | (API 없음) 카카오 로그인 응답의 `email`, `emailVerified` | `emailVerified`가 true면 이메일을 보여 주기만 한다 |
+| 이메일 인증 (`emailVerified`가 false거나 `email`이 null일 때만) | AUTH-03과 같다 (`purpose: "SIGNUP"`) | 카카오 이메일을 미리 채워 둬도 된다 |
+| 약관 항목 | AUTH-02와 같은 `consents` | |
+| 가입 버튼 | `POST /api/auth/kakao/signup` `{email(인증한 경우만), consents, termsVersion}` | 201 MeResponse. **바로 로그인된 상태** → ONB-01 |
+
+오류: 400 `KAKAO_SIGNUP_EXPIRED`(10분 지남, 다른 브라우저 → 카카오 로그인부터 다시), `EMAIL_NOT_VERIFIED`, `REQUIRED_CONSENT_MISSING`, 409 `KAKAO_EMAIL_REGISTERED`, `KAKAO_ACCOUNT_REGISTERED`.
 
 ## 비밀번호 찾기 (화면 ID 미정)
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 인증번호 받기 | `POST /api/auth/phone/send-code` `{phone, purpose: "PASSWORD_RESET"}` | 가입 여부와 상관없이 200 → "가입된 번호라면 인증번호가 발송돼요" |
-| 확인 | `POST /api/auth/phone/verify` `{phone, code}` | 204 → 새 비밀번호 입력 |
-| 새 비밀번호 | `POST /api/auth/password/reset` `{phone, newPassword}` | 204 → 로그인 화면 (모든 기기 로그아웃됨) |
+| 인증번호 받기 | `POST /api/auth/email/send-code` `{email, purpose: "PASSWORD_RESET"}` | 가입 여부와 상관없이 200 → "가입된 이메일이라면 인증번호가 발송돼요" |
+| 확인 | `POST /api/auth/email/verify` `{email, code}` | 204 → 새 비밀번호 입력 |
+| 새 비밀번호 | `POST /api/auth/password/reset` `{email, newPassword}` | 204 → 로그인 화면 (모든 기기 로그아웃됨) |
 
-- 가입되지 않은 번호는 문자가 오지 않을 뿐 응답이 같다. "가입되지 않은 번호예요" 같은 문구를 만들지 않는다. 자세한 규칙은 auth.md "비밀번호 찾기".
+- 가입되지 않은 이메일은 메일이 오지 않을 뿐 응답이 같다. "가입되지 않은 이메일이에요" 같은 문구를 만들지 않는다. 자세한 규칙은 auth.md "비밀번호 찾기".
+- 비밀번호가 없는 카카오 회원도 여기서 비밀번호를 만든다.
 
 ## ONB-01 첫 방문 안내
 
@@ -216,7 +232,7 @@
 
 - `stage`: 1 이야기 짜기, 2 글 쓰기, 3 그림 그리기, 4 책으로 묶기. `stageLabel`을 그대로 보여 줘도 된다.
 - 이 API는 DB만 읽어서 3초마다 불러도 된다. 진행은 서버가 뒤에서 AI에 묻는다.
-- **화면을 떠나도 생성은 계속된다.** "다 되면 알려 드릴게요, 나가셔도 돼요" 안내. 나중에 홈·서재 카드(`REVIEWING`)로 돌아온다. 문자 알림 동의(`smsNotify`)를 했으면 완성/실패 문자가 간다(local은 로그만).
+- **화면을 떠나도 생성은 계속된다.** "다 되면 알려 드릴게요, 나가셔도 돼요" 안내. 나중에 홈·서재 카드(`REVIEWING`)로 돌아온다. 이메일 알림 동의(`emailNotify`)를 했으면 완성/실패 메일이 간다(local은 로그만).
 - `status`가 `REVIEWING` → REV-01. `FAILED` → ST-03. 폴링을 멈춘다.
 - 진짜 AI는 3~4분, 가짜 AI(local)는 약 2분 40초.
 
@@ -357,15 +373,14 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `GET /api/me`, `GET /api/children` | `email`, `phoneMasked`, `smsNotify` / 아이 목록 |
-| 문자 알림 켜기·끄기 | `PUT /api/me/consents/sms-notify` `{agreed: true}` | 204 |
+| 들어올 때 | `GET /api/me`, `GET /api/children` | `email`, `emailNotify`, `kakaoLinked`, `hasPassword` / 아이 목록 |
+| 이메일 알림 켜기·끄기 | `PUT /api/me/consents/email-notify` `{agreed: true}` | 204 |
 | 아이 추가 | `POST /api/children` (CRT-03의 `profile`과 같은 본문) | 201 |
 | 아이 정보 수정 | `PUT /api/children/{childId}` | 200 |
 | 호칭 변경 | `PATCH /api/children/{childId}/display-name` `{displayName}` (1~30자) | 200 |
 | 아이 삭제 | `DELETE /api/children/{childId}` | 204 (그 아이로 만든 동화는 남는다) |
-| 비밀번호 변경 | `POST /api/me/password` `{currentPassword, newPassword}` | 204 |
-| 휴대폰 변경 | `send-code`(`purpose: "CHANGE_PHONE"`) → `verify` → `POST /api/me/phone` `{currentPassword, phone}` | 204 |
+| 비밀번호 변경 | `POST /api/me/password` `{currentPassword, newPassword}` | 204. `hasPassword`가 false(카카오 회원)면 버튼 대신 "비밀번호 만들기"(비밀번호 찾기 화면) |
 | 로그아웃 | `POST /api/auth/logout` → 204 → `GET /api/auth/csrf` → LND-01 | |
-| 탈퇴 | `POST /api/me/withdraw` `{currentPassword}` → 204 → `GET /api/auth/csrf` → LND-01 | |
+| 탈퇴 | `POST /api/me/withdraw` `{currentPassword}`(카카오 회원은 `{}`) → 204 → `GET /api/auth/csrf` → LND-01 | |
 
 아이 호칭(`displayName`)은 부모에게만 보이고 AI로 보내지 않는다. 다른 회원의 아이 id는 404 `CHILD_NOT_FOUND`.

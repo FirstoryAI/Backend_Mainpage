@@ -47,7 +47,7 @@ class ChildProfileResolverTest extends IntegrationTest {
 
     @BeforeEach
     void signUpParent() throws Exception {
-        userId = userId(signUp(newEmail(), newPhone()));
+        userId = userId(signUp(newEmail()));
     }
 
     @Test
@@ -121,7 +121,7 @@ class ChildProfileResolverTest extends IntegrationTest {
 
     @Test
     void _5_다른_회원의_아이면_CHILD_NOT_FOUND() throws Exception {
-        Long otherUserId = userId(signUp(newEmail(), newPhone()));
+        Long otherUserId = userId(signUp(newEmail()));
         Long othersChild = childService.create(otherUserId, SAVED).id();
 
         for (boolean save : new boolean[]{true, false}) {

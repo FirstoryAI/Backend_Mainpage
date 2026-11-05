@@ -15,29 +15,32 @@ import lombok.NoArgsConstructor;
 
 import java.util.Objects;
 
+/**
+ * 인증 메일 발송 기록. 이메일별 발송 횟수를 센다. 이메일 원문은 남기지 않고 해시만.
+ */
 @Getter
 @Entity
-@Table(name = "sms_send_logs")
+@Table(name = "email_send_logs")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class SmsSendLog extends BaseTimeEntity {
+public class EmailSendLog extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "phone_hash", nullable = false, length = 64)
-    private String phoneHash;
+    @Column(name = "email_hash", nullable = false, length = 64)
+    private String emailHash;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private SmsPurpose purpose;
+    private EmailPurpose purpose;
 
-    private SmsSendLog(String phoneHash, SmsPurpose purpose) {
-        this.phoneHash = Objects.requireNonNull(phoneHash);
+    private EmailSendLog(String emailHash, EmailPurpose purpose) {
+        this.emailHash = Objects.requireNonNull(emailHash);
         this.purpose = Objects.requireNonNull(purpose);
     }
 
-    public static SmsSendLog record(String phoneHash, SmsPurpose purpose) {
-        return new SmsSendLog(phoneHash, purpose);
+    public static EmailSendLog record(String emailHash, EmailPurpose purpose) {
+        return new EmailSendLog(emailHash, purpose);
     }
 }

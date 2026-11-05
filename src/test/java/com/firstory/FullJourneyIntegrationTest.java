@@ -37,24 +37,24 @@ class FullJourneyIntegrationTest extends IntegrationTest {
     @Test
     void 가입부터_함께_읽기와_로그아웃까지() throws Exception {
         String email = newEmail();
-        String phone = newPhone();
 
-        // 1. CSRF → 문자 인증 → 가입 → 내 정보
+        // 1. CSRF → 이메일 인증 → 가입 → 내 정보
         Browser parent = new Browser(mockMvc);
         parent.get("/api/auth/csrf").andExpect(status().isNoContent());
         assertThat(parent.hasCookie(Browser.XSRF)).isTrue();
-        parent.post("/api/auth/phone/send-code", """
-                {"phone": "%s", "purpose": "SIGNUP"}""".formatted(phone))
+        parent.post("/api/auth/email/send-code", """
+                {"email": "%s", "purpose": "SIGNUP"}""".formatted(email))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.expiresInSeconds").value(180));
-        parent.post("/api/auth/phone/verify", """
-                {"phone": "%s", "code": "%s"}""".formatted(phone, sms.lastCode(phone)))
+                .andExpect(jsonPath("$.expiresInSeconds").value(300));
+        parent.post("/api/auth/email/verify", """
+                {"email": "%s", "code": "%s"}""".formatted(email, mail.lastCode(email)))
                 .andExpect(status().isNoContent());
-        parent.post("/api/auth/signup", signupJson(email, phone, allConsents())).andExpect(status().isCreated());
+        parent.post("/api/auth/signup", signupJson(email, allConsents())).andExpect(status().isCreated());
         parent.get("/api/me")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value(email))
-                .andExpect(jsonPath("$.phoneMasked").value(phone.substring(0, 4) + "****" + phone.substring(8)))
+                .andExpect(jsonPath("$.hasPassword").value(true))
+                .andExpect(jsonPath("$.kakaoLinked").value(false))
                 .andExpect(jsonPath("$.onboardingSeen").value(false));
         parent.post("/api/me/onboarding-seen", null).andExpect(status().isNoContent());
 

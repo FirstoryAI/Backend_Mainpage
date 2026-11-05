@@ -1,5 +1,6 @@
 package com.firstory.support;
 
+import com.firstory.global.kakao.FakeKakaoClient;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,8 +25,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 실제 Security 필터, Spring Session JDBC, Flyway V1~V5가 모두 적용된 상태에서 도는 통합 테스트의 기반.
- * 테스트마다 다른 이메일과 번호를 써서 서로 영향을 주지 않는다.
+ * 실제 Security 필터, Spring Session JDBC, Flyway 마이그레이션이 모두 적용된 상태에서 도는 통합 테스트의 기반.
+ * 테스트마다 다른 이메일을 써서 서로 영향을 주지 않는다. 메일은 RecordingEmailSender, 카카오는 FakeKakaoClient.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -53,8 +54,8 @@ public abstract class IntegrationTest {
 
         @Bean
         @Primary
-        RecordingSmsSender recordingSmsSender() {
-            return new RecordingSmsSender();
+        RecordingEmailSender recordingEmailSender() {
+            return new RecordingEmailSender();
         }
     }
 
@@ -65,7 +66,10 @@ public abstract class IntegrationTest {
     protected MutableClock clock;
 
     @Autowired
-    protected RecordingSmsSender sms;
+    protected RecordingEmailSender mail;
+
+    @Autowired
+    protected FakeKakaoClient kakao;
 
     @Autowired
     protected JdbcTemplate jdbc;
@@ -73,6 +77,7 @@ public abstract class IntegrationTest {
     @BeforeEach
     void resetClock() {
         clock.setInstant(systemNow());
+        mail.failWith(null);
     }
 
     // timestamptz는 마이크로초까지 반올림해 저장한다. 시계도 마이크로초에 맞춰야 경계 시각(정확히 15분 뒤 등) 비교가 흔들리지 않는다
@@ -88,42 +93,41 @@ public abstract class IntegrationTest {
         return "parent" + ThreadLocalRandom.current().nextLong(1_000_000_000L) + "@example.com";
     }
 
-    protected static String newPhone() {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-        return "010-%04d-%04d".formatted(random.nextInt(10_000), random.nextInt(10_000));
-    }
-
-    protected void sendCode(Browser browser, String phone, String purpose) throws Exception {
-        browser.post("/api/auth/phone/send-code", """
-                {"phone": "%s", "purpose": "%s"}""".formatted(phone, purpose))
+    protected void sendCode(Browser browser, String email, String purpose) throws Exception {
+        browser.post("/api/auth/email/send-code", """
+                {"email": "%s", "purpose": "%s"}""".formatted(email, purpose))
                 .andExpect(status().isOk());
     }
 
-    protected void verifyPhone(Browser browser, String phone, String purpose) throws Exception {
-        sendCode(browser, phone, purpose);
-        browser.post("/api/auth/phone/verify", """
-                {"phone": "%s", "code": "%s"}""".formatted(phone, sms.lastCode(phone)))
+    protected void verifyEmail(Browser browser, String email, String purpose) throws Exception {
+        sendCode(browser, email, purpose);
+        browser.post("/api/auth/email/verify", """
+                {"email": "%s", "code": "%s"}""".formatted(email, mail.lastCode(email)))
                 .andExpect(status().isNoContent());
     }
 
-    protected static String signupJson(String email, String phone, String consents) {
+    protected static String signupJson(String email, String consents) {
         return """
-                {"email": "%s", "password": "%s", "phone": "%s", "consents": %s, "termsVersion": "2026-10-01"}"""
-                .formatted(email, PASSWORD, phone, consents);
+                {"email": "%s", "password": "%s", "consents": %s, "termsVersion": "2026-10-01"}"""
+                .formatted(email, PASSWORD, consents);
     }
 
     protected static String allConsents() {
         return """
-                {"GUARDIAN": true, "TERMS": true, "PRIVACY": true, "SMS_NOTIFY": false}""";
+                {"GUARDIAN": true, "TERMS": true, "PRIVACY": true, "EMAIL_NOTIFY": false}""";
     }
 
     /**
-     * 문자 인증부터 가입까지 마친 브라우저. 가입 직후 로그인된 상태다.
+     * 이메일 인증부터 가입까지 마친 브라우저. 가입 직후 로그인된 상태다.
      */
-    protected Browser signUp(String email, String phone) throws Exception {
+    protected Browser signUp(String email) throws Exception {
+        return signUp(email, allConsents());
+    }
+
+    protected Browser signUp(String email, String consents) throws Exception {
         Browser browser = browser();
-        verifyPhone(browser, phone, "SIGNUP");
-        browser.post("/api/auth/signup", signupJson(email, phone, allConsents()))
+        verifyEmail(browser, email, "SIGNUP");
+        browser.post("/api/auth/signup", signupJson(email, consents))
                 .andExpect(status().isCreated());
         return browser;
     }

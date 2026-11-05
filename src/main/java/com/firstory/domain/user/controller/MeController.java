@@ -1,10 +1,8 @@
 package com.firstory.domain.user.controller;
 
-import com.firstory.domain.auth.service.PhoneVerificationService;
 import com.firstory.domain.user.dto.ChangePasswordRequest;
-import com.firstory.domain.user.dto.ChangePhoneRequest;
+import com.firstory.domain.user.dto.EmailNotifyRequest;
 import com.firstory.domain.user.dto.MeResponse;
-import com.firstory.domain.user.dto.SmsNotifyRequest;
 import com.firstory.domain.user.dto.WithdrawRequest;
 import com.firstory.domain.user.service.MeService;
 import com.firstory.global.security.JsonRememberMeServices;
@@ -32,7 +30,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 비밀번호 변경, 휴대폰 변경, 탈퇴는 현재 비밀번호를 다시 받는다.
+ * 비밀번호 변경과 탈퇴는 현재 비밀번호를 다시 받는다 (비밀번호가 없는 카카오 회원의 탈퇴는 받지 않는다).
  */
 @Tag(name = "내 정보", description = "로그인 필요")
 @ApiErrorCodes(ErrorCode.UNAUTHORIZED)
@@ -42,12 +40,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class MeController {
 
     private final MeService meService;
-    private final PhoneVerificationService phoneVerificationService;
     private final SessionRevoker sessionRevoker;
     private final LoginSuccessHandler loginSuccessHandler;
     private final JsonRememberMeServices rememberMeServices;
 
-    @Operation(summary = "내 정보", description = "휴대폰 번호는 가린 형태(010-****-5678)만 내려준다")
+    @Operation(summary = "내 정보", description = "kakaoLinked는 카카오 가입 회원, hasPassword가 false면 비밀번호 변경 대신 비밀번호 찾기로 만든다")
     @GetMapping
     public MeResponse me(@AuthenticationPrincipal UserPrincipal principal) {
         return meService.getMe(principal.getUserId());
@@ -60,22 +57,23 @@ public class MeController {
         meService.markOnboardingSeen(principal.getUserId());
     }
 
-    @Operation(summary = "문자 알림 동의 바꾸기", description = "동의하면 새 동의 기록을 남기고, 철회하면 최신 기록에 철회 시각을 남긴다. 응답 204")
+    @Operation(summary = "이메일 알림 동의 바꾸기", description = "동의하면 새 동의 기록을 남기고, 철회하면 최신 기록에 철회 시각을 남긴다. 응답 204")
     @ApiErrorCodes(ErrorCode.VALIDATION_FAILED)
-    @PutMapping("/consents/sms-notify")
+    @PutMapping("/consents/email-notify")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void smsNotify(@AuthenticationPrincipal UserPrincipal principal,
-                          @Valid @RequestBody SmsNotifyRequest request) {
-        meService.changeSmsNotify(principal.getUserId(), request.agreed());
+    public void emailNotify(@AuthenticationPrincipal UserPrincipal principal,
+                            @Valid @RequestBody EmailNotifyRequest request) {
+        meService.changeEmailNotify(principal.getUserId(), request.agreed());
     }
 
     /**
      * 모든 기기의 세션과 remember-me 토큰을 지운다. 지금 기기만 새 세션으로 다시 로그인한다 (remember-me는 새로 발급하지 않음).
      */
     @Operation(summary = "비밀번호 변경",
-            description = "현재 비밀번호를 다시 받는다. 바꾸면 모든 기기의 로그인이 끊기고 지금 기기만 다시 로그인된다. 응답 204")
-    @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.CURRENT_PASSWORD_MISMATCH, ErrorCode.INVALID_PASSWORD_FORMAT,
-            ErrorCode.SAME_AS_OLD_PASSWORD})
+            description = "현재 비밀번호를 다시 받는다. 바꾸면 모든 기기의 로그인이 끊기고 지금 기기만 다시 로그인된다. "
+                    + "비밀번호가 없는 카카오 회원은 PASSWORD_NOT_SET (비밀번호 찾기로 만든다). 응답 204")
+    @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.PASSWORD_NOT_SET, ErrorCode.CURRENT_PASSWORD_MISMATCH,
+            ErrorCode.INVALID_PASSWORD_FORMAT, ErrorCode.SAME_AS_OLD_PASSWORD})
     @PostMapping("/password")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void changePassword(@AuthenticationPrincipal UserPrincipal principal,
@@ -89,19 +87,8 @@ public class MeController {
                 httpRequest, httpResponse);
     }
 
-    @Operation(summary = "휴대폰 번호 변경",
-            description = "현재 비밀번호와, 같은 세션에서 purpose CHANGE_PHONE으로 마친 휴대폰 인증이 필요하다. 응답 204")
-    @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.CURRENT_PASSWORD_MISMATCH, ErrorCode.INVALID_PHONE_FORMAT,
-            ErrorCode.PHONE_NOT_VERIFIED, ErrorCode.DUPLICATE_PHONE})
-    @PostMapping("/phone")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void changePhone(@AuthenticationPrincipal UserPrincipal principal,
-                            @Valid @RequestBody ChangePhoneRequest request, HttpSession session) {
-        meService.changePhone(principal.getUserId(), request.currentPassword(), request.phone(), session);
-        phoneVerificationService.clearVerified(session);
-    }
-
-    @Operation(summary = "탈퇴", description = "현재 비밀번호를 다시 받는다. 모든 기기의 로그인이 끊긴다. 응답 204")
+    @Operation(summary = "탈퇴",
+            description = "현재 비밀번호를 다시 받는다(비밀번호가 없는 카카오 회원은 받지 않는다). 모든 기기의 로그인이 끊긴다. 응답 204")
     @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.CURRENT_PASSWORD_MISMATCH})
     @PostMapping("/withdraw")
     @ResponseStatus(HttpStatus.NO_CONTENT)

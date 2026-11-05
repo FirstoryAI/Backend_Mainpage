@@ -28,8 +28,7 @@ public final class Fixtures {
     }
 
     public static User user(String email) {
-        String unique = UUID.randomUUID().toString().replace("-", "");
-        return User.signUp(email, "$2a$10$hash", "enc-" + unique, (unique + unique).substring(0, 64), NOW);
+        return User.signUp(email, "$2a$10$hash", NOW);
     }
 
     public static User user() {

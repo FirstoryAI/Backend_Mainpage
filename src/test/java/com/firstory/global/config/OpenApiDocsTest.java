@@ -105,8 +105,8 @@ class OpenApiDocsTest extends IntegrationTest {
         JsonNode consents = schemas().path("SignupRequest").path("properties").path("consents");
 
         assertThat(consents.path("example").isObject()).as("문자열이 아닌 JSON 객체 예시").isTrue();
-        assertThat(names(consents.path("example"))).containsExactly("GUARDIAN", "TERMS", "PRIVACY", "SMS_NOTIFY");
-        assertThat(consents.path("description").asString()).contains("GUARDIAN", "SMS_NOTIFY");
+        assertThat(names(consents.path("example"))).containsExactly("GUARDIAN", "TERMS", "PRIVACY", "EMAIL_NOTIFY");
+        assertThat(consents.path("description").asString()).contains("GUARDIAN", "EMAIL_NOTIFY");
     }
 
     /**
@@ -137,8 +137,9 @@ class OpenApiDocsTest extends IntegrationTest {
                 .as("다시 만들기는 ALL을 받지 않는다").containsExactly("CHARACTER_STORY", "TEXT", "IMAGES");
         assertThat(schemas.path("RegenerateRequest").path("properties").path("pages").path("example").isArray()).isTrue();
         assertThat(example(schemas, "ChildProfileRequest", "birthYm")).isEqualTo("2021-03");
-        for (String request : List.of("SendCodeRequest", "VerifyCodeRequest", "SignupRequest", "ChangePhoneRequest")) {
-            assertThat(example(schemas, request, "phone")).as(request).isEqualTo("010-1234-5678");
+        for (String request : List.of("SendCodeRequest", "VerifyCodeRequest", "SignupRequest", "PasswordResetRequest",
+                "KakaoSignupRequest")) {
+            assertThat(example(schemas, request, "email")).as(request).isEqualTo("parent@example.com");
         }
         assertThat(example(schemas, "VerifyCodeRequest", "code")).isEqualTo("000000");
         assertThat(example(schemas, "SignupRequest", "password")).isEqualTo("firstory123!");

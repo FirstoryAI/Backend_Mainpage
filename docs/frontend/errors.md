@@ -33,22 +33,28 @@
 | `VALIDATION_FAILED` | 400 | 입력값을 다시 확인해 주세요. | 본문·쿼리 형식이 틀린 모든 요청 (필수값 없음, 글자 수, 잘못된 enum 값 등) |
 | `UNAUTHORIZED` | 401 | 로그인이 필요해요. | 로그인이 필요한 모든 API (로그인 안 함, 세션 만료) → 로그인 화면 |
 | `FORBIDDEN` | 403 | 접근할 수 없어요. | 상태를 바꾸는 모든 요청 (POST/PUT/PATCH/DELETE)에 `X-XSRF-TOKEN`이 없거나 틀림 → `GET /api/auth/csrf` 후 다시 |
-| `INVALID_CREDENTIALS` | 401 | 이메일 또는 비밀번호가 맞지 않아요. | `POST /api/auth/login` |
+| `INVALID_CREDENTIALS` | 401 | 이메일 또는 비밀번호가 맞지 않아요. | `POST /api/auth/login` (비밀번호가 없는 카카오 회원도 같은 응답) |
 | `ACCOUNT_LOCKED` | 423 | 로그인을 여러 번 실패해서 15분 동안 잠겼어요. 잠시 후 다시 시도해 주세요. | `POST /api/auth/login` (5번 연속 실패, 15분) |
 | `INVALID_PASSWORD_FORMAT` | 400 | 비밀번호는 영문, 숫자, 특수문자를 하나씩 넣어 8~20자로 입력해 주세요. 한글과 공백은 쓸 수 없어요. | `POST /api/auth/signup`, `POST /api/me/password`, `POST /api/auth/password/reset` |
-| `CURRENT_PASSWORD_MISMATCH` | 400 | 현재 비밀번호가 맞지 않아요. | `POST /api/me/password`, `POST /api/me/phone`, `POST /api/me/withdraw` |
+| `CURRENT_PASSWORD_MISMATCH` | 400 | 현재 비밀번호가 맞지 않아요. | `POST /api/me/password`, `POST /api/me/withdraw` |
 | `SAME_AS_OLD_PASSWORD` | 400 | 지금 쓰는 비밀번호와 다른 비밀번호를 입력해 주세요. | `POST /api/me/password`, `POST /api/auth/password/reset` |
-| `SMS_RATE_LIMITED` | 429 | 인증번호를 너무 많이 요청했어요. 1시간 후 다시 시도해 주세요. | `POST /api/auth/phone/send-code` |
-| `SMS_RESEND_TOO_SOON` | 429 | 인증번호는 1분 뒤에 다시 받을 수 있어요. | `POST /api/auth/phone/send-code` |
-| `VERIFICATION_CODE_MISMATCH` | 400 | 인증번호가 맞지 않아요. | `POST /api/auth/phone/verify` |
-| `VERIFICATION_EXPIRED` | 400 | 인증번호가 만료됐어요. 다시 받아 주세요. | `POST /api/auth/phone/verify` (3분 지남, 다른 번호, 받은 적 없음) |
-| `VERIFICATION_ATTEMPTS_EXCEEDED` | 429 | 인증번호를 5번 틀렸어요. 인증번호를 다시 받아 주세요. | `POST /api/auth/phone/verify` (5번 틀림 → 다시 받기) |
-| `PHONE_NOT_VERIFIED` | 400 | 휴대폰 인증을 먼저 해 주세요. | `POST /api/auth/signup`, `POST /api/me/phone`, `POST /api/auth/password/reset` (인증 안 함, 10분 지남, 다른 세션, 다른 purpose로 인증) |
-| `REQUIRED_CONSENT_MISSING` | 400 | 필수 항목에 모두 동의해야 가입할 수 있어요. | `POST /api/auth/signup` |
-| `INVALID_PHONE_FORMAT` | 400 | 010-0000-0000 형식으로 입력해 주세요. | `send-code`, `verify`, `signup`, `POST /api/me/phone` |
+| `PASSWORD_NOT_SET` | 400 | 비밀번호가 없는 카카오 계정이에요. 비밀번호 찾기에서 비밀번호를 만들 수 있어요. | `POST /api/me/password` (카카오로만 가입, `me.hasPassword`가 false) → 비밀번호 찾기로 |
+| `VERIFICATION_RATE_LIMITED` | 429 | 인증번호를 너무 많이 요청했어요. 1시간 후 다시 시도해 주세요. | `POST /api/auth/email/send-code` (같은 이메일 1시간에 6번째부터) |
+| `VERIFICATION_RESEND_TOO_SOON` | 429 | 인증번호는 1분 뒤에 다시 받을 수 있어요. | `POST /api/auth/email/send-code` |
+| `EMAIL_SEND_FAILED` | 503 | 인증 메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요. | `POST /api/auth/email/send-code` (메일 서버 장애. 인증번호는 남지 않는다) |
+| `VERIFICATION_CODE_MISMATCH` | 400 | 인증번호가 맞지 않아요. | `POST /api/auth/email/verify` |
+| `VERIFICATION_EXPIRED` | 400 | 인증번호가 만료됐어요. 다시 받아 주세요. | `POST /api/auth/email/verify` (5분 지남, 다른 이메일, 받은 적 없음) |
+| `VERIFICATION_ATTEMPTS_EXCEEDED` | 429 | 인증번호를 5번 틀렸어요. 인증번호를 다시 받아 주세요. | `POST /api/auth/email/verify` (5번 틀림 → 다시 받기) |
+| `EMAIL_NOT_VERIFIED` | 400 | 이메일 인증을 먼저 해 주세요. | `POST /api/auth/signup`, `POST /api/auth/kakao/signup`, `POST /api/auth/password/reset` (인증 안 함, 10분 지남, 다른 세션, 다른 이메일·purpose로 인증) |
+| `REQUIRED_CONSENT_MISSING` | 400 | 필수 항목에 모두 동의해야 가입할 수 있어요. | `POST /api/auth/signup`, `POST /api/auth/kakao/signup` |
 | `EMAIL_CHECK_RATE_LIMITED` | 429 | 이메일 확인을 너무 많이 했어요. 1분 후 다시 시도해 주세요. | `POST /api/auth/email/check` (같은 IP에서 1분에 11번째부터) |
-| `DUPLICATE_EMAIL` | 409 | 이미 가입된 이메일이에요. | `POST /api/auth/signup` (`email/check`에서 미리 봐도 그사이 누가 가입했을 수 있다) |
-| `DUPLICATE_PHONE` | 409 | 이미 가입된 휴대폰 번호예요. | `send-code`(SIGNUP), `signup`, `POST /api/me/phone` |
+| `DUPLICATE_EMAIL` | 409 | 이미 가입된 이메일이에요. | `send-code`(SIGNUP), `POST /api/auth/signup` (`email/check`에서 미리 봐도 그사이 누가 가입했을 수 있다) |
+| `KAKAO_LOGIN_FAILED` | 400 | 카카오 로그인에 실패했어요. 카카오 로그인을 다시 해 주세요. | `POST /api/auth/kakao/login` (code 만료·재사용, redirectUri 불일치) → 카카오 로그인부터 다시 |
+| `INVALID_KAKAO_REDIRECT_URI` | 400 | 등록되지 않은 카카오 로그인 주소예요. | `POST /api/auth/kakao/login` (서버 `KAKAO_REDIRECT_URIS`에 없는 redirectUri. 개발 설정 문제) |
+| `KAKAO_UNAVAILABLE` | 503 | 카카오가 잠시 응답하지 않아요. 잠시 후 다시 시도해 주세요. | `POST /api/auth/kakao/login` |
+| `KAKAO_SIGNUP_EXPIRED` | 400 | 카카오 가입 시간이 지났어요. 카카오 로그인을 다시 해 주세요. | `POST /api/auth/kakao/signup` (카카오 로그인 없이, 다른 세션, 10분 지남) |
+| `KAKAO_EMAIL_REGISTERED` | 409 | 이미 이메일로 가입한 계정이 있어요. 이메일과 비밀번호로 로그인해 주세요. | `POST /api/auth/kakao/login`, `kakao/signup` (같은 이메일의 이메일 회원이 있다. 계정을 합치지 않는다) → 이메일 로그인 화면 |
+| `KAKAO_ACCOUNT_REGISTERED` | 409 | 이미 가입한 카카오 계정이에요. 카카오 로그인을 다시 해 주세요. | `POST /api/auth/kakao/signup` (다른 기기에서 먼저 가입했다) |
 | `INTERESTS_LIMIT_EXCEEDED` | 400 | 좋아하는 것은 고른 것과 직접 입력을 합쳐 5개까지예요. | `POST/PUT /api/children`, `PUT /api/stories/{id}/child` |
 | `CUSTOM_VALUE_REQUIRED` | 400 | 기타를 고르면 내용을 직접 입력해 주세요. | `POST/PUT /api/children`, `PUT /api/stories/{id}/child`, `PUT /api/stories/{id}/situation` |
 | `CUSTOM_VALUE_TOO_LONG` | 400 | 직접 입력은 {n}자까지 쓸 수 있어요. | 같은 곳. `{n}` 자리에 항목별 글자 수가 채워져 온다 (성향 20, 좋아하는 것 20, 상황 분류·반응 30) |

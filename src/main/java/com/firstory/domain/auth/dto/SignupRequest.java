@@ -13,19 +13,16 @@ public record SignupRequest(
         @NotBlank(message = "이메일을 입력해 주세요.")
         @Email(message = "이메일 형식으로 입력해 주세요.")
         @Size(max = 255, message = "이메일은 255자까지 입력할 수 있어요.")
+        @Schema(description = "같은 세션에서 purpose SIGNUP으로 인증을 마친 이메일", example = "parent@example.com")
         String email,
 
         @NotBlank(message = "비밀번호를 입력해 주세요.")
         @Schema(description = "8~20자, 영문·숫자·특수문자 각각 1개 이상. 특수문자는 !@#$%^&*()_+-=[]{}:;,.?/\\ 만, 한글·공백 불가", example = "firstory123!")
         String password,
 
-        @NotBlank(message = "휴대폰 번호를 입력해 주세요.")
-        @Schema(example = "010-1234-5678")
-        String phone,
-
-        @Schema(description = "동의 항목별 동의 여부. GUARDIAN, TERMS, PRIVACY는 필수(true), SMS_NOTIFY는 선택. "
+        @Schema(description = "동의 항목별 동의 여부. GUARDIAN, TERMS, PRIVACY는 필수(true), EMAIL_NOTIFY는 선택. "
                 + "다른 키는 VALIDATION_FAILED",
-                example = "{\"GUARDIAN\": true, \"TERMS\": true, \"PRIVACY\": true, \"SMS_NOTIFY\": false}")
+                example = "{\"GUARDIAN\": true, \"TERMS\": true, \"PRIVACY\": true, \"EMAIL_NOTIFY\": false}")
         Map<ConsentType, Boolean> consents,
 
         @NotBlank(message = "약관 버전이 없어요.")

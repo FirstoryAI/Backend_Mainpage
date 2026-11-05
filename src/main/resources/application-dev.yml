@@ -3,8 +3,9 @@
 #
 # 프론트가 진짜에 가까운 환경에서 붙여 보는 서버다. 운영(prod)이 아니다.
 # - Swagger 켬 (application.yml의 on-profile: local | dev 문서)
-# - 가짜 AI (local 예시값과 같은 속도), 문자는 보내지 않고 로그만 (LoggingSmsSender)
-# - 고정 인증번호 000000. 누구나 아무 번호로 가입할 수 있으니 실제 개인정보를 넣지 않는다
+# - 가짜 AI (local 예시값과 같은 속도). 진짜 AI 워커를 붙이면 AI_MODE=http
+# - 메일은 기본으로 보내지 않고 로그만 (MAIL_MODE=log). Gmail로 보내려면 MAIL_MODE=smtp와 MAIL_USERNAME, MAIL_PASSWORD
+# - 고정 인증번호 000000 (MAIL_MODE=log일 때만. smtp로 실제 메일을 보내면 무작위 번호). log면 누구나 아무 이메일로 가입할 수 있으니 실제 개인정보를 넣지 않는다
 
 spring:
   datasource:
@@ -14,12 +15,14 @@ spring:
     password: ${DB_PASSWORD}
 
 firstory:
-  crypto:
-    # application.yml의 기본값은 저장소에 공개된 로컬용이다. dev는 반드시 새로 만든 값을 넣는다 (없으면 기동 실패)
-    phone-aes-key: ${PHONE_AES_KEY}
-    phone-hmac-key: ${PHONE_HMAC_KEY}
   auth:
+    # application.yml의 기본값은 저장소에 공개된 로컬용이다. dev는 반드시 새로 만든 값을 넣는다 (없으면 기동 실패)
     remember-me-key: ${REMEMBER_ME_KEY}
+    local-fixed-code: "000000"   # 이메일 인증번호. local, dev에서만 허용. 다른 프로필에 넣으면 기동 실패
+  mail:
+    mode: ${MAIL_MODE:log}
+  kakao:
+    mode: ${KAKAO_MODE:http}     # KAKAO_REST_API_KEY 필요. 카카오 없이 띄우려면 KAKAO_MODE=fake
   ai:
     mode: ${AI_MODE:fake}
     fake:                     # local 예시값과 같다 (docs/frontend/fake-ai.md)
@@ -27,7 +30,5 @@ firstory:
       safety-delay: 1s
       stage-duration: 40s     # 생성 약 2분 40초
       turns: 0                # 동화마다 질문 1~15개
-  sms:
-    local-fixed-code: "000000"   # local, dev에서만 허용. 다른 프로필에 넣으면 기동 실패
   web:
     cookie-secure: ${COOKIE_SECURE:true}   # Railway는 HTTPS로 서비스한다

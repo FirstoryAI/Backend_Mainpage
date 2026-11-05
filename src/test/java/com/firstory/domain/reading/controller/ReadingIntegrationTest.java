@@ -70,7 +70,7 @@ class ReadingIntegrationTest extends IntegrationTest {
 
     @BeforeEach
     void signUpParent() throws Exception {
-        parent = signUp(newEmail(), newPhone());
+        parent = signUp(newEmail());
     }
 
     @Test
@@ -113,7 +113,7 @@ class ReadingIntegrationTest extends IntegrationTest {
     @Test
     void 다른_회원의_가이드는_404() throws Exception {
         long id = StoryFlow.completed(parent, poller);
-        Browser other = signUp(newEmail(), newPhone());
+        Browser other = signUp(newEmail());
 
         other.get("/api/stories/" + id + "/guide").andExpect(status().isNotFound());
     }
@@ -299,7 +299,7 @@ class ReadingIntegrationTest extends IntegrationTest {
         long id = StoryFlow.completed(parent, poller);
         long sessionId = startSession(id);
         long promptId = promptIds(currentVersionId(id)).getFirst();
-        Browser other = signUp(newEmail(), newPhone());
+        Browser other = signUp(newEmail());
 
         other.put("/api/reading-sessions/" + sessionId + "/progress", "{\"page\": 2}")
                 .andExpect(status().isNotFound())
