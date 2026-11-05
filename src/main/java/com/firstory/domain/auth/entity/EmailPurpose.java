@@ -1,7 +1,6 @@
 package com.firstory.domain.auth.entity;
 
-public enum SmsPurpose {
+public enum EmailPurpose {
     SIGNUP,
-    CHANGE_PHONE,
     PASSWORD_RESET
 }

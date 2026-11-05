@@ -27,7 +27,7 @@ class UnreadableBodyIntegrationTest extends IntegrationTest {
     @Test
     void 모르는_Map_키는_그_Map_필드이고_키는_응답에_없다(CapturedOutput output) throws Exception {
         String body = """
-                {"email": "a@example.com", "password": "firstory123!", "phone": "010-1234-5678",
+                {"email": "a@example.com", "password": "firstory123!",
                  "consents": {"GUARDIAN": true, "%s": true}, "termsVersion": "2026-10-01"}""".formatted(RAW);
 
         assertField(browser().post("/api/auth/signup", body), "consents", "알 수 없는 항목이 있어요.", output);
@@ -44,14 +44,14 @@ class UnreadableBodyIntegrationTest extends IntegrationTest {
     @Test
     void 없는_enum_값은_그_필드(CapturedOutput output) throws Exception {
         String body = """
-                {"phone": "010-1234-5678", "purpose": "%s"}""".formatted(RAW);
+                {"email": "a@example.com", "purpose": "%s"}""".formatted(RAW);
 
-        assertField(browser().post("/api/auth/phone/send-code", body), "purpose", "고를 수 없는 값이에요.", output);
+        assertField(browser().post("/api/auth/email/send-code", body), "purpose", "고를 수 없는 값이에요.", output);
     }
 
     @Test
     void 안쪽_객체와_목록의_enum은_경로와_순번(CapturedOutput output) throws Exception {
-        Browser parent = signUp(newEmail(), newPhone());
+        Browser parent = signUp(newEmail());
         String body = """
                 {"birthYm": "2021-03", "gender": "FEMALE", "traits": ["SHY", "%s"]}""".formatted(RAW);
 
@@ -67,7 +67,7 @@ class UnreadableBodyIntegrationTest extends IntegrationTest {
 
     @Test
     void 타입이_틀리면_형식이_맞지_않아요(CapturedOutput output) throws Exception {
-        Browser parent = signUp(newEmail(), newPhone());
+        Browser parent = signUp(newEmail());
         long storyId = newStory(parent);
 
         assertField(parent.put("/api/stories/" + storyId + "/current-version", """

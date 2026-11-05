@@ -34,10 +34,6 @@ springdoc:
     enabled: false
 
 firstory:
-  crypto:
-    # 32바이트 Base64. 아래 기본값은 로컬 개발용이다. 운영은 반드시 환경 변수로 넣는다
-    phone-aes-key: ${PHONE_AES_KEY:LlNjGbl6PF959ZAmeT0cgo7fB8RzybmscK7lwJIujzA=}
-    phone-hmac-key: ${PHONE_HMAC_KEY:Chg1Q+ecsxbaP3RFwbIYhmQvksrUc1XG03McsuGB+Jk=}
   story:
     page-count: 10                              # 동화 쪽수. DB에는 상한을 두지 않는다
   policy:
@@ -71,6 +67,18 @@ firstory:
   auth:
     # 아래 기본값은 로컬 개발용이다. 운영은 반드시 환경 변수로 넣는다
     remember-me-key: ${REMEMBER_ME_KEY:local-remember-me-key-change-me}
+  mail:
+    mode: ${MAIL_MODE:smtp}                     # smtp | log. log(보내지 않고 로그로만)는 local, test, dev 프로필에서만
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}                      # STARTTLS
+    username: ${MAIL_USERNAME:}                 # Gmail이면 팀 계정 주소. smtp면 필수
+    password: ${MAIL_PASSWORD:}                 # Gmail 앱 비밀번호(16자리). smtp면 필수
+    from: ${MAIL_FROM:}                         # 보내는 주소. 비우면 username
+  kakao:
+    mode: ${KAKAO_MODE:http}                    # http | fake. local, test 프로필은 fake (카카오 없이)
+    rest-api-key: ${KAKAO_REST_API_KEY:}        # 카카오 디벨로퍼스 REST API 키. http면 필수
+    client-secret: ${KAKAO_CLIENT_SECRET:}      # [카카오 로그인 → 보안] Client Secret을 켰을 때만
+    redirect-uris: ${KAKAO_REDIRECT_URIS:}      # 프론트가 쓰는 redirect_uri (카카오에 등록한 것). 쉼표로 구분. 비우면 검사하지 않음
 
 ---
 # local, dev 프로필 전용: Swagger UI (/swagger-ui/index.html), API 문서 (/v3/api-docs)
@@ -96,6 +104,10 @@ spring:
       on-profile: test
 firstory:
   ai:
+    mode: fake
+  mail:
+    mode: log
+  kakao:
     mode: fake
   generation:
     poll-enabled: false

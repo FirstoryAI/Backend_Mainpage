@@ -20,11 +20,10 @@ set -u
 BASE_URL="${BASE_URL:-http://localhost:8081}"
 GENERATION_TIMEOUT="${GENERATION_TIMEOUT:-300}"
 AI_MODE="${AI_MODE:-fake}"
-CODE="000000"   # application-local.yml의 firstory.sms.local-fixed-code
+CODE="000000"   # application-local.yml의 firstory.auth.local-fixed-code (mail.mode: log)
 PASSWORD="firstory123!"
 RUN_ID="$(date +%s)$RANDOM"
 EMAIL="smoke${RUN_ID}@example.com"
-PHONE="010-$(printf '%04d' $((RANDOM % 10000)))-$(printf '%04d' $((RANDOM % 10000)))"
 
 WORK="$(mktemp -d)"
 JAR="$WORK/cookies.txt"
@@ -119,10 +118,10 @@ wait_for_reviewing() {
 }
 
 echo "FIRSTORY smoke test → $BASE_URL"
-echo "  email=$EMAIL phone=010-****-${PHONE: -4}"
+echo "  email=$EMAIL"
 echo
 
-# 1. CSRF, 문자 인증, 가입, 내 정보
+# 1. CSRF, 이메일 인증, 가입, 내 정보
 step "서버 응답과 CSRF 토큰 (GET /api/auth/csrf)"
 call GET /api/auth/csrf
 [ "$STATUS" != "000" ] || fail "서버에 연결할 수 없어요. bootRun으로 local 서버를 먼저 띄워요"
@@ -136,19 +135,19 @@ BODY="$(cat "$BODY_FILE")"
 expect 403
 ok
 
-step "인증번호 받기 (send-code)"
-call POST /api/auth/phone/send-code "{\"phone\":\"$PHONE\",\"purpose\":\"SIGNUP\"}"
+step "이메일 인증번호 받기 (send-code)"
+call POST /api/auth/email/send-code "{\"email\":\"$EMAIL\",\"purpose\":\"SIGNUP\"}"
 expect 200
-contains '"expiresInSeconds":180'
+contains '"expiresInSeconds":300'
 ok
 
 step "고정 인증번호 $CODE 확인 (verify)"
-call POST /api/auth/phone/verify "{\"phone\":\"$PHONE\",\"code\":\"$CODE\"}"
+call POST /api/auth/email/verify "{\"email\":\"$EMAIL\",\"code\":\"$CODE\"}"
 expect 204
 ok
 
 step "가입 (signup)"
-call POST /api/auth/signup "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\",\"phone\":\"$PHONE\",\"consents\":{\"GUARDIAN\":true,\"TERMS\":true,\"PRIVACY\":true,\"SMS_NOTIFY\":true},\"termsVersion\":\"2026-10-01\"}"
+call POST /api/auth/signup "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\",\"consents\":{\"GUARDIAN\":true,\"TERMS\":true,\"PRIVACY\":true,\"EMAIL_NOTIFY\":true},\"termsVersion\":\"2026-10-01\"}"
 expect 201
 ok
 
@@ -156,7 +155,7 @@ step "내 정보 (GET /api/me)"
 call GET /api/me
 expect 200
 contains "\"email\":\"$EMAIL\""
-contains '"phoneMasked":"010-****-'
+contains '"hasPassword":true'
 ok
 
 # 2. 아이 프로필

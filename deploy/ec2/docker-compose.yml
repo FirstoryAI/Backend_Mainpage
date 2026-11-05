@@ -50,14 +50,22 @@ services:
       ai:
         condition: service_started
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}   # prod는 문자 발송 구현이 없어 아직 못 뜬다
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
       DB_URL: jdbc:postgresql://postgres:5432/firstory
       DB_USERNAME: firstory
       DB_PASSWORD: ${POSTGRES_PASSWORD}
-      # 키 세 개는 Railway와 같은 값을 쓴다. 다르면 옮긴 회원의 휴대폰 번호·로그인 유지가 깨진다
-      PHONE_AES_KEY: ${PHONE_AES_KEY:?PHONE_AES_KEY를 .env에 넣어 주세요}
-      PHONE_HMAC_KEY: ${PHONE_HMAC_KEY:?PHONE_HMAC_KEY를 .env에 넣어 주세요}
+      # Railway와 같은 값을 쓴다. 다르면 로그인 유지(FREMEMBER) 토큰이 모두 무효가 된다
       REMEMBER_ME_KEY: ${REMEMBER_ME_KEY:?REMEMBER_ME_KEY를 .env에 넣어 주세요}
+      # 인증번호·알림 메일. smtp면 팀 Gmail 계정과 앱 비밀번호가 필요하다 (log는 보내지 않고 로그만, 인증번호 000000)
+      MAIL_MODE: ${MAIL_MODE:-smtp}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      # 카카오 로그인. REST API 키가 없으면 기동하지 않는다 (카카오 없이 띄우려면 KAKAO_MODE=fake)
+      KAKAO_MODE: ${KAKAO_MODE:-http}
+      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
+      KAKAO_REDIRECT_URIS: ${KAKAO_REDIRECT_URIS:-}
       COOKIE_SECURE: "true"
       ALLOWED_ORIGINS: ""   # 프론트(Vercel)가 /api를 프록시해서 같은 출처. 비워야 CORS 403이 안 난다
       AI_MODE: http

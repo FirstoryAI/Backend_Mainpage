@@ -24,9 +24,9 @@ import java.time.Instant;
 import java.util.Objects;
 
 /**
- * 문자 알림. 같은 실행에 같은 종류의 알림은 한 번만 보낸다 (generation_run_id, type) UNIQUE.
+ * 이메일 알림. 같은 실행에 같은 종류의 알림은 한 번만 보낸다 (generation_run_id, type) UNIQUE.
  * 다시 만들기나 재시도는 새 실행이라 다시 보낼 수 있다.
- * SMS_NOTIFY 동의 확인은 서비스의 책임이다.
+ * EMAIL_NOTIFY 동의 확인은 서비스의 책임이다.
  */
 @Getter
 @Entity

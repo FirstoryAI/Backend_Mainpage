@@ -23,6 +23,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-session-jdbc'   // 세션 저장소: PostgreSQL
+    implementation 'org.springframework.boot:spring-boot-starter-mail'           // 인증번호·알림 메일 (Gmail SMTP)
 
     // Swagger. springdoc은 Spring Boot BOM이 관리하지 않아 버전을 적는다.
     // 3.1.x가 Spring Boot 4.1 기준 (3.1.0에서 Boot 4.1.0으로 올림). Boot를 올리면 springdoc 호환 버전도 함께 확인한다

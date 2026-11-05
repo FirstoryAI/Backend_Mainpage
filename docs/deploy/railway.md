@@ -6,10 +6,11 @@ dev 프로필(`application-dev.yml`)이 하는 일:
 
 - Swagger 켬 (`/swagger-ui/index.html`)
 - 가짜 AI(`AI_MODE=fake`), 속도는 local 예시값과 같다 (인터뷰 2초, 글 검사 1초, 생성 단계당 40초, 질문 1~15개)
-- 고정 인증번호 `000000`, 문자는 보내지 않고 로그만 (`LoggingSmsSender`)
+- 메일(이메일 인증번호, 알림)은 기본으로 보내지 않고 로그만(`MAIL_MODE=log`, 인증번호 `000000`). `MAIL_MODE=smtp`면 팀 Gmail로 실제로 보내고 인증번호도 무작위
+- 카카오 로그인은 진짜 카카오(`KAKAO_MODE=http`, REST API 키 필요)
 - 쿠키 Secure (`COOKIE_SECURE` 기본 `true`)
 
-누구나 아무 번호로 가입할 수 있으니 **실제 개인정보를 넣지 않는다.**
+`MAIL_MODE=log`면 누구나 아무 이메일로 가입할 수 있으니 **실제 개인정보를 넣지 않는다.**
 
 ## 준비
 
@@ -25,13 +26,20 @@ dev 프로필(`application-dev.yml`)이 하는 일:
 
 | 환경 변수 | 필수 | 비밀값 | 설명 | dev 예시값 |
 |---|---|---|---|---|
-| `SPRING_PROFILES_ACTIVE` | 필수 | 아니오 | 프로필. 없으면 `SmsSender` 빈이 없어 기동 실패 | `dev` |
+| `SPRING_PROFILES_ACTIVE` | 필수 | 아니오 | 프로필. 없으면 메일·카카오가 운영 기본값(smtp, http)이라 그 설정이 없으면 기동 실패 | `dev` |
 | `DB_URL` | 필수 | 아니오 | JDBC 주소. Railway의 `DATABASE_URL`(`postgresql://...`)은 JDBC 형식이 아니라서 그대로 못 쓴다. dev는 기본값이 없어 비면 기동 실패 | `jdbc:postgresql://${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}` |
 | `DB_USERNAME` | 필수 | 아니오 | DB 사용자 | `${{Postgres.PGUSER}}` |
 | `DB_PASSWORD` | 필수 | **예** | DB 비밀번호 | `${{Postgres.PGPASSWORD}}` |
-| `PHONE_AES_KEY` | 필수 | **예** | 휴대폰 번호 암호화 키. Base64로 32바이트. 바꾸면 이미 저장된 번호를 못 읽는다 | `openssl rand -base64 32` 결과 |
-| `PHONE_HMAC_KEY` | 필수 | **예** | 휴대폰 번호 중복 확인용 HMAC 키. Base64. 바꾸면 같은 번호로 다시 가입된다 | `openssl rand -base64 32` 결과 |
 | `REMEMBER_ME_KEY` | 필수 | **예** | 로그인 상태 유지(`FREMEMBER`) 서명 키. 바꾸면 기존 토큰이 모두 무효 | `openssl rand -base64 32` 결과 |
+| `MAIL_MODE` | 선택 | 아니오 | `log`(dev 기본, 보내지 않고 로그만, 인증번호 `000000`) 또는 `smtp`(Gmail로 실제 발송) | `log` |
+| `MAIL_USERNAME` | `smtp`일 때 | 아니오 | SMTP 계정. 팀 Gmail 주소 | (`log`면 비움) |
+| `MAIL_PASSWORD` | `smtp`일 때 | **예** | Gmail 앱 비밀번호 16자리 (계정 2단계 인증 뒤 myaccount.google.com/apppasswords) | (`log`면 비움) |
+| `MAIL_FROM` | 선택 | 아니오 | 보내는 주소. 비우면 `MAIL_USERNAME` | (비움) |
+| `MAIL_HOST`, `MAIL_PORT` | 선택 | 아니오 | SMTP 서버. 기본 `smtp.gmail.com`, `587`(STARTTLS). Railway 요금제에 따라 SMTP 포트가 막혀 있을 수 있다 | (비움) |
+| `KAKAO_MODE` | 선택 | 아니오 | `http`(dev 기본, 진짜 카카오) 또는 `fake`(카카오 없이 가짜 회원. 실제 서비스에 쓰지 않는다) | `http` |
+| `KAKAO_REST_API_KEY` | `http`일 때 | **예** | 카카오 디벨로퍼스 [앱 키] REST API 키. 비면 기동 실패 | |
+| `KAKAO_CLIENT_SECRET` | 선택 | **예** | [카카오 로그인 → 보안] Client Secret을 켰을 때만 | (비움) |
+| `KAKAO_REDIRECT_URIS` | 선택 | 아니오 | 프론트가 보낼 수 있는 redirect URI (카카오에 등록한 것). 쉼표로 구분. 비우면 검사하지 않는다 | `https://프론트주소/oauth/kakao` |
 | `COOKIE_SECURE` | 선택 | 아니오 | 쿠키 Secure 속성. dev 기본 `true` (HTTPS) | `true` |
 | `COOKIE_DOMAIN` | 선택 | 아니오 | 쿠키 도메인. 비우면 host-only 쿠키. API와 프론트를 같은 최상위 도메인의 서브도메인으로 나눌 때만 넣는다 | (비움) |
 | `ALLOWED_ORIGINS` | 선택 | 아니오 | CORS 허용 출처. 쉼표로 구분. 비우면 CORS 설정을 등록하지 않는다. 기본 `http://localhost:5173`. 프론트가 프록시(Vite, Vercel rewrite)로 붙으면 **빈 값으로 넣는다** (변수를 지우면 기본값이 쓰인다). 프록시가 브라우저의 `Origin`을 그대로 넘겨서, 목록에 없는 출처는 403 `Invalid CORS request`가 난다 | (빈 값) |
@@ -49,9 +57,9 @@ dev 프로필(`application-dev.yml`)이 하는 일:
 | `FIRSTORY_AI_FAKE_STAGE_DURATION` | 선택 | 아니오 | 가짜 AI 생성 단계 시간. dev 기본 `40s`. 빠르게 보고 싶으면 줄인다 | `40s` |
 | `JAVA_TOOL_OPTIONS` | 선택 | 아니오 | JVM 옵션. 이미지 기본 `-XX:MaxRAMPercentage=75`. 넣으면 기본값을 덮어쓴다 | (비움) |
 
-비밀값은 저장소에 있는 로컬 기본값을 쓰지 않는다. dev는 키 세 개(`PHONE_AES_KEY`, `PHONE_HMAC_KEY`, `REMEMBER_ME_KEY`)에 기본값이 없어서 비면 기동하지 않는다.
+비밀값은 저장소에 있는 로컬 기본값을 쓰지 않는다. dev는 `REMEMBER_ME_KEY`에 기본값이 없어서 비면 기동하지 않는다. (V12부터 휴대폰 번호를 받지 않아 `PHONE_AES_KEY`, `PHONE_HMAC_KEY`는 더 쓰지 않는다.)
 
-넣지 않는 것: `firstory.sms.local-fixed-code`는 `application-dev.yml`에 이미 `000000`으로 있다. 고정 인증번호는 local, dev 프로필에서만 허용되고 다른 프로필(prod 등, 프로필 없음 포함)에 설정되면 기동이 실패한다.
+넣지 않는 것: `firstory.auth.local-fixed-code`는 `application-dev.yml`에 이미 `000000`으로 있다(`MAIL_MODE=log`일 때만 쓰인다). 고정 인증번호는 local, dev 프로필에서만 허용되고 다른 프로필(prod 등, 프로필 없음 포함)에 설정되면 기동이 실패한다.
 
 ## 그림 파일 (볼륨 또는 S3)
 
@@ -76,7 +84,7 @@ dev 프로필(`application-dev.yml`)이 하는 일:
 curl https://<서비스 주소>/api/health          # {"status":"ok"}
 ```
 
-브라우저에서 `https://<서비스 주소>/swagger-ui/index.html`을 연다. 사용 순서는 `CLAUDE.md`의 Swagger 절과 같다 (인증번호 `000000`).
+브라우저에서 `https://<서비스 주소>/swagger-ui/index.html`을 연다. 사용 순서는 `CLAUDE.md`의 Swagger 절과 같다 (`MAIL_MODE=log`면 인증번호 `000000`).
 
 ## 로컬에서 이미지 확인
 
@@ -87,14 +95,13 @@ docker run --rm -p 8082:8080 \
   -e SPRING_PROFILES_ACTIVE=dev \
   -e DB_URL=jdbc:postgresql://host.docker.internal:55432/firstory \
   -e DB_USERNAME=firstory -e DB_PASSWORD=firstory \
-  -e PHONE_AES_KEY=$(openssl rand -base64 32) \
-  -e PHONE_HMAC_KEY=$(openssl rand -base64 32) \
   -e REMEMBER_ME_KEY=$(openssl rand -base64 32) \
+  -e KAKAO_MODE=fake \
   -e COOKIE_SECURE=false \
   firstory-backend:dev
 curl http://localhost:8082/api/health
 ```
 
-Windows Git Bash에서는 `docker run` 앞에 `MSYS_NO_PATHCONV=1`을 붙인다. 붙이지 않으면 `/`로 시작하는 Base64 키를 Git Bash가 Windows 경로로 바꿔 `phone-aes-key는 Base64여야 해요`로 기동이 실패한다.
+Windows Git Bash에서는 `docker run` 앞에 `MSYS_NO_PATHCONV=1`을 붙인다. 붙이지 않으면 `/`로 시작하는 Base64 키를 Git Bash가 Windows 경로로 바꾼다.
 
-로컬 DB에 local 프로필로 가입한 회원이 있으면 키가 달라 그 회원의 휴대폰 번호는 읽지 못한다. 확인만 하고 새로 가입해서 쓴다. 로컬 http에서 Swagger로 로그인까지 해 보려면 `COOKIE_SECURE=false`로 띄운다.
+로컬 http에서 Swagger로 로그인까지 해 보려면 `COOKIE_SECURE=false`로 띄운다.

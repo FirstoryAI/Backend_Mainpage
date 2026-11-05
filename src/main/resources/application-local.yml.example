@@ -23,10 +23,25 @@ firstory:
       stage-duration: 40s     # 생성 한 단계 40초. 4단계라 약 2분 40초 뒤 검토(REVIEWING) (진짜는 3~4분)
       turns: 0                # 0이면 동화마다 질문 수가 1~15개로 달라진다 (같은 동화는 항상 같은 수). 2면 항상 3개
 
-  # 가입, 휴대폰 변경 인증번호를 항상 000000으로 (local, dev 프로필에서만 동작. 다른 프로필에 넣으면 서버가 뜨지 않는다)
-  # 지우면 무작위 번호가 서버 로그에 [SMS] ... 인증번호 123456 으로 찍힌다
-  sms:
+  # 이메일 인증번호를 항상 000000으로 (local, dev 프로필에서만 동작. 다른 프로필에 넣으면 서버가 뜨지 않는다)
+  # 지우면 무작위 번호가 서버 로그에 [MAIL] p*****@example.com ← ... 인증번호는 123456 으로 찍힌다
+  auth:
     local-fixed-code: "000000"
+
+  # 메일을 보내지 않고 로그로만. Gmail로 실제로 보내 보려면 smtp로 바꾸고 username, password(앱 비밀번호)를 넣는다
+  mail:
+    mode: log
+    # mode: smtp
+    # username: team@gmail.com
+    # password: abcdefghijklmnop
+
+  # 카카오 없이 가짜 카카오로. 아무 code로 카카오 로그인하면 kakao-{code}@example.com 회원이 된다
+  # 진짜 카카오는 http로 바꾸고 REST API 키와 redirect-uris를 넣는다
+  kakao:
+    mode: fake
+    # mode: http
+    # rest-api-key: 카카오_REST_API_키
+    # redirect-uris: http://localhost:5173/oauth/kakao
 
   # 쿠키와 출처
   web:
@@ -35,5 +50,3 @@ firstory:
     allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173}
     # cookie-secure: false
     # cookie-domain:
-  # auth:
-  #   remember-me-key: local-remember-me-key-change-me

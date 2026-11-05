@@ -22,7 +22,7 @@ class ConsentPolicyTest {
     @Test
     void 선택_항목은_동의하지_않아도_통과() {
         Map<ConsentType, Boolean> agreements = allRequired();
-        agreements.put(ConsentType.SMS_NOTIFY, false);
+        agreements.put(ConsentType.EMAIL_NOTIFY, false);
 
         assertThatCode(() -> ConsentPolicy.validateRequired(agreements)).doesNotThrowAnyException();
     }

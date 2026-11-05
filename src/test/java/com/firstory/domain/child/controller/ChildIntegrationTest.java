@@ -44,7 +44,7 @@ class ChildIntegrationTest extends IntegrationTest {
 
     @BeforeEach
     void signUpParent() throws Exception {
-        parent = signUp(newEmail(), newPhone());
+        parent = signUp(newEmail());
     }
 
     @Test
@@ -213,7 +213,7 @@ class ChildIntegrationTest extends IntegrationTest {
     @Test
     void 다른_회원의_아이는_조회_수정_호칭변경_삭제_모두_404() throws Exception {
         long othersChild = create(PROFILE);
-        Browser stranger = signUp(newEmail(), newPhone());
+        Browser stranger = signUp(newEmail());
         String url = "/api/children/" + othersChild;
 
         stranger.get(url).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("CHILD_NOT_FOUND"));

@@ -24,7 +24,7 @@ class EmailCheckIntegrationTest extends IntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.available").value(true));
 
-        signUp(email, newPhone());
+        signUp(email);
 
         browser.post(URL, body(email)).andExpect(jsonPath("$.available").value(false));
         // 가입과 같이 대소문자는 무시한다
@@ -35,7 +35,7 @@ class EmailCheckIntegrationTest extends IntegrationTest {
     @Test
     void 탈퇴한_회원의_이메일은_다시_가입할_수_있어_available_true() throws Exception {
         String email = newEmail();
-        Browser member = signUp(email, newPhone());
+        Browser member = signUp(email);
         member.post("/api/me/withdraw", """
                 {"currentPassword": "%s"}""".formatted(PASSWORD)).andExpect(status().isNoContent());
 

@@ -22,7 +22,7 @@ docker compose up -d          # 로컬 PostgreSQL
 
 빌드 결과로 커밋할 때는 `./gradlew build && git commit ...`처럼 `&&`로 잇고 **빌드 명령에 파이프(`| tail`, `| grep` 등)를 붙이지 않는다.** 파이프가 있으면 종료 코드가 마지막 명령 것이 되어 `&&`가 빌드 실패를 잡지 못한다.
 
-`SmsSender` 구현은 아직 `LoggingSmsSender`(`local`, `test`, `dev` 프로필 전용)뿐이다. 프로필 없이 띄우면 `SmsSender` 빈이 없어 기동이 실패한다 (의도된 동작. 실제 문자 대행사 연동은 아직 없다).
+프로필 없이 띄우면 메일(`firstory.mail.mode` 기본 `smtp`)과 카카오(`firstory.kakao.mode` 기본 `http`)가 운영 설정이라 `MAIL_USERNAME`·`MAIL_PASSWORD`·`KAKAO_REST_API_KEY`가 없으면 기동이 실패한다 (의도된 동작). 로컬은 `local` 프로필로 띄운다.
 
 ### 로컬 실행 (포트가 겹치는 개발 PC)
 
@@ -35,7 +35,7 @@ docker compose up -d                                                        # .e
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-`application-local.yml`은 `firstory.ai.mode: fake`라서 AI 서버 없이 뜬다(아래 "AI 호출 규칙"). 가짜 AI는 local 예시값(`firstory.ai.fake.*`)으로 진짜처럼 느리다: 인터뷰 2초, 글 검사 1초, 생성 단계당 40초(약 2분 40초), 질문 수는 동화마다 1~15개. 인증번호는 `firstory.sms.local-fixed-code`로 항상 `000000`이다. 가짜 AI가 만든 그림 파일은 `./data/storage`(`STORAGE_LOCAL_ROOT`)에 쌓인다. `data/`는 커밋하지 않는다. 지워도 되지만 지우면 이미 만든 동화의 그림은 404가 난다.
+`application-local.yml`은 `firstory.ai.mode: fake`라서 AI 서버 없이 뜬다(아래 "AI 호출 규칙"). 가짜 AI는 local 예시값(`firstory.ai.fake.*`)으로 진짜처럼 느리다: 인터뷰 2초, 글 검사 1초, 생성 단계당 40초(약 2분 40초), 질문 수는 동화마다 1~15개. 메일은 보내지 않고 로그로만(`firstory.mail.mode: log`), 이메일 인증번호는 `firstory.auth.local-fixed-code`로 항상 `000000`이다. 카카오 로그인은 가짜 카카오(`firstory.kakao.mode: fake`)라 아무 code로 `kakao-{code}@example.com` 회원이 된다. 가짜 AI가 만든 그림 파일은 `./data/storage`(`STORAGE_LOCAL_ROOT`)에 쌓인다. `data/`는 커밋하지 않는다. 지워도 되지만 지우면 이미 만든 동화의 그림은 404가 난다.
 
 `.env`와 `application-local.yml`은 커밋하지 않는다. 설정을 바꾸면 `.example` 파일도 함께 고친다.
 
@@ -43,7 +43,7 @@ docker compose up -d                                                        # .e
 
 ### 개발 서버 (dev 프로필, EC2 · Railway)
 
-`application-dev.yml`(커밋함). 루트 `Dockerfile`(Gradle bootJar → temurin 21 JRE, root 아닌 사용자)로 빌드하고 `SPRING_PROFILES_ACTIVE=dev`로 띄운다. Swagger 켬, 가짜 AI(local 예시값과 같은 속도), 고정 인증번호 `000000`, `LoggingSmsSender`, `COOKIE_SECURE` 기본 true. DB 주소와 키 세 개(`PHONE_AES_KEY`, `PHONE_HMAC_KEY`, `REMEMBER_ME_KEY`)는 기본값 없이 받아 비면 기동하지 않는다. 포트는 `SERVER_PORT` → `PORT`(Railway) → 8080. 헬스체크는 `GET /api/health`(로그인 불필요, `{"status":"ok"}`). 환경 변수 전체는 `docs/deploy/railway.md`. 환경 변수를 추가하면 그 표도 고친다. EC2는 `deploy/ec2/`의 docker compose(Postgres, Spring, AI 워커, Caddy HTTPS)로 띄우고 방법은 `docs/deploy/ec2.md`. compose의 `environment`와 `.env.example`도 함께 고친다.
+`application-dev.yml`(커밋함). 루트 `Dockerfile`(Gradle bootJar → temurin 21 JRE, root 아닌 사용자)로 빌드하고 `SPRING_PROFILES_ACTIVE=dev`로 띄운다. Swagger 켬, 가짜 AI(local 예시값과 같은 속도, EC2는 compose가 `AI_MODE=http`), 메일 `MAIL_MODE` 기본 `log`(EC2 compose는 `smtp`, 팀 Gmail), 고정 인증번호 `000000`(메일이 `log`일 때만), 카카오 `http`(`KAKAO_REST_API_KEY` 필요), `COOKIE_SECURE` 기본 true. DB 주소와 `REMEMBER_ME_KEY`는 기본값 없이 받아 비면 기동하지 않는다. 포트는 `SERVER_PORT` → `PORT`(Railway) → 8080. 헬스체크는 `GET /api/health`(로그인 불필요, `{"status":"ok"}`). 환경 변수 전체는 `docs/deploy/railway.md`. 환경 변수를 추가하면 그 표도 고친다. EC2는 `deploy/ec2/`의 docker compose(Postgres, Spring, AI 워커, Caddy HTTPS)로 띄우고 방법은 `docs/deploy/ec2.md`. compose의 `environment`와 `.env.example`도 함께 고친다.
 
 ### 프론트 전달 문서 (`docs/frontend/`)
 
@@ -57,7 +57,7 @@ docker compose up -d                                                        # .e
 
 1. `GET /api/auth/csrf`를 먼저 실행한다. 브라우저에 `XSRF-TOKEN` 쿠키가 생긴다.
 2. POST/PUT/PATCH/DELETE는 Swagger UI가 이 쿠키 값을 `X-XSRF-TOKEN` 헤더로 자동으로 붙인다(`springdoc.swagger-ui.csrf.enabled=true`). 따로 입력할 것은 없다.
-3. 가입하려면 `send-code` → `verify`(local은 고정 인증번호 `000000`. 설정을 지우면 서버 로그의 `[SMS] 010-****-1234 ← [FIRSTORY] 인증번호 123456`에서 확인) → `signup` 순서로 같은 브라우저에서 실행한다. 가입하면 바로 로그인된다.
+3. 가입하려면 `email/send-code` → `email/verify`(local은 고정 인증번호 `000000`. 설정을 지우면 서버 로그의 `[MAIL] p*****@example.com ← ... 인증번호는 123456 예요`에서 확인) → `signup` 순서로 같은 브라우저에서 실행한다. 가입하면 바로 로그인된다. 카카오는 `kakao/login`(local은 아무 code) → `SIGNUP_REQUIRED`면 `kakao/signup`.
 4. 로그인하면 `FSESSION` 쿠키로 인증된다. 이후 `/api/me`, `/api/children` 등을 바로 실행할 수 있다.
 5. 동화 만들기(CRT-01~05)는 `POST /api/stories` → `situation` → `child` → `message` → `interview/start` → `interview/answer` 순서다. local은 FakeAiClient라 동화마다 정해진 1~15번째 답변이나 `{"skip": true}`에서 인터뷰가 끝난다(CONFIRMING). 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`를 넣으면 그 위기 신호로 판단한다.
    이어서 `confirm` → `generation`(local 예시값은 단계당 40초라 약 2분 40초면 REVIEWING. `FIRSTORY_AI_FAKE_STAGE_DURATION=5s`로 띄우면 약 25초) → `preview` → 그림 API(`imageUrl`을 브라우저에서 연다) → `regenerate` → `current-version` → `approve` 순서로 확정까지 해 볼 수 있다. 전하고 싶은 말이나 답변에 `[[FAIL]]`을 넣으면 첫 생성이 실패하고(`retry`로 다시 시도), `[[OUTPUT_REVISE]]`는 결과 위기 신호로 실패, `[[PAGE_FAIL]]`은 5쪽 그림만 실패, `[[AI_DOWN]]`은 다음 AI 호출 한 번이 `AI_UNAVAILABLE`이다(`docs/frontend/fake-ai.md`).
@@ -72,9 +72,9 @@ API를 추가할 때는 `@Operation(summary = "한국어 요약")`과 `@ApiError
 ```
 com.firstory
 ├── FirstoryApplication   하위 패키지를 모두 스캔하도록 루트에 둔다
-├── global                config, entity(BaseTimeEntity), error, crypto, converter, security, sms, ai(AI 서비스 호출), storage(파일 저장소)
+├── global                config, entity(BaseTimeEntity), error, converter, security, mail(메일 발송), kakao(카카오 로그인 호출), ai(AI 서비스 호출), storage(파일 저장소)
 └── domain
-    ├── auth              문자 인증, 가입, 로그인, 문자 발송 기록
+    ├── auth              이메일 인증, 가입, 로그인, 카카오 로그인, 인증 메일 발송 기록
     ├── user              회원, 동의, 내 정보
     ├── child             아이 프로필, 성향
     ├── story             동화, 만들기 입력, 인터뷰, 상태
@@ -82,7 +82,7 @@ com.firstory
     ├── guide             대화 가이드, 대화 질문
     ├── reading           읽기 세션, 대화 버튼 기록
     ├── safety            위기 신호
-    └── notification      문자 알림
+    └── notification      이메일 알림
 ```
 
 각 도메인(`com.firstory.domain.{도메인}`) 안은 계층별로 나눈다.
@@ -129,7 +129,6 @@ com.firstory
 - 동화 상태는 반드시 `Story.changeStatus()`로만 바꾼다. 허용된 전이는 `StoryStatus`에 정의되어 있다.
 - 버전은 지우지 않는다. 되돌리기와 앞으로 가기는 `Story.currentVersion`만 바꾼다. 버전 전환은 다시 만들기 횟수에 포함하지 않는다.
 - 다시 만들기(`Story.requestRegeneration`)는 `REVIEWING`에서만 할 수 있고 `regenerateCount`를 1 올린다. 최대 횟수는 `firstory.policy.max-regenerations`(1, 기획 확정). 실패 후 다시 시도(`Story.retry`, `FAILED → REQUESTED`)는 다시 만들기 횟수에 포함하지 않는다. 한도를 다 써도 재시도는 할 수 있다.
-- `PhoneNumber.toString()`은 번호를 가린다(`PhoneNumber[***]`). 로그에 실수로 찍혀도 번호가 남지 않게 하기 위함이다. 번호가 필요하면 `digits()`나 `display()`를 명시적으로 쓰고, 그 값은 로그에 남기지 않는다.
 - 위기 신호는 AI가 4단계(`SafetyLevel`: OK, SENSITIVE, REVISE, CRISIS)로 판단하고, 대응은 `SafetyPolicy`(컴포넌트)가 정한다. OK는 진행, SENSITIVE는 분위기 선택(ST-04, tone을 이미 골랐으면 진행), REVISE는 `firstory.policy.safety-revise-limit`(2)번째 전까지 다시 쓰기 안내·그 횟수째에 차단, CRISIS는 1번만에 차단(ST-05). 기록(`SafetyFlag`)은 REVISE, CRISIS만 하고, 횟수와 `occurrenceNo`는 동화 단위·단계별로 센다(`countByStoryIdAndLevel`). 차단 판단에는 REVISE 횟수만 쓴다.
 - 동화 쪽수는 `firstory.story.page-count`(10)다. DB와 엔티티는 쪽 번호 1 이상만 검사하고 상한은 이 설정값으로 본다.
 - 아이 프로필은 "다음에도 이 아이 정보로 만들기"를 체크했을 때만 저장한다. 동화는 항상 `StoryInput.childSnapshot`을 기준으로 만든다.
@@ -160,7 +159,7 @@ com.firstory
   - 전하고 싶은 말이나 인터뷰 답변의 표시: `[[FAIL]]` 첫 생성 실패, `[[OUTPUT_REVISE]]` 첫 생성 결과의 safety가 REVISE, `[[PAGE_FAIL]]` 첫 생성 결과의 5쪽 그림만 failed, `[[AI_DOWN]]` 위기 신호 검사에서 처음 본 글이면 다음 AI 호출 한 번이 `AI_UNAVAILABLE`(생성 진행 확인 `status`, `result`는 세지 않는다).
   - 지연(`interview-delay`, `safety-delay`)은 `Thread.sleep`이다. local 전용이라 허용한다. thread 상태는 메모리에만 있어 서버를 다시 띄우면 진행 중인 인터뷰와 생성은 이어갈 수 없다. 테스트에서는 `failWith(ErrorCode)`로 장애를, `misdirectOutput()`으로 다른 동화 경로를 흉내 내고(`clearFailure()`로 둘 다 되돌린다), `answerCalls`, `statusCalls`, `lastBaseCheckpointId`로 호출을 본다.
 - **DB 트랜잭션 안에서 AI를 부르지 않는다**(응답이 35초까지 걸려 커넥션을 붙잡는다). ① 트랜잭션으로 조회·검증 → ② 트랜잭션 밖에서 AI 호출 → ③ 새 트랜잭션으로 저장. ③에서 동화를 `StoryRepository.findByIdForUpdate`로 다시 읽어 상태가 바뀌었으면 `INVALID_STATUS_TRANSITION`. AI를 부르는 서비스 메서드에는 `@Transactional`을 달지 않고 `TransactionTemplate`을 쓴다. `AiClient` 구현은 트랜잭션 안에서 불리면 `IllegalStateException`을 던진다(`TransactionGuard`).
-- 문자 발송(`SmsSender.send`)도 같은 이유로 트랜잭션 밖에서 한다.
+- 메일 발송(`EmailSender.send`)과 카카오 호출(`KakaoClient`)도 같은 이유로 트랜잭션 밖에서 한다.
 - 인터뷰 답변 카드(`choices`)는 AI 응답을 화면에 넘기기만 하고 저장하지 않는다. `InterviewReply`가 빈 것·겹치는 것을 빼고 `MAX_CHOICES`(4)개까지 남긴다. 다시 쓰기 안내(ASK_REVISE)로 같은 질문을 다시 줄 때는 빈 목록이다.
 - AI 오류는 `AI_UNAVAILABLE`(연결 실패, 타임아웃, 5xx, 422, 응답 형식 오류), `AI_BUSY`(409 THREAD_BUSY), `AI_STATE_MISMATCH`(409 INVALID_STATE, 404 THREAD_NOT_FOUND)로 바꾼다. AI 호출이 실패하면 아무것도 저장하지 않는다.
 - **AI 요청·응답 본문을 로그에 남기지 않는다.** 오류 로그에는 thread_id, 상태 코드, AI 오류 code만 남긴다. AI 응답 record(`InterviewReply`)와 요청·응답 DTO는 `toString`에서 내용을 가린다.
@@ -194,9 +193,9 @@ com.firstory
 
 ## 알림 규칙
 
-- `NotificationService.notify(runId, type)`는 **트랜잭션 밖에서** 부른다. 최신 SMS_NOTIFY 동의가 활성일 때만, 같은 (실행, 종류)가 없을 때만 PENDING 저장 → `SmsSender.send` → SENT/FAILED. 예외를 던지지 않는다(알림 실패가 생성 흐름을 깨뜨리지 않는다).
+- `NotificationService.notify(runId, type)`는 **트랜잭션 밖에서** 부른다. 최신 EMAIL_NOTIFY 동의가 활성일 때만, 같은 (실행, 종류)가 없을 때만 PENDING 저장(channel EMAIL) → `EmailSender.send`(회원 이메일) → SENT/FAILED. 예외를 던지지 않는다(알림 실패가 생성 흐름을 깨뜨리지 않는다).
 - STORY_STARTED는 처음 만들기(INITIAL)에만, STORY_COMPLETED와 STORY_FAILED는 모든 실행에. 확정 때는 보내지 않는다(PRD 33). 문구는 `NotificationTemplate`(code가 `template_code`).
-- 문자에 아이 정보, 동화 제목, 부모 입력을 넣지 않는다.
+- 알림 메일에 아이 정보, 동화 제목, 부모 입력을 넣지 않는다. V12 전의 문자 알림 기록은 channel SMS로 남아 있다.
 
 ## 서재와 함께 읽기 (HOME-01, LIB-01~02, GDE-01, RD-01~03)
 
@@ -229,6 +228,8 @@ com.firstory
 - 쿠키는 모두 HttpOnly(CSRF 쿠키 제외), SameSite=Lax, Secure는 `COOKIE_SECURE`.
 - CSRF는 켠다(SPA 방식). 프론트는 앱을 열 때와 로그아웃한 뒤 `GET /api/auth/csrf`를 불러 `XSRF-TOKEN` 쿠키를 받고, 상태를 바꾸는 요청에 `X-XSRF-TOKEN` 헤더로 돌려보낸다. 로그인, 가입도 검사한다.
 - 로그인은 필터가 아닌 API(`LoginService` + `LoginSuccessHandler`)에서 처리하고 `SecurityContextRepository`로 명시적으로 저장한다. 로그아웃은 `LogoutFilter`(`POST /api/auth/logout`).
+- 가입은 이메일 인증(`EmailVerificationService`, 6자리, 5분 유효, 60초 재발송·1시간 5번, 인증 결과 세션 10분 1회) 뒤 이메일 + 비밀번호. 휴대폰은 받지 않는다. 비밀번호 찾기도 이메일 인증(PASSWORD_RESET, 가입 여부를 드러내지 않는다).
+- 카카오 로그인(`KakaoLoginService`): 카카오 회원번호(`users.kakao_id`)로 회원을 찾는다. 처음이면 세션에 `PendingKakaoSignup`(10분)을 남기고 `kakao/signup`에서 동의를 받아 만든다. 카카오가 인증한 이메일(`is_email_valid && is_email_verified`)이면 우리 이메일 인증을 건너뛰고, 아니면 이메일 인증(SIGNUP)을 마친 이메일로 만든다. **같은 이메일의 회원이 있으면 계정을 합치지 않고 `KAKAO_EMAIL_REGISTERED`.** 카카오 회원은 `password_hash`가 null이라 이메일 로그인은 `INVALID_CREDENTIALS`, 비밀번호 변경은 `PASSWORD_NOT_SET`, 탈퇴는 비밀번호 없이, 비밀번호 찾기로 비밀번호를 만들 수 있다.
 - 인증번호와 인증 결과는 세션에 저장한다(코드는 SHA-256 해시만). 세션에 넣는 객체는 `Serializable` record로 만들고 `toString`에서 번호를 가린다.
 - 비밀번호 변경과 탈퇴는 `SessionRevoker.revokeAll(email)`로 그 회원의 모든 세션과 remember-me 토큰을 지운다. Principal 이름은 이메일이다.
 - 현재 시각은 `Clock` 빈으로 구한다. **`Instant.now()`를 직접 부르지 않는다.** JPA auditing(created_at)도 이 Clock을 따른다.
@@ -244,7 +245,11 @@ com.firstory
 | `COOKIE_DOMAIN` | (비움) | (비움) 또는 최상위 도메인 | API를 서브도메인으로 나눌 때만. 비우면 host-only 쿠키 |
 | `ALLOWED_ORIGINS` | `http://localhost:5173` | (비움) 또는 프론트 출처 | CORS. 쉼표로 구분. 비우면 CORS 설정을 등록하지 않음 |
 | `REMEMBER_ME_KEY` | 로컬용 임의값 | 비밀값 | remember-me 서명 키 |
-| `PHONE_AES_KEY`, `PHONE_HMAC_KEY` | 로컬용 값 | 비밀값 | 휴대폰 번호 암호화, 해시 |
+| `MAIL_MODE` | `smtp` (local, test는 `log`, dev는 `log` 기본) | `smtp` | `log`는 보내지 않고 로그만(local, test, dev에서만 허용) |
+| `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` | (비움) | 팀 Gmail 주소, 앱 비밀번호(비밀값) | SMTP 계정. `smtp`면 앞의 둘은 필수. `MAIL_FROM` 비우면 username. `MAIL_HOST`, `MAIL_PORT` 기본 `smtp.gmail.com`, `587` |
+| `KAKAO_MODE` | `http` (local, test는 `fake`) | `http` | 카카오 로그인 구현 |
+| `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET` | (비움) | 비밀값 | 카카오 디벨로퍼스 REST API 키(`http`면 필수), Client Secret(켰을 때만) |
+| `KAKAO_REDIRECT_URIS` | (비움) | 프론트 redirect URI | 쉼표로 구분. 비우면 검사하지 않음 |
 | `AI_MODE` | `http` (local, test, dev 프로필은 `fake`) | `http` | AI 클라이언트 구현 |
 | `AI_BASE_URL` | `http://localhost:8000` | AI 서버 주소 | FastAPI 기본 주소 |
 | `AI_INTERNAL_TOKEN` | (비움) | 비밀값 | `X-Internal-Token`. `http`면 필수 |
@@ -256,14 +261,13 @@ com.firstory
 | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | 로컬 docker compose | 비밀번호는 비밀값 | JDBC 주소, DB 계정. dev는 기본값 없음 |
 | `FIRSTORY_AI_FAKE_STAGE_DURATION` | (local 40s) | 쓰지 않음 | 가짜 AI 생성 단계 시간. smoke 때 `5s`로 덮어쓴다 |
 
-고정 인증번호 `firstory.sms.local-fixed-code`는 `LocalFixedVerificationCode`(`@Profile({"local", "dev"})`)만 읽는다. 그 밖의 프로필(prod 등, 프로필 없음 포함)에 이 값이 있으면 `LocalFixedVerificationCode.Guard`가 기동을 막는다. 번호 생성만 바꾸고 해시 저장·만료·시도 횟수 규칙은 그대로다.
+고정 인증번호 `firstory.auth.local-fixed-code`는 `LocalFixedVerificationCode`(`@Profile({"local", "dev"})`)만 읽고, 메일을 실제로 보내지 않을 때(`MAIL_MODE=log`)만 쓴다(`smtp`면 무작위). 그 밖의 프로필(prod 등, 프로필 없음 포함)에 이 값이 있으면 `LocalFixedVerificationCode.Guard`가 기동을 막는다. 번호 생성만 바꾸고 해시 저장·만료·시도 횟수 규칙은 그대로다.
 
 ## 개인정보 규칙 (반드시 지킬 것)
 
-- 휴대폰 번호는 `PhoneCrypto`로 암호화해 `phone_enc`에, 중복 체크용 HMAC은 `phone_hash`에 저장한다. 평문 저장 금지.
+- 휴대폰 번호는 받지 않는다(V12에서 컬럼과 `sms_send_logs`를 지웠다). 인증 메일 발송 기록(`email_send_logs`)에는 이메일의 SHA-256만 남긴다.
 - 아이 호칭(`Child.displayName`)은 AI 서비스로 보내지 않는다. `ChildSnapshot`에도 넣지 않는다.
-- 휴대폰 번호, 아이 정보, 부모 입력 서술, 인터뷰 답변을 로그에 남기지 않는다. 비밀번호와 인증번호도 남기지 않는다(로컬 `LoggingSmsSender`의 인증번호만 예외).
-- 휴대폰 번호는 응답에도 가린 형태(`PhoneNumber.masked()`, `010-****-5678`)만 내려준다.
+- 이메일(로그에는 `EmailMask.mask`로 가린 것만), 아이 정보, 부모 입력 서술, 인터뷰 답변을 로그에 남기지 않는다. 비밀번호, 인증번호, 카카오 인가 코드·토큰도 남기지 않는다(`LoggingEmailSender`의 인증번호만 예외. local, test, dev 전용).
 
 ## 에러와 문구
 
@@ -275,11 +279,11 @@ com.firstory
 
 - 도메인 규칙(상태 전이, 동의 검증, 관심사 정규화, 호칭 부여, 버전 전환)은 Spring 없이 단위 테스트.
 - Repository 테스트는 jsonb와 부분 인덱스가 있어 H2를 쓰지 않는다. Testcontainers PostgreSQL을 쓴다.
-- API 통합 테스트는 `com.firstory.support.IntegrationTest`를 상속한다(`@SpringBootTest` + MockMvc + Testcontainers, `test` 프로필). `Browser`가 기기 하나의 쿠키와 CSRF 헤더를 들고 다니고, `MutableClock`으로 시간을 옮기고, `RecordingSmsSender`에서 인증번호를 읽는다. AI는 `FakeAiClient` 빈을 주입받아 쓴다(장애 설정은 `@AfterEach`에서 `clearFailure()`).
+- API 통합 테스트는 `com.firstory.support.IntegrationTest`를 상속한다(`@SpringBootTest` + MockMvc + Testcontainers, `test` 프로필). `Browser`가 기기 하나의 쿠키와 CSRF 헤더를 들고 다니고, `MutableClock`으로 시간을 옮기고, `RecordingEmailSender`에서 인증번호를 읽는다(`failWith`로 메일 장애). 카카오는 `FakeKakaoClient.register(code, KakaoUser)`로 코드마다 회원을 정한다. AI는 `FakeAiClient` 빈을 주입받아 쓴다(장애 설정은 `@AfterEach`에서 `clearFailure()`).
 - `HttpAiClient`는 `MockRestServiceServer`로 경로, 헤더, 요청 JSON 키 구조, 오류 변환을 확인한다.
 - 확정된 동화가 필요한 테스트는 `StoryFlow.completed(browser, poller)`(가입한 브라우저로 만들기 → 생성 → 확정)를, 상태별 동화가 많이 필요한 서재 테스트는 `StoryStates`(DB에 바로 만든다)를 쓴다. 쿼리 수는 Hibernate `Statistics.getPrepareStatementCount()`로 센다(쪽이 가득 차야 개수 쿼리가 나가므로 가득 찬 쪽끼리 비교한다).
 - `FullJourneyIntegrationTest`가 가입부터 함께 읽기, 로그아웃까지 실제 사용 순서를 한 번에 확인한다.
-- 생성 통합 테스트는 `GenerationPoller.pollOnce()`를 직접 부른다(처음 만들기·다시 시도 5번, 글 다시 4번, 그림만 다시 3번이면 REVIEWING). 시간 초과는 `MutableClock`을 옮긴다. 문자 알림은 `RecordingSmsSender.lastText`로 본다.
+- 생성 통합 테스트는 `GenerationPoller.pollOnce()`를 직접 부른다(처음 만들기·다시 시도 5번, 글 다시 4번, 그림만 다시 3번이면 REVIEWING). 시간 초과는 `MutableClock`을 옮긴다. 이메일 알림은 `RecordingEmailSender.lastText`로 본다.
 
 ## 아직 정해지지 않은 것
 
@@ -297,7 +301,7 @@ com.firstory
 - 아이 대상 연령 범위 (임시: 0~144개월, `BirthYmPolicy.MAX_AGE_MONTHS`)
 - 서비스 최상위 도메인(.com, .kr, .co.kr). 코드에는 적지 않는다
 - 웹 푸시(PUSH_SUBSCRIPTIONS)는 2차 범위. 지금 만들지 않는다.
-- 카카오 로그인은 하지 않는다. 이메일 + 비밀번호 + 문자 인증 휴대폰 번호로만 가입한다.
+- 개인정보처리방침의 카카오 제공 항목(회원번호, 이메일) 문구. 백엔드는 동의 항목을 바꾸지 않았다
 
 ## 문서
 

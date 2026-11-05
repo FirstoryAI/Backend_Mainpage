@@ -6,11 +6,8 @@ import java.time.Duration;
 import java.util.List;
 
 @ConfigurationProperties("firstory")
-public record FirstoryProperties(Crypto crypto, Story story, Policy policy, Ai ai, Web web, Auth auth,
-                                 Generation generation, Storage storage) {
-
-    public record Crypto(String phoneAesKey, String phoneHmacKey) {
-    }
+public record FirstoryProperties(Story story, Policy policy, Ai ai, Web web, Auth auth,
+                                 Generation generation, Storage storage, Mail mail, Kakao kakao) {
 
     /**
      * @param pageCount 동화 쪽수. DB에 박지 않고 여기서만 정한다
@@ -100,6 +97,65 @@ public record FirstoryProperties(Crypto crypto, Story story, Policy policy, Ai a
     }
 
     public record Auth(String rememberMeKey) {
+    }
+
+    /**
+     * 메일 발송 (MailConfig). log는 보내지 않고 로그로만 (local, test, dev 프로필만), smtp는 Gmail 등 SMTP 서버로 보낸다.
+     *
+     * @param from     보내는 주소. 비우면 username
+     * @param username SMTP 로그인 계정 (Gmail이면 팀 계정 주소)
+     * @param password SMTP 비밀번호 (Gmail이면 2단계 인증 뒤 만든 앱 비밀번호 16자리). smtp인데 비면 기동 실패
+     */
+    public record Mail(MailMode mode, String host, int port, String username, String password, String from) {
+
+        public enum MailMode {
+            LOG,
+            SMTP
+        }
+
+        public Mail {
+            mode = mode == null ? MailMode.SMTP : mode;
+            host = host == null || host.isBlank() ? "smtp.gmail.com" : host.trim();
+            port = port == 0 ? 587 : port;
+            username = blankToNull(username);
+            password = blankToNull(password);
+            from = blankToNull(from) == null ? username : from.trim();
+            if (mode == MailMode.SMTP && (username == null || password == null)) {
+                throw new IllegalStateException(
+                        "firstory.mail.mode=smtp이면 MAIL_USERNAME과 MAIL_PASSWORD가 필요해요. 메일 없이 띄우려면 MAIL_MODE=log로 실행해요.");
+            }
+        }
+    }
+
+    /**
+     * 카카오 로그인 (KakaoClientConfig). http는 진짜 카카오, fake는 카카오 없이 인가 코드로 가짜 회원을 만든다 (local, test).
+     *
+     * @param restApiKey   카카오 디벨로퍼스 [앱 키] REST API 키. http인데 비면 기동 실패
+     * @param clientSecret [카카오 로그인 → 보안] Client Secret을 켰을 때만. 비우면 보내지 않는다
+     * @param redirectUris 프론트가 보낼 수 있는 redirectUri 목록 (카카오에 등록한 것과 같게). 쉼표로 구분
+     */
+    public record Kakao(KakaoMode mode, String restApiKey, String clientSecret, List<String> redirectUris) {
+
+        public enum KakaoMode {
+            HTTP,
+            FAKE
+        }
+
+        public Kakao {
+            mode = mode == null ? KakaoMode.HTTP : mode;
+            restApiKey = blankToNull(restApiKey);
+            clientSecret = blankToNull(clientSecret);
+            redirectUris = redirectUris == null ? List.of()
+                    : redirectUris.stream().map(String::trim).filter(uri -> !uri.isEmpty()).toList();
+            if (mode == KakaoMode.HTTP && restApiKey == null) {
+                throw new IllegalStateException(
+                        "firstory.kakao.mode=http이면 KAKAO_REST_API_KEY가 필요해요. 카카오 없이 띄우려면 KAKAO_MODE=fake로 실행해요.");
+            }
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     /**

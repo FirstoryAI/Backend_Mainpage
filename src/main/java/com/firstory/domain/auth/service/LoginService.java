@@ -30,6 +30,11 @@ public class LoginService {
         if (user.isPresent() && user.get().isLocked(clock.instant())) {
             throw new BusinessException(ErrorCode.ACCOUNT_LOCKED);
         }
+        // 카카오로만 가입해 비밀번호가 없는 회원. 틀린 비밀번호와 같은 응답이다
+        if (user.isPresent() && !user.get().hasPassword()) {
+            loginAttemptRecorder.recordFailure(user.get().getId());
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
+        }
 
         Authentication authentication;
         try {

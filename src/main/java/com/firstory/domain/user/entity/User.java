@@ -35,18 +35,16 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false)
     private String email;
 
-    @Column(name = "password_hash", nullable = false, length = 100)
+    // 카카오로만 가입한 회원은 null (비밀번호 재설정으로 만들 수 있다)
+    @Column(name = "password_hash", length = 100)
     private String passwordHash;
 
-    @Column(name = "phone_enc", nullable = false)
-    private String phoneEnc;
+    @Column(name = "email_verified_at", nullable = false)
+    private Instant emailVerifiedAt;
 
-    // UNIQUE는 DB 부분 인덱스(ux_users_phone_hash_active)가 담당한다
-    @Column(name = "phone_hash", nullable = false, length = 64)
-    private String phoneHash;
-
-    @Column(name = "phone_verified_at", nullable = false)
-    private Instant phoneVerifiedAt;
+    // 카카오 회원번호. UNIQUE는 DB 부분 인덱스(ux_users_kakao_id_active)가 담당한다
+    @Column(name = "kakao_id", length = 40)
+    private String kakaoId;
 
     @Column(name = "onboarding_seen_at")
     private Instant onboardingSeenAt;
@@ -61,17 +59,27 @@ public class User extends BaseTimeEntity {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
-    private User(String email, String passwordHash, String phoneEnc, String phoneHash, Instant phoneVerifiedAt) {
+    private User(String email, String passwordHash, Instant emailVerifiedAt, String kakaoId) {
         this.email = normalizeEmail(email);
-        this.passwordHash = Objects.requireNonNull(passwordHash);
-        this.phoneEnc = Objects.requireNonNull(phoneEnc);
-        this.phoneHash = Objects.requireNonNull(phoneHash);
-        this.phoneVerifiedAt = Objects.requireNonNull(phoneVerifiedAt);
+        this.passwordHash = passwordHash;
+        this.emailVerifiedAt = Objects.requireNonNull(emailVerifiedAt);
+        this.kakaoId = kakaoId;
     }
 
-    public static User signUp(String email, String passwordHash, String phoneEnc, String phoneHash,
-                              Instant phoneVerifiedAt) {
-        return new User(email, passwordHash, phoneEnc, phoneHash, phoneVerifiedAt);
+    /**
+     * 이메일 인증을 마친 이메일 + 비밀번호 가입.
+     */
+    public static User signUp(String email, String passwordHash, Instant emailVerifiedAt) {
+        return new User(email, Objects.requireNonNull(passwordHash), emailVerifiedAt, null);
+    }
+
+    /**
+     * 카카오 가입. 비밀번호는 없다.
+     *
+     * @param emailVerifiedAt 카카오가 인증한 이메일이면 가입 시각, 아니면 우리 이메일 인증 시각
+     */
+    public static User signUpWithKakao(String email, String kakaoId, Instant emailVerifiedAt) {
+        return new User(email, null, emailVerifiedAt, Objects.requireNonNull(kakaoId));
     }
 
     public static String normalizeEmail(String email) {
@@ -88,14 +96,16 @@ public class User extends BaseTimeEntity {
         return onboardingSeenAt != null;
     }
 
-    public void changePassword(String passwordHash) {
-        this.passwordHash = Objects.requireNonNull(passwordHash);
+    public boolean hasPassword() {
+        return passwordHash != null;
     }
 
-    public void changePhone(String phoneEnc, String phoneHash, Instant phoneVerifiedAt) {
-        this.phoneEnc = Objects.requireNonNull(phoneEnc);
-        this.phoneHash = Objects.requireNonNull(phoneHash);
-        this.phoneVerifiedAt = Objects.requireNonNull(phoneVerifiedAt);
+    public boolean isKakaoLinked() {
+        return kakaoId != null;
+    }
+
+    public void changePassword(String passwordHash) {
+        this.passwordHash = Objects.requireNonNull(passwordHash);
     }
 
     /**
