@@ -63,9 +63,10 @@ public record AiGenerationResult(int runNo, String checkpointId, String title, M
     }
 
     /**
-     * @param text 질문 본문. DB에서는 guide_prompts.question
+     * @param text      질문 본문. DB에서는 guide_prompts.question
+     * @param sceneNote 부모용 장면 설명. 없을 수 있다
      */
-    public record Prompt(int afterPage, String text, String purpose, String parentHint) {
+    public record Prompt(int afterPage, String text, String purpose, String parentHint, String sceneNote) {
 
         public Prompt {
             Objects.requireNonNull(text);

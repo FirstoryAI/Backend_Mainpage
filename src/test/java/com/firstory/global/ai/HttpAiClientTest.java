@@ -317,7 +317,8 @@ class HttpAiClientTest {
                          "pages": [{"page_no": 1, "text": "아로는 **쿵쿵**", "image_prompt": "p", "text_position": "top",
                                     "image_path": "stories/123/runs/1/images/page-01.png", "image_status": "done"}],
                          "guide": {"synopsis": "줄거리", "before_reading": {"intent": "의도", "tips": ["팁"]},
-                                   "prompts": [{"after_page": 3, "text": "질문", "purpose": "emotion", "parent_hint": "힌트"}],
+                                   "prompts": [{"after_page": 3, "text": "질문", "purpose": "emotion", "parent_hint": "힌트",
+                                                "scene_note": "장면"}],
                                    "after_reading": {"bridge_question": "다리", "if_undecided": "괜찮아요"}},
                          "cost": {"input_tokens": 41230, "output_tokens": 8120, "image_count": 9},
                          "safety": {"level": "OK", "category": null, "reason": null}}""", MediaType.APPLICATION_JSON));
@@ -333,7 +334,7 @@ class HttpAiClientTest {
         assertThat(result.pages()).containsExactly(new AiGenerationResult.Page(1, "아로는 **쿵쿵**", "p",
                 TextPosition.TOP, "stories/123/runs/1/images/page-01.png", "done"));
         assertThat(result.guide()).isEqualTo(new AiGenerationResult.Guide("줄거리", "의도", List.of("팁"), "다리", "괜찮아요",
-                List.of(new AiGenerationResult.Prompt(3, "질문", "emotion", "힌트"))));
+                List.of(new AiGenerationResult.Prompt(3, "질문", "emotion", "힌트", "장면"))));
         assertThat(result.cost()).isEqualTo(new AiGenerationResult.Cost(41230, 8120, 9));
         assertThat(result.safety()).isEqualTo(SafetyResult.ok());
     }
@@ -399,7 +400,7 @@ class HttpAiClientTest {
     }
 
     @Test
-    void 가이드의_parent_hint와_if_undecided는_없어도_된다() {
+    void 가이드의_parent_hint_scene_note_if_undecided는_없어도_된다() {
         server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/result"))
                 .andRespond(withSuccess("""
                         {"run_no": 1, "checkpoint_id": "cp", "title": "제목", "pages": [],
@@ -410,7 +411,7 @@ class HttpAiClientTest {
         AiGenerationResult.Guide guide = client.result(THREAD_ID).guide();
 
         assertThat(guide.ifUndecided()).isNull();
-        assertThat(guide.prompts()).containsExactly(new AiGenerationResult.Prompt(3, "질문", "emotion", null));
+        assertThat(guide.prompts()).containsExactly(new AiGenerationResult.Prompt(3, "질문", "emotion", null, null));
     }
 
     @Test
