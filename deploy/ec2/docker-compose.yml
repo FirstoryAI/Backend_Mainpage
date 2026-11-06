@@ -56,13 +56,14 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       # Railway와 같은 값을 쓴다. 다르면 로그인 유지(FREMEMBER) 토큰이 모두 무효가 된다
       REMEMBER_ME_KEY: ${REMEMBER_ME_KEY:?REMEMBER_ME_KEY를 .env에 넣어 주세요}
-      # 인증번호·알림 메일. smtp면 팀 Gmail 계정과 앱 비밀번호가 필요하다 (log는 보내지 않고 로그만, 인증번호 000000)
-      MAIL_MODE: ${MAIL_MODE:-smtp}
+      # 인증번호·알림 메일. 기본 log(보내지 않고 로그만, 인증번호 000000). 실제로 보내려면 .env에 MAIL_MODE=smtp와 팀 Gmail 계정·앱 비밀번호
+      # 기본값을 smtp로 두면 키가 없는 서버는 배포하자마자 기동하지 않는다 (#47)
+      MAIL_MODE: ${MAIL_MODE:-log}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-}
-      # 카카오 로그인. REST API 키가 없으면 기동하지 않는다 (카카오 없이 띄우려면 KAKAO_MODE=fake)
-      KAKAO_MODE: ${KAKAO_MODE:-http}
+      # 카카오 로그인. 기본 fake(아무 code로 가짜 회원). 진짜 카카오는 .env에 KAKAO_MODE=http와 KAKAO_REST_API_KEY (#47)
+      KAKAO_MODE: ${KAKAO_MODE:-fake}
       KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
       KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
       KAKAO_REDIRECT_URIS: ${KAKAO_REDIRECT_URIS:-}
