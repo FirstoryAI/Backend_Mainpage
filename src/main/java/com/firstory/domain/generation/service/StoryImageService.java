@@ -38,12 +38,26 @@ public class StoryImageService {
     @Transactional(readOnly = true)
     public StoredFile pageImage(Long userId, Long storyId, Long versionId, int pageNo) {
         Story story = loader.findOwned(userId, storyId);
-        StoryVersion version = findVersion(story, versionId);
+        return pageImage(story, findVersion(story, versionId), pageNo);
+    }
+
+    /**
+     * 이미 확인한 동화와 그 동화의 버전으로 쪽 그림을 읽는다 (샘플 동화). 트랜잭션 안에서 부른다.
+     */
+    public StoredFile pageImage(Story story, StoryVersion version, int pageNo) {
         String key = pageRepository.findByVersionIdAndPageNo(version.getId(), pageNo)
                 .filter(page -> page.getImageStatus() == ImageStatus.DONE)
                 .map(page -> page.getImageKey())
                 .orElseThrow(() -> new BusinessException(ErrorCode.IMAGE_NOT_FOUND));
         return read(story, key);
+    }
+
+    /**
+     * 표지로 보여 줄 그림 (StoryImageUrls.coverOrSheet와 같은 순서). 표지가 없으면 캐릭터 시트, 둘 다 없으면 IMAGE_NOT_FOUND.
+     * 이미 확인한 동화와 그 동화의 버전으로 읽는다 (샘플 동화). 트랜잭션 안에서 부른다.
+     */
+    public StoredFile coverOrSheet(Story story, StoryVersion version) {
+        return read(story, version.getCoverKey() != null ? version.getCoverKey() : version.getCharacterSheetKey());
     }
 
     @Transactional(readOnly = true)

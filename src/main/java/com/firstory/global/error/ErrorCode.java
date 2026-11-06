@@ -58,6 +58,7 @@ public enum ErrorCode {
     FEEDBACK_TOO_LONG(HttpStatus.BAD_REQUEST, "요청 메모는 300자까지 쓸 수 있어요."),
     VERSION_NOT_FOUND(HttpStatus.NOT_FOUND, "이 동화의 버전을 찾을 수 없어요."),
     IMAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "그림을 찾을 수 없어요."),
+    SAMPLE_NOT_FOUND(HttpStatus.NOT_FOUND, "샘플 동화를 찾을 수 없어요."),
     READING_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "읽기 기록을 찾을 수 없어요. 처음부터 다시 읽어 주세요."),
     PROMPT_NOT_FOUND(HttpStatus.NOT_FOUND, "이 동화의 대화 질문을 찾을 수 없어요.");
 

@@ -209,6 +209,12 @@ com.firstory
 - **세션 id로 들어오는 API는 세션 → 동화 → 회원까지 확인한다** (`ReadingSessionRepository.findOwnedForUpdate`, 다른 회원이면 404 `READING_SESSION_NOT_FOUND`). 세션 행을 잠가 같은 세션의 동시 요청을 차례로 처리한다.
 - 대화 버튼(`TALKED`, `SKIPPED`)은 그 세션 버전의 가이드 질문일 때만(`GuidePromptRepository.findInVersion`, 아니면 404 `PROMPT_NOT_FOUND`). 같은 질문에 다시 누르면 마지막 값으로 바꾼다(`DialogueAction.change`). North Star(대화 발생)는 TALKED 수로 센다.
 
+## 샘플 동화 (홈 샘플 카드, Backend#45)
+
+- `GET /api/samples/{cardId}`, `/cover`, `/pages/{pageNo}/image`는 **로그인 없이** 연다(`SecurityConfig`). 카드 id → 동화 id는 `SAMPLE_STORIES`(`SampleStoryProperties`, DB 칸 없음).
+- 확정(COMPLETED)된 동화의 지금 버전만. 연결이 없거나, 지웠거나, 확정 전이면 모두 404 `SAMPLE_NOT_FOUND`. 응답에 동화·버전 id와 대화 가이드(`prompts`)를 넣지 않고, 그림 주소도 카드 id로 만든다(`SampleBookResponse`). 그림은 `public, max-age=3600`.
+- 동화는 샘플 전용 이메일 계정으로 `scripts/make_samples.py`(진짜 AI, 카드별 입력은 스크립트 안)가 만든다. 결과를 확인한 뒤 `SAMPLE_STORIES`에 넣고 Spring을 다시 띄운다.
+
 ## 위기 신호 처리 흐름
 
 - 글을 받는 곳(CRT-01~04 폼, 생성 전 확인의 나누고 싶은 것, 인터뷰 답변, 다시 만들기 메모)은 `SafetyGuard.check`를 부른다. 빈 글은 빼고, 남은 글이 없으면 AI를 부르지 않는다. 버려질 직접 입력(OTHER를 고르지 않았을 때)은 검사하지 않는다.
@@ -259,6 +265,7 @@ com.firstory
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | (비움) | 비밀값 (EC2는 IAM 역할이면 비움) | S3 접근 키. 그 버킷만 읽고 쓰는 IAM 사용자의 키 |
 | `SERVER_PORT` (없으면 `PORT`) | `8080` | 플랫폼이 넣는 값 | 서버 포트. Railway는 `PORT`를 넣어 준다 |
 | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | 로컬 docker compose | 비밀번호는 비밀값 | JDBC 주소, DB 계정. dev는 기본값 없음 |
+| `SAMPLE_STORIES` | (비움) | `카드id:동화id`를 쉼표로 | 홈 샘플 카드 → 미리 만든 확정 동화. 형식이 틀리면 기동 실패, 비우면 샘플 API 모두 404 |
 | `FIRSTORY_AI_FAKE_STAGE_DURATION` | (local 40s) | 쓰지 않음 | 가짜 AI 생성 단계 시간. smoke 때 `5s`로 덮어쓴다 |
 
 고정 인증번호 `firstory.auth.local-fixed-code`는 `LocalFixedVerificationCode`(`@Profile({"local", "dev"})`)만 읽고, 메일을 실제로 보내지 않을 때(`MAIL_MODE=log`)만 쓴다(`smtp`면 무작위). 그 밖의 프로필(prod 등, 프로필 없음 포함)에 이 값이 있으면 `LocalFixedVerificationCode.Guard`가 기동을 막는다. 번호 생성만 바꾸고 해시 저장·만료·시도 횟수 규칙은 그대로다.

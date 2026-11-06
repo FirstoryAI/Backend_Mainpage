@@ -107,6 +107,16 @@
 
 카드(`StoryCardResponse`): `id, title, status, label, categoryLabel, coverUrl, childDisplayName, createdAt, updatedAt`. `categoryLabel`은 상황 분류 문구("기타"를 골랐으면 직접 입력한 분류)이고, 상황을 아직 입력하지 않았으면 null. `title`, `coverUrl`은 그림이 나오기 전엔 null. `coverUrl`은 **제목이 그림 안에 들어간 정사각형(1:1) 표지**다. 표지가 없는 예전 동화는 캐릭터 시트(16:9) 주소라, 칸은 `object-fit: cover`로 채운다. **차단된 동화(BLOCKED)는 홈과 서재에 나오지 않는다.**
 
+### 샘플 카드 팝업 → 만들어진 동화 읽기 (로그인 불필요)
+
+| 때 | API | 볼 것 |
+|---|---|---|
+| 팝업 열 때 · 읽기 | `GET /api/samples/{cardId}` | `cardId, title, coverUrl, pageCount, pages[]{pageNo, text, imageUrl, imageStatus, textPosition, textBlocks}` |
+| 표지 | 응답의 `coverUrl` (`/api/samples/{cardId}/cover`) | 정사각형 표지 그림 |
+| 쪽 그림 | 응답의 `imageUrl` (`/api/samples/{cardId}/pages/{pageNo}/image`) | 그림이 실패한 쪽은 `imageUrl`이 null |
+
+`cardId`는 프론트 `scenarios.jsx`의 카드 id(`friend`, `friendLeftOut`, `emotion`, `familyApart`, `kindergarten`, `kindergartenScared`, `tantrum`, `clothesTeeth`)다. 함께 읽기(RD-01)와 같은 쪽 모양이고 대화 가이드(`prompts`)는 없다. 동화·버전 id는 내려주지 않는다. 동화가 연결되지 않은 카드는 404 `SAMPLE_NOT_FOUND`라 읽기 버튼을 숨긴다. 그림은 공용 캐시 1시간이다. 읽기 세션·대화 기록은 남지 않는다.
+
 ---
 
 ## 동화 만들기 (CRT-01 ~ CRT-06)

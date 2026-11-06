@@ -40,6 +40,7 @@ dev 프로필(`application-dev.yml`)이 하는 일:
 | `KAKAO_REST_API_KEY` | `http`일 때 | **예** | 카카오 디벨로퍼스 [앱 키] REST API 키. 비면 기동 실패 | |
 | `KAKAO_CLIENT_SECRET` | 선택 | **예** | [카카오 로그인 → 보안] Client Secret을 켰을 때만 | (비움) |
 | `KAKAO_REDIRECT_URIS` | 선택 | 아니오 | 프론트가 보낼 수 있는 redirect URI (카카오에 등록한 것). 쉼표로 구분. 비우면 검사하지 않는다 | `https://프론트주소/oauth/kakao` |
+| `SAMPLE_STORIES` | 선택 | 아니오 | 홈 샘플 카드 → 미리 만든 확정 동화. `카드id:동화id`를 쉼표로. 형식이 틀리면 기동 실패, 비우면 샘플 API가 모두 404 | `friend:41,emotion:42` |
 | `COOKIE_SECURE` | 선택 | 아니오 | 쿠키 Secure 속성. dev 기본 `true` (HTTPS) | `true` |
 | `COOKIE_DOMAIN` | 선택 | 아니오 | 쿠키 도메인. 비우면 host-only 쿠키. API와 프론트를 같은 최상위 도메인의 서브도메인으로 나눌 때만 넣는다 | (비움) |
 | `ALLOWED_ORIGINS` | 선택 | 아니오 | CORS 허용 출처. 쉼표로 구분. 비우면 CORS 설정을 등록하지 않는다. 기본 `http://localhost:5173`. 프론트가 프록시(Vite, Vercel rewrite)로 붙으면 **빈 값으로 넣는다** (변수를 지우면 기본값이 쓰인다). 프록시가 브라우저의 `Origin`을 그대로 넘겨서, 목록에 없는 출처는 403 `Invalid CORS request`가 난다 | (빈 값) |

@@ -90,6 +90,7 @@ cp .env.example .env && chmod 600 .env && vi .env
 - `OPENAI_API_KEY`, `S3_BUCKET`도 Railway AI 서비스와 같은 값이다. `AI_INTERNAL_TOKEN`은 새로 만들어도 된다(Spring과 AI가 같은 `.env`를 읽는다).
 - `POSTGRES_IMAGE`는 Railway DB와 같은 메이저 버전으로 한다(Railway DB에서 `SELECT version();`, 11/2 기준 18.6). 더 높은 버전의 `pg_dump` 파일은 낮은 버전에 복원되지 않을 수 있다. 18부터 공식 이미지의 데이터 위치가 바뀌어 compose는 볼륨을 `/var/lib/postgresql`에 붙인다. 16 이하 이미지를 쓰면 볼륨 경로를 `/var/lib/postgresql/data`로 되돌린다.
 - AWS 접근 키는 넣지 않는다(IAM 역할).
+- `SAMPLE_STORIES`: 홈 샘플 카드와 미리 만든 확정 동화의 연결(`friend:41,emotion:42`). 동화는 `scripts/make_samples.py`로 만든다. 바꾼 뒤 `docker compose up -d backend`로 다시 띄워야 반영된다.
 
 ## 4. Railway DB 옮기기
 

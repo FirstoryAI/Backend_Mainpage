@@ -67,6 +67,7 @@ services:
       KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
       KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
       KAKAO_REDIRECT_URIS: ${KAKAO_REDIRECT_URIS:-}
+      SAMPLE_STORIES: ${SAMPLE_STORIES:-}   # 홈 샘플 카드 → 미리 만든 동화 (#45)
       COOKIE_SECURE: "true"
       ALLOWED_ORIGINS: ""   # 프론트(Vercel)가 /api를 프록시해서 같은 출처. 비워야 CORS 403이 안 난다
       AI_MODE: http

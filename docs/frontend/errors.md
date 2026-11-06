@@ -79,6 +79,7 @@
 | `FEEDBACK_TOO_LONG` | 400 | 요청 메모는 300자까지 쓸 수 있어요. | `POST /api/stories/{id}/regenerate` (메모 300자) |
 | `VERSION_NOT_FOUND` | 404 | 이 동화의 버전을 찾을 수 없어요. | `preview`, `current-version`, `regenerate`, 그림 API (이 동화의 버전이 아님) |
 | `IMAGE_NOT_FOUND` | 404 | 그림을 찾을 수 없어요. | 그림 API (그림이 실패한 쪽, 없는 쪽, 캐릭터 시트 없음) → 빈 자리 |
+| `SAMPLE_NOT_FOUND` | 404 | 샘플 동화를 찾을 수 없어요. | `/api/samples/{cardId}/...` (연결된 동화가 없는 카드) → 팝업에서 읽기 버튼을 숨긴다 |
 | `READING_SESSION_NOT_FOUND` | 404 | 읽기 기록을 찾을 수 없어요. 처음부터 다시 읽어 주세요. | `/api/reading-sessions/{sessionId}/...` (없거나 다른 회원의 세션) → 처음부터 읽기 |
 | `PROMPT_NOT_FOUND` | 404 | 이 동화의 대화 질문을 찾을 수 없어요. | `PUT /api/reading-sessions/{sessionId}/dialogue/{promptId}` (이 세션 버전의 질문이 아님) |
 
