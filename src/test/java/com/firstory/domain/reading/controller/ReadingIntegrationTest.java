@@ -89,6 +89,7 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.prompts[0].question").value("아로는 왜 혼자 앉았을까?"))
                 .andExpect(jsonPath("$.prompts[0].purpose").value("감정 알아차리기"))
                 .andExpect(jsonPath("$.prompts[0].parentHint").isNotEmpty())
+                .andExpect(jsonPath("$.prompts[0].sceneNote").isNotEmpty())
                 .andExpect(jsonPath("$.afterReading.bridgeQuestion").isNotEmpty());
     }
 
@@ -119,7 +120,7 @@ class ReadingIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void AI_가이드_형식_그대로_저장되고_parent_hint와_if_undecided가_없어도_된다() throws Exception {
+    void AI_가이드_형식_그대로_저장되고_parent_hint_scene_note_if_undecided가_없어도_된다() throws Exception {
         Long userId = userId(parent);
         StoryStates states = new StoryStates(tx, userRepository, storyRepository, storyInputRepository,
                 runRepository, versionRepository);
@@ -133,8 +134,8 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .toList();
         AiGenerationResult result = new AiGenerationResult(1, "cp-1", "제목", null, null, List.of(), pages,
                 new AiGenerationResult.Guide(null, "의도", List.of("팁"), "다리 질문", null, List.of(
-                        new AiGenerationResult.Prompt(5, "다섯째 쪽 질문", "action", null),
-                        new AiGenerationResult.Prompt(2, "둘째 쪽 질문", "emotion", "힌트"))),
+                        new AiGenerationResult.Prompt(5, "다섯째 쪽 질문", "action", null, null),
+                        new AiGenerationResult.Prompt(2, "둘째 쪽 질문", "emotion", "힌트", "장면 설명"))),
                 null, null);
 
         recorder.record(runId, result);
@@ -146,6 +147,8 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.prompts[*].question", contains("다섯째 쪽 질문", "둘째 쪽 질문")))
                 .andExpect(jsonPath("$.prompts[*].seq", contains(1, 2)))
                 .andExpect(jsonPath("$.prompts[0].parentHint").value(nullValue()))
+                .andExpect(jsonPath("$.prompts[0].sceneNote").value(nullValue()))
+                .andExpect(jsonPath("$.prompts[1].sceneNote").value("장면 설명"))
                 .andExpect(jsonPath("$.afterReading.bridgeQuestion").value("다리 질문"))
                 .andExpect(jsonPath("$.afterReading.ifUndecided").value(nullValue()));
         GenerationRun run = runRepository.findById(runId).orElseThrow();

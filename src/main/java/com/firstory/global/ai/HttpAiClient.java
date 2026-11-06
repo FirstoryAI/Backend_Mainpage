@@ -346,8 +346,8 @@ public class HttpAiClient implements AiClient {
     }
 
     // guide는 AI 저장소 nodes/render.py의 04-guide.json 구조 그대로 (TASK-07에서 확인):
-    //  before_reading{intent, tips[]}, prompts[{after_page, purpose, text, parent_hint}],
-    //  after_reading{bridge_question, if_undecided}. parent_hint, if_undecided는 없을 수 있다.
+    //  before_reading{intent, tips[]}, prompts[{after_page, purpose, text, parent_hint, scene_note}],
+    //  after_reading{bridge_question, if_undecided}. parent_hint, scene_note, if_undecided는 없을 수 있다.
     //  prompts에는 seq가 없어 저장할 때 받은 순서대로 1부터 매긴다
     record ResultBody(@JsonProperty("run_no") Integer runNo,
                       @JsonProperty("checkpoint_id") String checkpointId,
@@ -436,7 +436,8 @@ public class HttpAiClient implements AiClient {
             List<AiGenerationResult.Prompt> prompts = guide.get("prompts") instanceof List<?> list
                     ? list.stream().map(item -> (Map<String, Object>) item)
                     .map(item -> new AiGenerationResult.Prompt(((Number) item.get("after_page")).intValue(),
-                            (String) item.get("text"), (String) item.get("purpose"), (String) item.get("parent_hint")))
+                            (String) item.get("text"), (String) item.get("purpose"), (String) item.get("parent_hint"),
+                            (String) item.get("scene_note")))
                     .toList()
                     : List.of();
             // 줄거리가 없던 AI 결과는 빈 문자열이나 키 없음 → null

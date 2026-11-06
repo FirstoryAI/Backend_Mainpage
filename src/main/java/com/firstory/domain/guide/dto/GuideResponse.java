@@ -18,13 +18,15 @@ public record GuideResponse(Long storyId, String title, BeforeReading beforeRead
 
     /**
      * @param afterPage  이 쪽을 읽은 뒤에 보여준다
-     * @param parentHint 없을 수 있다
+     * @param parentHint 아이가 대답할 때 부모가 받아 주는 법. 없을 수 있다
+     * @param sceneNote  이 장면에서 일어난 일과 이 질문으로 아이가 해 볼 수 있는 것. 옛 동화는 없다
      */
-    public record Prompt(Long id, int seq, int afterPage, String question, String purpose, String parentHint) {
+    public record Prompt(Long id, int seq, int afterPage, String question, String purpose, String parentHint,
+                         String sceneNote) {
 
         public static Prompt of(GuidePrompt prompt) {
             return new Prompt(prompt.getId(), prompt.getSeq(), prompt.getAfterPage(), prompt.getQuestion(),
-                    prompt.getPurpose(), prompt.getParentHint());
+                    prompt.getPurpose(), prompt.getParentHint(), prompt.getSceneNote());
         }
     }
 

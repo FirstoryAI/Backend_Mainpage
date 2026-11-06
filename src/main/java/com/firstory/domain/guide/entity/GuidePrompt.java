@@ -51,8 +51,11 @@ public class GuidePrompt extends BaseTimeEntity {
     @Column(name = "parent_hint", columnDefinition = "text")
     private String parentHint;
 
+    @Column(name = "scene_note", columnDefinition = "text")
+    private String sceneNote;
+
     private GuidePrompt(ReadingGuide guide, int seq, int afterPage, String question, String purpose,
-                        String parentHint) {
+                        String parentHint, String sceneNote) {
         if (afterPage < 1) {
             throw new IllegalArgumentException("질문 위치는 1쪽 이상이어야 해요: " + afterPage);
         }
@@ -62,10 +65,11 @@ public class GuidePrompt extends BaseTimeEntity {
         this.question = Objects.requireNonNull(question);
         this.purpose = purpose;
         this.parentHint = parentHint;
+        this.sceneNote = sceneNote;
     }
 
     public static GuidePrompt create(ReadingGuide guide, int seq, int afterPage, String question, String purpose,
-                                     String parentHint) {
-        return new GuidePrompt(guide, seq, afterPage, question, purpose, parentHint);
+                                     String parentHint, String sceneNote) {
+        return new GuidePrompt(guide, seq, afterPage, question, purpose, parentHint, sceneNote);
     }
 }

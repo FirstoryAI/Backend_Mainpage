@@ -334,9 +334,9 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `GET /api/stories/{id}/guide` | `beforeReading{intent, tips[]}`, `prompts[]{id, seq, afterPage, question, purpose, parentHint}`, `afterReading{bridgeQuestion, ifUndecided}` |
+| 들어올 때 | `GET /api/stories/{id}/guide` | `beforeReading{intent, tips[]}`, `prompts[]{id, seq, afterPage, question, purpose, parentHint, sceneNote}`, `afterReading{bridgeQuestion, ifUndecided}` |
 
-`parentHint`, `ifUndecided`는 null일 수 있다. 미리보기(REVIEWING)와 확정 뒤(COMPLETED)에 지금 보여 주는 버전의 가이드를 준다. 그 밖의 상태면 409 `INVALID_STATUS_TRANSITION`. 함께 읽기(RD-01~03)는 확정 뒤에만 된다.
+`parentHint`, `sceneNote`, `ifUndecided`는 null일 수 있다(`sceneNote`는 이 칸이 생기기 전에 만든 동화엔 없다). 미리보기 가이드 칸: 👆 옆 `sceneNote`(이 장면에서 일어난 일 + 이 질문으로 아이가 해 볼 수 있는 것), ❓ 옆 `question`, "아이가 대답할 때에는" 아래 `parentHint`. 미리보기(REVIEWING)와 확정 뒤(COMPLETED)에 지금 보여 주는 버전의 가이드를 준다. 그 밖의 상태면 409 `INVALID_STATUS_TRANSITION`. 함께 읽기(RD-01~03)는 확정 뒤에만 된다.
 
 ## RD-01 함께 읽기
 

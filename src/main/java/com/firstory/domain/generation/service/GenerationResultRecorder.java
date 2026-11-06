@@ -167,7 +167,7 @@ public class GenerationResultRecorder {
         for (int i = 0; i < prompts.size(); i++) {
             AiGenerationResult.Prompt prompt = prompts.get(i);
             promptRepository.save(GuidePrompt.create(readingGuide, i + 1, prompt.afterPage(), prompt.text(),
-                    prompt.purpose(), prompt.parentHint()));
+                    prompt.purpose(), prompt.parentHint(), prompt.sceneNote()));
         }
     }
 
