@@ -301,7 +301,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
   "title": "공룡 아로의 새 친구",
   "design": { "...": "02-design.json" },
   "cover_path": "stories/123/runs/1/images/cover.webp",
-  "character_sheets": [ { "role": "main", "name": "아로", "path": "stories/123/runs/1/images/sheet-main-아로.png" } ],
+  "character_sheets": [ { "role": "main", "name": "아로", "path": "stories/123/runs/1/images/sheet-main-아로.webp" } ],
   "pages": [
     { "page_no": 1, "text": "아로는 **쿵쿵** 걸어서…", "image_prompt": "…", "text_position": "bottom", "image_path": "stories/123/runs/1/images/page-01.webp", "image_status": "done",
       "text_blocks": [
@@ -394,9 +394,9 @@ graph.invoke(None, branch)   # 실제로는 백그라운드에서 stream으로 �
 ```
 {output_prefix}
 ├── images/
-│   ├── sheet-{role}-{name}.png
+│   ├── sheet-{role}-{name}.webp   캐릭터 시트 (정사각형, AI SHEET_SIZE 기본 1024x1024)
 │   ├── cover.webp          표지 (정사각형, 제목 포함)
-│   └── page-01.webp … page-10.webp   쪽·표지는 WebP(AI IMAGE_FORMAT, 기본 webp), 시트는 PNG
+│   └── page-01.webp … page-10.webp   시트·쪽·표지는 WebP(AI IMAGE_FORMAT, 기본 webp). 이전 동화의 시트는 .png
 ├── 00-context.json        최종 StoryInputContext
 ├── 01-interview.json      인터뷰 턴, 끝난 이유, 요약
 ├── 02-design.json         이야기 설계

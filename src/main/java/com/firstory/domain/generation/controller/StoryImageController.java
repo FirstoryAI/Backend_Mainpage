@@ -52,8 +52,9 @@ public class StoryImageController {
     }
 
     @Operation(summary = "캐릭터 시트", description = "캐릭터 시트가 없으면 IMAGE_NOT_FOUND")
-    @ApiResponse(responseCode = "200", description = "PNG 그림",
-            content = @Content(mediaType = MediaType.IMAGE_PNG_VALUE, schema = @Schema(type = "string", format = "binary")))
+    @ApiResponse(responseCode = "200", description = "PNG 또는 WebP 그림 (진짜 AI는 정사각형 WebP, 이전 동화와 가짜 AI는 PNG)",
+            content = {@Content(mediaType = MediaType.IMAGE_PNG_VALUE, schema = @Schema(type = "string", format = "binary")),
+                    @Content(mediaType = IMAGE_WEBP, schema = @Schema(type = "string", format = "binary"))})
     @GetMapping("/character-sheet")
     public ResponseEntity<byte[]> characterSheet(@AuthenticationPrincipal UserPrincipal principal,
                                                  @PathVariable Long id, @PathVariable Long versionId) {
