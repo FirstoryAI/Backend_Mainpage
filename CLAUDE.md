@@ -156,7 +156,8 @@ com.firstory
   - 인터뷰 차례는 1~`InterviewTurn.MAX_TURNS`(15, DB CHECK V9). AI가 그보다 더 물으면 `AI_STATE_MISMATCH`. 가짜 AI의 `Fake.MAX_QUESTIONS`도 같은 15로 맞춘다.
   - 인터뷰는 질문 1 → 답변 `turns`번까지 다음 질문 → 그다음 답변이나 skip이면 CONFIRM (`turns` 2면 3번째 답변). `turns` 0이면 thread_id 해시로 질문 1~15개. 질문 문장은 `fake-ai/sample-story.json` 순서대로, 답변 카드는 같은 파일의 `questionChoices`(5번째 질문은 카드 없음).
   - 생성은 design_story → write_story → illustrate → render → REVIEWING (글 다시는 write_story부터, 그림만 다시는 illustrate_only → render). `stage-duration` 0이면 `status`를 부를 때마다 한 단계씩, 0보다 크면 시작 후 지난 시간(`Clock`) / `stage-duration`으로 단계를 정한다. REVIEWING이 될 때 `fake-ai/sample-story.json`(제목, 10쪽 글, 가이드)으로 결과를 만들고 실제 PNG(쪽 1920×1088, 표지 1024×1024, 진짜 AI와 같은 크기)를 `FileStorage`에 쓴다. 그림만 다시(일부 쪽)는 이전 표지 key. 글 자리(`textPosition`)는 3의 배수 쪽만 TOP(AI `mock.py`와 같다). 다시 만들기면 제목 뒤에 `(다시 n)`.
-  - 전하고 싶은 말이나 인터뷰 답변의 표시: `[[FAIL]]` 첫 생성 실패, `[[OUTPUT_REVISE]]` 첫 생성 결과의 safety가 REVISE, `[[PAGE_FAIL]]` 첫 생성 결과의 5쪽 그림만 failed, `[[AI_DOWN]]` 위기 신호 검사에서 처음 본 글이면 다음 AI 호출 한 번이 `AI_UNAVAILABLE`(생성 진행 확인 `status`, `result`는 세지 않는다).
+  - 인터뷰 답변(`answerInterview`)은 진짜 AI처럼 `checkSafety`와 같은 기준의 `safety`를 함께 준다. REVISE·CRISIS면 차례를 넘기지 않고 같은 질문을 준다(진짜 AI가 답을 받기 전으로 되돌린 것과 같다).
+  - 전하고 싶은 말이나 인터뷰 답변의 표시: `[[FAIL]]` 첫 생성 실패, `[[OUTPUT_REVISE]]` 첫 생성 결과의 safety가 REVISE, `[[PAGE_FAIL]]` 첫 생성 결과의 5쪽 그림만 failed, `[[AI_DOWN]]` 위기 신호 검사에서 처음 본 글이면 다음 AI 호출 한 번이 `AI_UNAVAILABLE`(생성 진행 확인 `status`, `result`는 세지 않는다. 인터뷰 답변은 처음 본 그 답변 호출이 바로 실패).
   - 지연(`interview-delay`, `safety-delay`)은 `Thread.sleep`이다. local 전용이라 허용한다. thread 상태는 메모리에만 있어 서버를 다시 띄우면 진행 중인 인터뷰와 생성은 이어갈 수 없다. 테스트에서는 `failWith(ErrorCode)`로 장애를, `misdirectOutput()`으로 다른 동화 경로를 흉내 내고(`clearFailure()`로 둘 다 되돌린다), `answerCalls`, `statusCalls`, `lastBaseCheckpointId`로 호출을 본다.
 - **DB 트랜잭션 안에서 AI를 부르지 않는다**(응답이 35초까지 걸려 커넥션을 붙잡는다). ① 트랜잭션으로 조회·검증 → ② 트랜잭션 밖에서 AI 호출 → ③ 새 트랜잭션으로 저장. ③에서 동화를 `StoryRepository.findByIdForUpdate`로 다시 읽어 상태가 바뀌었으면 `INVALID_STATUS_TRANSITION`. AI를 부르는 서비스 메서드에는 `@Transactional`을 달지 않고 `TransactionTemplate`을 쓴다. `AiClient` 구현은 트랜잭션 안에서 불리면 `IllegalStateException`을 던진다(`TransactionGuard`).
 - 메일 발송(`EmailSender.send`)과 카카오 호출(`KakaoClient`)도 같은 이유로 트랜잭션 밖에서 한다.
@@ -211,10 +212,10 @@ com.firstory
 
 ## 위기 신호 처리 흐름
 
-- 글을 받는 곳(CRT-01~04 폼, 생성 전 확인의 나누고 싶은 것, 인터뷰 답변, 다시 만들기 메모)은 `SafetyGuard.check`를 부른다. 빈 글은 빼고, 남은 글이 없으면 AI를 부르지 않는다. 버려질 직접 입력(OTHER를 고르지 않았을 때)은 검사하지 않는다.
+- 글을 받는 곳(CRT-01~04 폼, 생성 전 확인의 나누고 싶은 것, 다시 만들기 메모)은 `SafetyGuard.check`를 부른다. 인터뷰 답변은 AI가 `interview/answer`에서 다음 질문 만들기와 동시에 판단해 응답(`InterviewReply.safety`)에 담아 주므로 `SafetyGuard.apply`로 그 판단만 적용한다(AI#83, 판단이 없으면 `AI_UNAVAILABLE`). 빈 글은 빼고, 남은 글이 없으면 AI를 부르지 않는다. 버려질 직접 입력(OTHER를 고르지 않았을 때)은 검사하지 않는다.
 - 형식 검증(`StoryInput.validateSituation`, `ChildProfileRequest.toProfile` 등)은 AI 호출 전에 한다. 형식 오류는 AI를 부르지 않고 400.
 - 대응: OK → PROCEED. SENSITIVE → `markToneRequired()`, tone이 있으면 PROCEED 아니면 CHOOSE_TONE(저장하고 ST-04). REVISE → `SafetyFlag` 저장 후 `SafetyPolicy.decide`로 ASK_REVISE 또는 BLOCK. CRISIS → `SafetyFlag` 저장 후 BLOCK. BLOCK이면 `story.block()`.
-- **ASK_REVISE와 BLOCK이면 입력을 저장하지 않고 AI 그래프로도 보내지 않는다.** 인터뷰 답변이 ASK_REVISE면 같은 질문을 다시 준다. 인터뷰 답변은 그래프에 보내기 전에 검사한다(스펙 v0.3). skip은 검사하지 않는다.
+- **ASK_REVISE와 BLOCK이면 입력을 저장하지 않고 AI 그래프로도 보내지 않는다.** 인터뷰 답변은 예외로 AI가 판단하면서 그래프도 진행하지만, REVISE·CRISIS면 AI가 답을 받기 전으로 되돌려 둔다(스펙 7-3). 인터뷰 답변이 ASK_REVISE면 같은 질문을 다시 준다. skip은 검사하지 않는다.
 - `category`는 AI가 준 값(스펙 4장 목록: violence, harmful_discipline, discrimination, illegal, blame_child, self_harm, abuse_neglect, harm_intent, other)을 그대로 저장하고, 비어 있으면 `other`. 값 목록을 enum으로 묶지 않는다(AI 쪽에서 늘어날 수 있다).
 - 차단 응답에는 `helpKind`(CRISIS → `CHILD_SAFETY`, REVISE로 차단 → `PARENTING`)만 준다. **상담 기관 이름과 번호는 백엔드에 넣지 않는다**(프론트가 helpKind로 보여준다).
 - BLOCKED 동화의 모든 변경 요청은 `STORY_BLOCKED`. 나가기(DELETE)와 조회(draft)만 된다. 다시 만들기 메모로 REVIEWING에서도 차단될 수 있다.

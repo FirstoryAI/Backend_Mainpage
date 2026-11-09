@@ -172,7 +172,8 @@ class HttpAiClientTest {
                         {"answer": "같이 놀자고 했는데 대답을 안 해줬대요."}""", JsonCompareMode.STRICT))
                 .andRespond(withSuccess("""
                         {"type": "question", "turn": 2, "question": "그때 아이는 어떤 표정이었나요?",
-                         "context_update": {"moment": {"emotions": ["sad"]}}}""", MediaType.APPLICATION_JSON));
+                         "context_update": {"moment": {"emotions": ["sad"]}},
+                         "safety": {"level": "OK", "category": null, "reason": null}}""", MediaType.APPLICATION_JSON));
 
         InterviewReply reply = client.answerInterview(THREAD_ID, "같이 놀자고 했는데 대답을 안 해줬대요.");
 
@@ -181,7 +182,34 @@ class HttpAiClientTest {
         assertThat(reply.question()).isEqualTo("그때 아이는 어떤 표정이었나요?");
         assertThat(reply.contextUpdate()).isEqualTo(Map.of("moment", Map.of("emotions", List.of("sad"))));
         assertThat(reply.choices()).isEmpty();   // choices가 없는 응답도 받는다
+        assertThat(reply.safety()).isEqualTo(SafetyResult.ok());
         server.verify();
+    }
+
+    @Test
+    void 답변의_위기_신호_판단을_함께_받는다() {
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/answer"))
+                .andRespond(withSuccess("""
+                        {"type": "question", "turn": 1, "question": "당시에 어떻게 반응해주셨어요?", "choices": ["안아 줬어요"],
+                         "context_update": null,
+                         "safety": {"level": "revise", "category": "harmful_discipline", "reason": "다른 표현으로 써 주세요"}}""",
+                        MediaType.APPLICATION_JSON));
+
+        InterviewReply reply = client.answerInterview(THREAD_ID, "혼내 줬어요");
+
+        assertThat(reply.safety()).isEqualTo(new SafetyResult(SafetyLevel.REVISE, "harmful_discipline", "다른 표현으로 써 주세요"));
+        assertThat(reply.turn()).isOne();
+        server.verify();
+    }
+
+    @Test
+    void 답변인데_위기_신호_판단이_없으면_AI_UNAVAILABLE() {
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/answer"))
+                .andRespond(withSuccess("""
+                        {"type": "question", "turn": 2, "question": "그때 아이는 어떤 표정이었나요?", "context_update": null}""",
+                        MediaType.APPLICATION_JSON));
+
+        assertError(() -> client.answerInterview(THREAD_ID, "울었어요"), ErrorCode.AI_UNAVAILABLE);
     }
 
     @Test
@@ -190,7 +218,7 @@ class HttpAiClientTest {
                 .andRespond(withSuccess("""
                         {"type": "question", "turn": 2, "question": "어떤 마음이었을까요?",
                          "choices": [" 속상했어요 ", "", null, "속상했어요", "무서웠어요", "화났어요", "잘 모르겠어요", "부끄러웠어요"],
-                         "context_update": null}""", MediaType.APPLICATION_JSON));
+                         "context_update": null, "safety": {"level": "OK"}}""", MediaType.APPLICATION_JSON));
 
         InterviewReply reply = client.answerInterview(THREAD_ID, "울었어요");
 
@@ -205,9 +233,10 @@ class HttpAiClientTest {
                         {"skip": true}""", JsonCompareMode.STRICT))
                 .andRespond(withSuccess("""
                         {"type": "confirm", "summary": "요약", "situation_summary": "상황 정리", "end_reason": "user_skip",
-                         "context": {"parent": {"message_direction": "comfort_first"}}}""", MediaType.APPLICATION_JSON));
+                         "context": {"parent": {"message_direction": "comfort_first"}}, "safety": null}""", MediaType.APPLICATION_JSON));
 
         InterviewReply reply = client.answerInterview(THREAD_ID, null);
+        assertThat(reply.safety()).isNull();   // 건너뛰기는 검사하지 않는다
 
         assertThat(reply.isConfirm()).isTrue();
         assertThat(reply.summary()).isEqualTo("요약");

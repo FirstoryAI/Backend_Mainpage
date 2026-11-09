@@ -36,6 +36,8 @@ import java.util.List;
  * BLOCK이면 story.block(). helpKind는 CRISIS면 CHILD_SAFETY, REVISE로 차단이면 PARENTING.
  * 차단 판단의 REVISE 횟수에는 AI가 만든 결과(OUTPUT)의 위기 신호를 넣지 않는다 (부모 책임이 아니다).
  * <p>
+ * 인터뷰 답변은 AI가 다음 질문 만들기와 동시에 판단해 응답에 담아 주므로 {@link #apply}로 그 판단만 적용한다.
+ * <p>
  * 트랜잭션 밖에서 불러야 한다. AI 호출은 트랜잭션 밖에서 하고, 기록은 새 트랜잭션에서 한다.
  * 그 사이에 동화 상태가 바뀌었으면 INVALID_STATUS_TRANSITION.
  */
@@ -66,7 +68,16 @@ public class SafetyGuard {
         if (written.isEmpty()) {
             return SafetyOutcome.proceed();
         }
-        SafetyResult result = aiClient.checkSafety(source, written, questionContext);
+        return apply(story, source, aiClient.checkSafety(source, written, questionContext), turnOrNull);
+    }
+
+    /**
+     * AI가 이미 판단한 결과를 기록하고 대응을 정한다 (인터뷰 답변: AI가 interview/answer 응답에 담아 준다).
+     *
+     * @param story      ①에서 조회한 동화. 이 상태 그대로여야 기록한다
+     * @param turnOrNull 인터뷰 답변이면 그 차례
+     */
+    public SafetyOutcome apply(Story story, SafetySource source, SafetyResult result, InterviewTurn turnOrNull) {
         if (result.level() == SafetyLevel.OK) {
             return SafetyOutcome.proceed();
         }

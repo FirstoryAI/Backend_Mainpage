@@ -34,7 +34,8 @@ import java.util.UUID;
  * AI 인터뷰 (CRT-05). AI 응답이 30초 넘게 걸릴 수 있어 메서드에 @Transactional을 달지 않는다.
  * ① 트랜잭션으로 조회·검증 → ② 트랜잭션 밖에서 AI 호출 → ③ 새 트랜잭션으로 저장 (상태가 바뀌었으면 INVALID_STATUS_TRANSITION).
  * <p>
- * 답변은 AI 그래프에 보내기 전에 위기 신호를 검사한다. 다시 쓰기 안내나 차단이면 답변을 저장하지도, 그래프로 보내지도 않는다.
+ * 답변의 위기 신호는 AI가 다음 질문 만들기와 동시에 판단해 응답에 담아 준다(AI#83). 다시 쓰기 안내나 차단이면 답변을 저장하지 않는다.
+ * 그때 AI는 그래프를 답을 받기 전으로 되돌려 두어서, 다시 쓴 답변은 같은 질문의 새 답이 된다.
  * AI 호출이 실패하면 아무것도 저장하지 않아서 같은 답변으로 다시 보낼 수 있다.
  */
 // TODO(AI 연동): AI가 답변을 처리한 뒤 응답만 잃어버린 경우(타임아웃) 다시 보내면 AI_STATE_MISMATCH가 날 수 있다.
@@ -92,10 +93,11 @@ public class InterviewService {
         Story story = current.story();
         InterviewTurn turn = current.turn();
 
-        // ② 그래프에 보내기 전에 위기 신호 검사
+        // ② AI가 위기 신호 판단과 다음 질문을 함께 준다. 판단을 먼저 적용한다
+        InterviewReply reply = aiClient.answerInterview(story.getThreadId(), answer);
         SafetyOutcome outcome = null;
         if (answer != null) {
-            outcome = safetyGuard.check(story, SafetySource.INTERVIEW, List.of(answer), turn, turn.getQuestion());
+            outcome = safetyGuard.apply(story, SafetySource.INTERVIEW, reply.safety(), turn);
             if (outcome.isBlocked()) {
                 return InterviewResponse.blocked(story.getId(), outcome, current.toneRequired());
             }
@@ -104,7 +106,6 @@ public class InterviewService {
                         turn.getQuestion(), List.of(), null, outcome, current.toneRequired());
             }
         }
-        InterviewReply reply = aiClient.answerInterview(story.getThreadId(), answer);
 
         // ③
         SafetyOutcome checked = outcome;
