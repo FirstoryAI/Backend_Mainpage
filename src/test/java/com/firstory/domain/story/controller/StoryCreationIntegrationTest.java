@@ -194,11 +194,11 @@ class StoryCreationIntegrationTest extends IntegrationTest {
         assertThat(flag.get("turn_no")).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM interview_turns WHERE story_id = ? AND answer IS NOT NULL",
                 Integer.class, id)).isZero();
-        assertThat(ai.answerCalls(threadId(id))).isZero();
+        assertThat(ai.answerCalls(threadId(id))).isOne();   // 판단은 AI가 인터뷰 응답에 담아 준다 (AI#83)
     }
 
     @Test
-    void 인터뷰_답변이_REVISE면_저장하지_않고_AI에_보내지_않고_같은_질문() throws Exception {
+    void 인터뷰_답변이_REVISE면_저장하지_않고_같은_질문() throws Exception {
         long id = readyToInterview();
         start(id);
 
@@ -212,7 +212,7 @@ class StoryCreationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.safety.action").value("ASK_REVISE"))
                 .andExpect(jsonPath("$.safety.reason").isNotEmpty());
 
-        assertThat(ai.answerCalls(threadId(id))).isZero();
+        assertThat(ai.answerCalls(threadId(id))).isOne();   // AI가 판단하고 답을 받기 전으로 되돌린다 (AI#83)
         assertThat(jdbc.queryForObject("SELECT count(*) FROM interview_turns WHERE story_id = ?", Integer.class, id))
                 .isOne();
         assertThat(jdbc.queryForObject("SELECT answer FROM interview_turns WHERE story_id = ?", String.class, id))
@@ -220,7 +220,7 @@ class StoryCreationIntegrationTest extends IntegrationTest {
 
         // 다시 쓴 답변은 그대로 진행한다
         answer(id, "다시 쓴 답변").andExpect(jsonPath("$.turn").value(2));
-        assertThat(ai.answerCalls(threadId(id))).isOne();
+        assertThat(ai.answerCalls(threadId(id))).isEqualTo(2);
     }
 
     @Test

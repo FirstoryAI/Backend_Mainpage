@@ -83,12 +83,15 @@ public class HttpAiClient implements AiClient {
         if (response == null || response.safety() == null || response.safety().level() == null) {
             throw invalidResponse(null, "safety");
         }
-        SafetyBody safety = response.safety();
+        return toSafety(null, response.safety());
+    }
+
+    private static SafetyResult toSafety(String threadId, SafetyBody safety) {
         try {
             return new SafetyResult(SafetyLevel.valueOf(safety.level().toUpperCase(Locale.ROOT)), safety.category(),
                     safety.reason());
         } catch (IllegalArgumentException e) {
-            throw invalidResponse(null, "safety.level");
+            throw invalidResponse(threadId, "safety.level");
         }
     }
 
@@ -108,12 +111,21 @@ public class HttpAiClient implements AiClient {
     public InterviewReply answerInterview(String threadId, String answer) {
         TransactionGuard.requireNoTransaction();
         Map<String, Object> request = answer == null ? Map.of("skip", true) : Map.of("answer", answer);
-        return toReply(threadId, call(threadId, () -> restClient.post()
+        InterviewBody body = call(threadId, () -> restClient.post()
                 .uri("/v1/threads/{threadId}/interview/answer", threadId)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(request)
                 .retrieve()
-                .body(InterviewBody.class)));
+                .body(InterviewBody.class));
+        InterviewReply reply = toReply(threadId, body);
+        if (answer == null) {
+            return reply;   // 건너뛰기는 글이 없어 검사하지 않는다
+        }
+        // 답변은 AI가 위기 신호를 판단해 준다. 판단이 없으면 검사하지 않은 답이 진행되므로 받지 않는다
+        if (body.safety() == null || body.safety().level() == null) {
+            throw invalidResponse(threadId, "safety");
+        }
+        return reply.withSafety(toSafety(threadId, body.safety()));
     }
 
     @Override
@@ -319,7 +331,7 @@ public class HttpAiClient implements AiClient {
                          String summary,
                          @JsonProperty("situation_summary") String situationSummary,
                          @JsonProperty("end_reason") String endReason,
-                         Map<String, Object> context) {
+                         Map<String, Object> context, SafetyBody safety) {
     }
 
     // context, summary는 generate만 보낸다 (retry는 비워서 키를 빼고 보낸다)

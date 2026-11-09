@@ -18,6 +18,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 | 인터뷰 질문 응답 | `turn`, `question`, `context_update` | `choices`(답변 카드 0~4개) 추가 (7-3) |
 | 글 다시 만들기의 그림 | 12장 전부 새로 | 장면이 바뀐 쪽만 새로, 나머지 쪽·시트는 이전 실행 key (7-6, 9장) |
 | 위기 신호 판단 (G2) | 없음 (mock만, 아니면 501) | `/safety/check` 진짜 판단, `result.safety`에 완성 본문 판단. `category` 목록 확정 (4장) |
+| 인터뷰 답변의 위기 신호 (11/9, AI#83) | Spring이 `/safety/check` → 끝난 뒤 `interview/answer` | `interview/answer`가 다음 질문 만들기와 동시에 판단해 응답 `safety`로 준다. REVISE·CRISIS면 답을 받기 전으로 되돌림 (4장, 7-3) |
 
 쪽수 이유: 실제 그림책이 9–17 펼침면이라 8쪽은 적었다. AI 프롬프트의 이야기 구조(기 1–2 / 승 3–5 / 전 6–8 / 결 9–10)와 예시가 10쪽 기준이다.
 
@@ -126,11 +127,11 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 | 위치 | 방법 | 비고 |
 |---|---|---|
 | 폼 제출 | `POST /v1/safety/check` | 그래프 밖 |
-| 인터뷰 답변 | `POST /v1/safety/check` | **Spring이 답변을 그래프에 보내기 전에** 호출. skip은 글이 없어 검사하지 않음 |
+| 인터뷰 답변 | `interview/answer` 응답의 `safety` | AI가 **다음 질문 만들기와 동시에** 판단한다(기다림이 둘 중 긴 쪽만큼). REVISE·CRISIS면 답을 받기 전으로 되돌린다 (7-3). skip은 글이 없어 검사하지 않음 |
 | 다시 만들기 메모 | `POST /v1/safety/check` | Spring이 review 전에 호출 |
 | 완성 본문 | `result` 응답에 `safety` 포함 | 부모에게 보여주기 전 확인 |
 
-- 구현: 판단 전용 프롬프트와 스키마를 새로 두고 `/safety/check`와 완성 본문 판단에서 같이 쓰면 된다. 인터뷰 노드는 고치지 않아도 된다.
+- 구현: 판단 전용 프롬프트와 스키마(`nodes/safety.py`)를 `/safety/check`, 인터뷰 답변, 완성 본문 판단이 같이 쓴다. 인터뷰 노드는 판단하지 않는다(서버가 따로 돌린다).
 
 ## 5. mock 모드 (G6)
 
@@ -228,7 +229,8 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
   "turn": 2,
   "question": "그때 아이는 어떤 표정이었나요?",
   "choices": ["울상이었어요", "얼어붙은 것 같았어요", "애써 웃고 있었어요"],
-  "context_update": { "...": "..." }
+  "context_update": { "...": "..." },
+  "safety": { "level": "OK", "category": null, "reason": null }
 }
 ```
 
@@ -249,7 +251,10 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 - `summary`: 생성 전 확인 화면(CRT-06)에 "이번 이야기에서 나누고 싶은 것"으로 **부모에게 그대로 보이는** 해요체 1~2문장. 부모가 고칠 수 있다. 동화 생성기가 읽는 정리("이 부모는 ~")는 AI 안에만 둔다
 - `situation_summary`: 생성 전 확인 화면(CRT-06)에 "상황"으로 보이는 해요체 1~2문장. 언제·무슨 일인지와 인터뷰에서 새로 알게 된 상황 사실만 담는다(고민·바람은 `summary`의 몫). 화면 표시용이라 생성할 때 다시 받지 않는다. 이전 AI는 주지 않아 없을 수 있다. Spring은 `story_inputs.situation_summary`에 저장하고 상황을 고치면 비운다
 - `end_reason`: `sufficient` | `max_turns` | `user_skip` (코드의 `interview_done_by`)
-- 위기 신호는 이 API가 판단하지 않는다. Spring이 보내기 전에 `/safety/check`로 검사한다.
+- `safety`: 이 답변의 위기 신호 판단 (4장 형식). AI가 다음 질문 만들기와 **동시에** 한다. 건너뛰기는 `null`, `interview/start` 응답에는 없다. Spring은 `/safety/check`를 따로 부르지 않고 이 값에 지금 규칙(4장, `SafetyPolicy`)을 적용한다
+  - **REVISE·CRISIS**: AI가 응답 전에 그래프를 답을 받기 전으로 되돌리고(`update_state(as_node="interview_step")`), 같은 질문(같은 `turn`, 같은 `choices`, `context_update: null`)과 `safety`를 준다. Spring은 이 응답을 쓰지 않고 다시 쓰기 안내나 차단을 한다. 다시 쓴 답은 같은 질문의 새 답이 된다
+  - SENSITIVE, OK: 되돌리지 않는다. 응답은 평소와 같다
+  - 검사가 실패하면 되돌린 뒤 `500 INTERNAL_ERROR`. 같은 답을 다시 보내면 처음부터 이어진다. 인터뷰(LLM)만 실패해 중간에 멈췄다가 같은 답이 다시 오면, 이어서 진행하면서 받아 둔 답을 다시 판단한다
 - Spring은 `context`를 `story_inputs.final_context`에 저장한다
 
 ### 7-4. POST /v1/threads/{thread_id}/generate

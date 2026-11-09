@@ -15,10 +15,12 @@ import java.util.Objects;
  * @param situationSummary 생성 전 확인(CRT-06)에 보여 줄 AI가 정리한 상황. 이전 AI는 주지 않아 null일 수 있다
  * @param choices      질문에 부모가 눌러서 답할 수 있는 답변 카드. 빈 것과 겹치는 것을 빼고 {@link #MAX_CHOICES}개까지. 없으면 빈 목록
  * @param finalContext 인터뷰가 채운 parent 값까지 포함한 최종 StoryInputContext
+ * @param safety       답변의 위기 신호 판단. AI가 다음 질문 만들기와 동시에 한다 (AI#83). 시작과 건너뛰기는 null.
+ *                     REVISE·CRISIS면 AI가 답을 받기 전으로 되돌려 같은 질문을 준다 (이 응답은 쓰지 않는다)
  */
 public record InterviewReply(Type type, Integer turn, String question, List<String> choices,
                              Map<String, Object> contextUpdate, String summary, String situationSummary,
-                             InterviewEndReason endReason, Map<String, Object> finalContext) {
+                             InterviewEndReason endReason, Map<String, Object> finalContext, SafetyResult safety) {
 
     public static final int MAX_CHOICES = 4;
 
@@ -38,13 +40,18 @@ public record InterviewReply(Type type, Integer turn, String question, List<Stri
     public static InterviewReply question(int turn, String question, List<String> choices,
                                           Map<String, Object> contextUpdate) {
         return new InterviewReply(Type.QUESTION, turn, Objects.requireNonNull(question), choices, contextUpdate,
-                null, null, null, null);
+                null, null, null, null, null);
     }
 
     public static InterviewReply confirm(String summary, String situationSummary, InterviewEndReason endReason,
                                          Map<String, Object> finalContext) {
         return new InterviewReply(Type.CONFIRM, null, null, null, null, summary, situationSummary,
-                Objects.requireNonNull(endReason), finalContext);
+                Objects.requireNonNull(endReason), finalContext, null);
+    }
+
+    public InterviewReply withSafety(SafetyResult safety) {
+        return new InterviewReply(type, turn, question, choices, contextUpdate, summary, situationSummary, endReason,
+                finalContext, safety);
     }
 
     public boolean isConfirm() {
@@ -71,6 +78,7 @@ public record InterviewReply(Type type, Integer turn, String question, List<Stri
     // 요약과 context에 부모 입력이 들어 있어 로그에 남기지 않는다
     @Override
     public String toString() {
-        return "InterviewReply[type=" + type + ", turn=" + turn + "]";
+        return "InterviewReply[type=" + type + ", turn=" + turn + ", safety=" + (safety == null ? null : safety.level())
+                + "]";
     }
 }

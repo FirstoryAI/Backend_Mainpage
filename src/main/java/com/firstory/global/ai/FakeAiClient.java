@@ -45,6 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * checkSafety      글에 [[CRISIS]], [[REVISE]], [[SENSITIVE]]가 있으면 그 level (여럿이면 이 순서로 우선), 없으면 OK
  * startInterview   질문 1
  * answerInterview  답변 turns번까지는 다음 질문, 그다음 답변이나 skip이면 CONFIRM (turns 2면 3번째 답변에서)
+ *                  답변이면 checkSafety와 같은 기준의 safety를 함께 준다. REVISE·CRISIS면 차례를 넘기지 않고 같은 질문
  *                  질문마다 sample-story.json의 답변 카드(questionChoices). 5번째 질문은 카드가 없다
  *                  turns가 0이면 thread_id로 질문 수 1~15개를 정한다 (같은 동화는 항상 같은 수)
  *                  finalContext는 받은 context에 parent.message_direction만 채운 것
@@ -61,6 +62,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * [[OUTPUT_REVISE]]  첫 생성 결과의 safety가 REVISE (다시 시도는 OK)
  * [[PAGE_FAIL]]      첫 생성(과 그 다시 시도) 결과에서 5쪽 그림만 failed
  * [[AI_DOWN]]        위기 신호 검사에서 처음 본 글이면, 그다음 AI 호출 한 번이 AI_UNAVAILABLE
+ *                    (인터뷰 답변은 그 답변 호출이 바로 AI_UNAVAILABLE)
  *                    (생성 진행 확인 status, result는 세지 않는다. 같은 글로 다시 보내면 성공한다)
  * </pre>
  * thread별 상태는 메모리에만 둔다. 서버를 다시 띄우면 진행 중이던 인터뷰와 생성은 이어갈 수 없다 (AI_STATE_MISMATCH).
@@ -129,6 +131,10 @@ public class FakeAiClient implements AiClient {
         if (joined.contains(AI_DOWN_MARKER) && downSeen.add(joined.hashCode())) {
             downNext.set(true);
         }
+        return judge(joined);
+    }
+
+    private static SafetyResult judge(String joined) {
         if (joined.contains(marker(SafetyLevel.CRISIS))) {
             return new SafetyResult(SafetyLevel.CRISIS, "abuse_neglect", "아이의 안전이 걱정되는 내용이 있어요.");
         }
@@ -164,13 +170,24 @@ public class FakeAiClient implements AiClient {
         if (answer == null) {
             return finish(state, InterviewEndReason.USER_SKIP);
         }
+        // 진짜 AI처럼 위기 신호 판단을 함께 준다. 처음 본 [[AI_DOWN]] 답은 실패, 같은 답을 다시 보내면 성공
+        if (answer.contains(AI_DOWN_MARKER) && downSeen.add(answer.hashCode())) {
+            throw new BusinessException(ErrorCode.AI_UNAVAILABLE);
+        }
+        SafetyResult safety = judge(answer);
+        int current = state.answered.get();
+        if (safety.level() == SafetyLevel.REVISE || safety.level() == SafetyLevel.CRISIS) {
+            // 답을 받기 전으로 되돌린 것처럼 차례를 넘기지 않고 같은 질문을 준다
+            return InterviewReply.question(current + 1, SAMPLE.questions().get(current),
+                    SAMPLE.questionChoices().get(current), null).withSafety(safety);
+        }
         state.answers.add(answer);
         int answered = state.answered.incrementAndGet();
         if (answered > state.followUps) {
-            return finish(state, InterviewEndReason.SUFFICIENT);
+            return finish(state, InterviewEndReason.SUFFICIENT).withSafety(safety);
         }
         return InterviewReply.question(answered + 1, SAMPLE.questions().get(answered),
-                SAMPLE.questionChoices().get(answered), Map.of("answered_turns", answered));
+                SAMPLE.questionChoices().get(answered), Map.of("answered_turns", answered)).withSafety(safety);
     }
 
     @Override

@@ -93,6 +93,34 @@ class FakeAiClientTest {
     }
 
     @Test
+    void 답변에는_위기_신호_판단을_함께_주고_REVISE_CRISIS면_차례를_넘기지_않는다() {
+        client.startInterview(THREAD_ID, UUID.randomUUID(), context(), null);
+
+        InterviewReply held = client.answerInterview(THREAD_ID, "혼내 줬어요 [[REVISE]]");
+        assertThat(held.safety().level()).isEqualTo(SafetyLevel.REVISE);
+        assertThat(held).isEqualTo(InterviewReply.question(1, FakeAiClient.FIRST_QUESTION,
+                FakeAiClient.SAMPLE.questionChoices().getFirst(), null).withSafety(held.safety()));
+        assertThat(client.answerInterview(THREAD_ID, "[[CRISIS]]").turn()).isOne();
+
+        InterviewReply next = client.answerInterview(THREAD_ID, "안아 줬어요 [[SENSITIVE]]");
+        assertThat(next.turn()).isEqualTo(2);
+        assertThat(next.safety().level()).isEqualTo(SafetyLevel.SENSITIVE);
+        assertThat(client.answerInterview(THREAD_ID, "답변 2").safety()).isEqualTo(SafetyResult.ok());
+        assertThat(client.answerInterview(THREAD_ID, null).safety()).isNull();   // 건너뛰기는 검사하지 않는다
+    }
+
+    @Test
+    void 인터뷰_답변의_AI_DOWN은_그_답변이_실패하고_다시_보내면_성공() {
+        client.startInterview(THREAD_ID, UUID.randomUUID(), context(), null);
+        String answer = "답변 " + FakeAiClient.AI_DOWN_MARKER;
+
+        assertThatThrownBy(() -> client.answerInterview(THREAD_ID, answer))
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.AI_UNAVAILABLE);
+        assertThat(client.answerInterview(THREAD_ID, answer).turn()).isEqualTo(2);
+    }
+
+    @Test
     void skip이면_USER_SKIP() {
         client.startInterview(THREAD_ID, UUID.randomUUID(), context(), null);
         client.answerInterview(THREAD_ID, "답변 1");
