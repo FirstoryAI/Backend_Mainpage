@@ -2,10 +2,7 @@ package com.firstory.domain.user.service;
 
 import com.firstory.domain.auth.entity.PasswordPolicy;
 import com.firstory.domain.user.dto.MeResponse;
-import com.firstory.domain.user.entity.ConsentType;
 import com.firstory.domain.user.entity.User;
-import com.firstory.domain.user.entity.UserConsent;
-import com.firstory.domain.user.repository.UserConsentRepository;
 import com.firstory.domain.user.repository.UserRepository;
 import com.firstory.global.error.BusinessException;
 import com.firstory.global.error.ErrorCode;
@@ -15,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
-import java.util.Optional;
 
 /**
  * 내 정보. 세션과 쿠키 처리는 MeController가 커밋 뒤에 한다.
@@ -25,7 +21,6 @@ import java.util.Optional;
 public class MeService {
 
     private final UserRepository userRepository;
-    private final UserConsentRepository userConsentRepository;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
 
@@ -39,23 +34,9 @@ public class MeService {
         findUser(userId).markOnboardingSeen(clock.instant());
     }
 
-    /**
-     * 동의하면 새 동의 행을 남기고, 철회하면 최신 행에 철회 시각을 남긴다.
-     */
     @Transactional
     public void changeEmailNotify(Long userId, boolean agreed) {
-        User user = findUser(userId);
-        Optional<UserConsent> latest = latestEmailNotify(userId);
-        boolean active = latest.map(UserConsent::isActive).orElse(false);
-        if (agreed && !active) {
-            // 약관 버전은 가입 때 남긴 행을 따른다. 가입 시 4가지 동의를 모두 기록하므로 행이 항상 있다
-            String termsVersion = latest.map(UserConsent::getTermsVersion)
-                    .orElseThrow(() -> new IllegalStateException("가입 동의 기록이 없어요."));
-            userConsentRepository.save(
-                    UserConsent.record(user, ConsentType.EMAIL_NOTIFY, true, termsVersion, clock.instant()));
-        } else if (!agreed && active) {
-            latest.get().withdraw(clock.instant());
-        }
+        findUser(userId).changeEmailNotify(agreed);
     }
 
     /**
@@ -98,14 +79,10 @@ public class MeService {
     }
 
     private MeResponse toResponse(User user) {
-        boolean emailNotify = latestEmailNotify(user.getId()).map(UserConsent::isActive).orElse(false);
-        return new MeResponse(user.getId(), user.getEmail(), user.hasSeenOnboarding(), emailNotify,
+        return new MeResponse(user.getId(), user.getEmail(), user.hasSeenOnboarding(), user.isEmailNotify(),
                 user.isKakaoLinked(), user.hasPassword());
     }
 
-    private Optional<UserConsent> latestEmailNotify(Long userId) {
-        return userConsentRepository.findTopByUserIdAndConsentTypeOrderByIdDesc(userId, ConsentType.EMAIL_NOTIFY);
-    }
 
     // 탈퇴했거나 세션이 남아 있는 사이 지워진 회원이면 다시 로그인하게 한다
     private User findUser(Long userId) {

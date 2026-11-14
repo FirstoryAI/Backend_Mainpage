@@ -28,7 +28,7 @@ public final class Fixtures {
     }
 
     public static User user(String email) {
-        return User.signUp(email, "$2a$10$hash", NOW);
+        return User.signUp(email, "$2a$10$hash", false);
     }
 
     public static User user() {

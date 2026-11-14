@@ -27,7 +27,7 @@ public record SignupRequest(
 
         @NotBlank(message = "약관 버전이 없어요.")
         @Size(max = 20, message = "약관 버전은 20자까지예요.")
-        @Schema(example = "2026-10-01")
+        @Schema(description = "동의한 약관 버전. 형식만 검사하고 저장하지 않는다 (새 ERD)", example = "2026-10-01")
         String termsVersion) {
 
     @Override

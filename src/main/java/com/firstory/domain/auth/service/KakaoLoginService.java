@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -87,16 +86,14 @@ public class KakaoLoginService {
 
         User user = transactionTemplate.execute(status -> {
             String email;
-            Instant verifiedAt;
             if (pending.emailVerified()) {
                 email = pending.email();
-                verifiedAt = clock.instant();
             } else {
                 if (request.email() == null || request.email().isBlank()) {
                     throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
                 }
                 email = User.normalizeEmail(request.email());
-                verifiedAt = emailVerificationService.requireVerified(session, email, EmailPurpose.SIGNUP);
+                emailVerificationService.requireVerified(session, email, EmailPurpose.SIGNUP);
             }
             if (userRepository.existsByKakaoId(pending.kakaoId())) {
                 throw new BusinessException(ErrorCode.KAKAO_ACCOUNT_REGISTERED);
@@ -104,8 +101,8 @@ public class KakaoLoginService {
             if (userRepository.existsByEmail(email)) {
                 throw new BusinessException(ErrorCode.KAKAO_EMAIL_REGISTERED);
             }
-            User created = User.signUpWithKakao(email, pending.kakaoId(), verifiedAt);
-            signupService.saveWithConsents(created, request.consents(), request.termsVersion());
+            User created = User.signUpWithKakao(email, pending.kakaoId(), ConsentPolicy.emailNotify(request.consents()));
+            signupService.saveUnique(created);
             return created;
         });
 

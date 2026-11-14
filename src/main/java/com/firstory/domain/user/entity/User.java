@@ -39,8 +39,9 @@ public class User extends BaseTimeEntity {
     @Column(name = "password_hash", length = 100)
     private String passwordHash;
 
-    @Column(name = "email_verified_at", nullable = false)
-    private Instant emailVerifiedAt;
+    // 동화 알림 메일 수신 동의(선택). 필수 동의는 가입 = 동의라 따로 저장하지 않는다 (새 ERD)
+    @Column(name = "email_notify", nullable = false)
+    private boolean emailNotify;
 
     // 카카오 회원번호. UNIQUE는 DB 부분 인덱스(ux_users_kakao_id_active)가 담당한다
     @Column(name = "kakao_id", length = 40)
@@ -59,27 +60,25 @@ public class User extends BaseTimeEntity {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
-    private User(String email, String passwordHash, Instant emailVerifiedAt, String kakaoId) {
+    private User(String email, String passwordHash, String kakaoId, boolean emailNotify) {
         this.email = normalizeEmail(email);
         this.passwordHash = passwordHash;
-        this.emailVerifiedAt = Objects.requireNonNull(emailVerifiedAt);
         this.kakaoId = kakaoId;
+        this.emailNotify = emailNotify;
     }
 
     /**
      * 이메일 인증을 마친 이메일 + 비밀번호 가입.
      */
-    public static User signUp(String email, String passwordHash, Instant emailVerifiedAt) {
-        return new User(email, Objects.requireNonNull(passwordHash), emailVerifiedAt, null);
+    public static User signUp(String email, String passwordHash, boolean emailNotify) {
+        return new User(email, Objects.requireNonNull(passwordHash), null, emailNotify);
     }
 
     /**
-     * 카카오 가입. 비밀번호는 없다.
-     *
-     * @param emailVerifiedAt 카카오가 인증한 이메일이면 가입 시각, 아니면 우리 이메일 인증 시각
+     * 카카오 가입. 비밀번호는 없다. 이메일은 카카오가 인증했거나 우리 이메일 인증을 마친 것.
      */
-    public static User signUpWithKakao(String email, String kakaoId, Instant emailVerifiedAt) {
-        return new User(email, null, emailVerifiedAt, Objects.requireNonNull(kakaoId));
+    public static User signUpWithKakao(String email, String kakaoId, boolean emailNotify) {
+        return new User(email, null, Objects.requireNonNull(kakaoId), emailNotify);
     }
 
     public static String normalizeEmail(String email) {
@@ -102,6 +101,10 @@ public class User extends BaseTimeEntity {
 
     public boolean isKakaoLinked() {
         return kakaoId != null;
+    }
+
+    public void changeEmailNotify(boolean agreed) {
+        this.emailNotify = agreed;
     }
 
     public void changePassword(String passwordHash) {

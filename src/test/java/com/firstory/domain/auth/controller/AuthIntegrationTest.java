@@ -41,8 +41,9 @@ class AuthIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.hasPassword").value(true));
 
         browser.get("/api/me").andExpect(status().isOk()).andExpect(jsonPath("$.email").value(email));
-        assertThat(jdbc.queryForObject("SELECT email_verified_at FROM users WHERE email = ?", Object.class, email))
-                .isNotNull();
+        // 동의는 가입 = 동의라 따로 저장하지 않고, 알림 수신(선택)만 users.email_notify에 (새 ERD)
+        assertThat(jdbc.queryForObject("SELECT email_notify FROM users WHERE email = ?", Boolean.class, email))
+                .isFalse();
 
         // 로그에는 가린 이메일만 남고 비밀번호는 남지 않는다
         assertThat(output.getAll()).doesNotContain("[MAIL] " + email).contains("[MAIL] p").doesNotContain(PASSWORD);

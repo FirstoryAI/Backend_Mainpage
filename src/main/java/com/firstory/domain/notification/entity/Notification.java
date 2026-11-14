@@ -1,8 +1,6 @@
 package com.firstory.domain.notification.entity;
 
 import com.firstory.domain.generation.entity.GenerationRun;
-import com.firstory.domain.story.entity.Story;
-import com.firstory.domain.user.entity.User;
 import com.firstory.global.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -20,7 +18,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.Instant;
 import java.util.Objects;
 
 /**
@@ -40,14 +37,6 @@ public class Notification extends BaseTimeEntity {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "story_id", nullable = false)
-    private Story story;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "generation_run_id", nullable = false)
     private GenerationRun generationRun;
 
@@ -57,44 +46,26 @@ public class Notification extends BaseTimeEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private NotificationChannel channel;
-
-    @Column(name = "template_code", nullable = false, length = 50)
-    private String templateCode;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
     private NotificationStatus status;
-
-    @Column(name = "provider_msg_id", length = 100)
-    private String providerMsgId;
 
     @Column(name = "fail_reason")
     private String failReason;
 
-    @Column(name = "sent_at")
-    private Instant sentAt;
-
-    private Notification(User user, Story story, GenerationRun generationRun, NotificationType type,
-                         NotificationChannel channel, String templateCode) {
-        this.user = Objects.requireNonNull(user);
-        this.story = Objects.requireNonNull(story);
+    private Notification(GenerationRun generationRun, NotificationType type) {
         this.generationRun = Objects.requireNonNull(generationRun);
         this.type = Objects.requireNonNull(type);
-        this.channel = Objects.requireNonNull(channel);
-        this.templateCode = Objects.requireNonNull(templateCode);
         this.status = NotificationStatus.PENDING;
     }
 
-    public static Notification pending(User user, Story story, GenerationRun run, NotificationType type,
-                                       NotificationChannel channel, String templateCode) {
-        return new Notification(user, story, run, type, channel, templateCode);
+    /**
+     * 받는 회원과 동화는 실행(generation_runs)에서 찾는다. 보낸 시각은 updated_at (새 ERD).
+     */
+    public static Notification pending(GenerationRun run, NotificationType type) {
+        return new Notification(run, type);
     }
 
-    public void sent(String providerMsgId, Instant now) {
+    public void sent() {
         this.status = NotificationStatus.SENT;
-        this.providerMsgId = providerMsgId;
-        this.sentAt = now;
     }
 
     public void failed(String reason) {

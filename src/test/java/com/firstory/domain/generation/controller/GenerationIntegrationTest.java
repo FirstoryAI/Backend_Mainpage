@@ -633,12 +633,9 @@ class GenerationIntegrationTest extends IntegrationTest {
         pollTimes(POLLS_TO_REVIEW);
 
         assertThat(notificationTypes(id)).containsExactlyInAnyOrder("STORY_STARTED", "STORY_COMPLETED");
-        assertThat(jdbc.queryForList("SELECT status FROM notifications WHERE story_id = ?", String.class, id))
-                .containsOnly("SENT");
-        assertThat(jdbc.queryForList("SELECT template_code FROM notifications WHERE story_id = ?", String.class, id))
-                .containsExactlyInAnyOrder("STORY_STARTED_V2", "STORY_COMPLETED_V2");
-        assertThat(jdbc.queryForList("SELECT channel FROM notifications WHERE story_id = ?", String.class, id))
-                .containsOnly("EMAIL");
+        assertThat(jdbc.queryForList("""
+                SELECT n.status FROM notifications n JOIN generation_runs r ON r.id = n.generation_run_id
+                WHERE r.story_id = ?""", String.class, id)).containsOnly("SENT");
         String text = mail.lastText(email);
         assertThat(text).contains("완성됐어요").doesNotContain(FakeAiClient.SAMPLE.title(0)).doesNotContain(MESSAGE);
 
@@ -827,11 +824,15 @@ class GenerationIntegrationTest extends IntegrationTest {
     }
 
     private int notifications(long id) {
-        return jdbc.queryForObject("SELECT count(*) FROM notifications WHERE story_id = ?", Integer.class, id);
+        return jdbc.queryForObject("""
+                SELECT count(*) FROM notifications n JOIN generation_runs r ON r.id = n.generation_run_id
+                WHERE r.story_id = ?""", Integer.class, id);
     }
 
     private List<String> notificationTypes(long id) {
-        return jdbc.queryForList("SELECT type FROM notifications WHERE story_id = ?", String.class, id);
+        return jdbc.queryForList("""
+                SELECT n.type FROM notifications n JOIN generation_runs r ON r.id = n.generation_run_id
+                WHERE r.story_id = ?""", String.class, id);
     }
 
     private static void assertError(ResultActions result, ErrorCode expected) throws Exception {

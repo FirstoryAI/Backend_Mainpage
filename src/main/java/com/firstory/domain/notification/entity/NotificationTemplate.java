@@ -7,7 +7,7 @@ import java.util.Arrays;
 
 /**
  * 이메일 알림 문구. 아이 정보, 동화 제목, 부모 입력은 넣지 않는다.
- * code는 notifications.template_code에 남는다. 문구를 바꾸면 code 뒤 번호를 올린다 (V1은 문자 알림 문구였다).
+ * 문구는 저장하지 않으므로(V15에서 notifications.template_code 삭제) 바꿀 때 번호를 올리지 않아도 된다.
  */
 // TODO(PM): 문구 확정
 @Getter
