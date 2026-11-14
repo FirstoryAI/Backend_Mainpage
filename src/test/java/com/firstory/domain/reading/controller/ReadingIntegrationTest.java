@@ -201,6 +201,10 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.title").value(FakeAiClient.SAMPLE.title(0)))
                 .andExpect(jsonPath("$.coverUrl").value("/api/stories/" + id + "/versions/" + versionId
                         + "/cover"))
+                .andExpect(jsonPath("$.frontCoverUrl").value("/api/stories/" + id + "/versions/" + versionId
+                        + "/front-cover"))
+                .andExpect(jsonPath("$.backCoverUrl").value("/api/stories/" + id + "/versions/" + versionId
+                        + "/back-cover"))
                 .andExpect(jsonPath("$.pageCount").value(10))
                 .andExpect(jsonPath("$.pages", hasSize(10)))
                 .andExpect(jsonPath("$.pages[0].imageUrl").value("/api/stories/" + id + "/versions/" + versionId

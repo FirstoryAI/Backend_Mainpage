@@ -71,6 +71,28 @@ public class StoryImageController {
         return image(storyImageService.cover(principal.getUserId(), id, versionId));
     }
 
+    @Operation(summary = "앞표지", description = "책 맨 앞 그림. 쪽과 같은 1920×1088이고 제목이 그림 안에 있다. "
+            + "앞표지가 없는 버전(이전 버전, 표지 실패)이면 IMAGE_NOT_FOUND")
+    @ApiResponse(responseCode = "200", description = "PNG 또는 WebP 그림 (진짜 AI는 WebP, 가짜 AI는 PNG)",
+            content = {@Content(mediaType = MediaType.IMAGE_PNG_VALUE, schema = @Schema(type = "string", format = "binary")),
+                    @Content(mediaType = IMAGE_WEBP, schema = @Schema(type = "string", format = "binary"))})
+    @GetMapping("/front-cover")
+    public ResponseEntity<byte[]> frontCover(@AuthenticationPrincipal UserPrincipal principal,
+                                             @PathVariable Long id, @PathVariable Long versionId) {
+        return image(storyImageService.frontCover(principal.getUserId(), id, versionId));
+    }
+
+    @Operation(summary = "뒤표지", description = "책 맨 뒤 그림. 쪽과 같은 1920×1088이고 글자가 없다. "
+            + "뒤표지가 없는 버전이면 IMAGE_NOT_FOUND")
+    @ApiResponse(responseCode = "200", description = "PNG 또는 WebP 그림 (진짜 AI는 WebP, 가짜 AI는 PNG)",
+            content = {@Content(mediaType = MediaType.IMAGE_PNG_VALUE, schema = @Schema(type = "string", format = "binary")),
+                    @Content(mediaType = IMAGE_WEBP, schema = @Schema(type = "string", format = "binary"))})
+    @GetMapping("/back-cover")
+    public ResponseEntity<byte[]> backCover(@AuthenticationPrincipal UserPrincipal principal,
+                                            @PathVariable Long id, @PathVariable Long versionId) {
+        return image(storyImageService.backCover(principal.getUserId(), id, versionId));
+    }
+
     private static ResponseEntity<byte[]> image(StoredFile file) {
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(file.contentType()))

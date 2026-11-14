@@ -60,6 +60,18 @@ public class StoryImageService {
         return read(story, version.getCoverKey());
     }
 
+    @Transactional(readOnly = true)
+    public StoredFile frontCover(Long userId, Long storyId, Long versionId) {
+        Story story = loader.findOwned(userId, storyId);
+        return read(story, findVersion(story, versionId).getFrontCoverKey());
+    }
+
+    @Transactional(readOnly = true)
+    public StoredFile backCover(Long userId, Long storyId, Long versionId) {
+        Story story = loader.findOwned(userId, storyId);
+        return read(story, findVersion(story, versionId).getBackCoverKey());
+    }
+
     private StoryVersion findVersion(Story story, Long versionId) {
         return versionRepository.findByIdAndStoryId(versionId, story.getId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.VERSION_NOT_FOUND));

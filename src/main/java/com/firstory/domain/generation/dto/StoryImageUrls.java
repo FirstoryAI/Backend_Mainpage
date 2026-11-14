@@ -24,6 +24,22 @@ public final class StoryImageUrls {
     }
 
     /**
+     * 앞표지 주소. 앞표지가 없는 버전(이전 버전, 표지 실패)이면 null.
+     */
+    public static String frontCover(Long storyId, StoryVersion version) {
+        return version.getFrontCoverKey() == null ? null
+                : "/api/stories/" + storyId + "/versions/" + version.getId() + "/front-cover";
+    }
+
+    /**
+     * 뒤표지 주소. 뒤표지가 없는 버전이면 null.
+     */
+    public static String backCover(Long storyId, StoryVersion version) {
+        return version.getBackCoverKey() == null ? null
+                : "/api/stories/" + storyId + "/versions/" + version.getId() + "/back-cover";
+    }
+
+    /**
      * 표지로 보여 줄 그림. 표지가 있으면 표지, 없으면(이전 버전, 표지 실패) 캐릭터 시트, 둘 다 없으면 null.
      */
     public static String coverOrSheet(Long storyId, StoryVersion version) {

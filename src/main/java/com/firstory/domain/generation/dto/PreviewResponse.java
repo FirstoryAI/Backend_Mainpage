@@ -16,10 +16,13 @@ import java.util.List;
  *
  * @param characterSheetUrl   캐릭터 시트가 없으면 null
  * @param coverUrl            표지(제목이 들어간 정사각형). 표지가 없으면 캐릭터 시트, 둘 다 없으면 null
+ * @param frontCoverUrl       책 맨 앞 앞표지(쪽과 같은 크기, 제목 포함). 없으면(이전 버전, 표지 실패) null
+ * @param backCoverUrl        책 맨 뒤 뒤표지(쪽과 같은 크기, 글자 없음). 없으면 null
  * @param regenerateRemaining 남은 다시 만들기 횟수
  */
 public record PreviewResponse(Long storyId, StoryStatus status, VersionSummary version, String characterSheetUrl,
-                              String coverUrl, List<Page> pages, int regenerateRemaining) {
+                              String coverUrl, String frontCoverUrl, String backCoverUrl, List<Page> pages,
+                              int regenerateRemaining) {
 
     public static final String TEXT_BLOCKS_EXAMPLE = "[{\"paragraphs\": [[\"유치원 그림 시간이었어요.\", "
             + "\"토끼 라라는 분홍 앞치마를 입었어요.\"]], \"x\": 5.0, \"y\": 7.0, \"color\": \"DARK\"}, "
@@ -47,6 +50,7 @@ public record PreviewResponse(Long storyId, StoryStatus status, VersionSummary v
                 version.getCharacterSheetKey() == null ? null
                         : StoryImageUrls.characterSheet(storyId, version.getId()),
                 StoryImageUrls.coverOrSheet(storyId, version),
+                StoryImageUrls.frontCover(storyId, version), StoryImageUrls.backCover(storyId, version),
                 pages.stream().map(page -> new Page(page.getPageNo(), page.getText(), page.getImageStatus(),
                         page.getImageStatus() == ImageStatus.DONE
                                 ? StoryImageUrls.page(storyId, version.getId(), page.getPageNo()) : null,

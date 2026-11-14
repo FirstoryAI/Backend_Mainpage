@@ -187,9 +187,9 @@ com.firstory
 - 파일은 `global.storage.FileStorage`로만 읽고 쓴다. `firstory.storage.type`(`STORAGE_TYPE`)으로 고른다(`StorageConfig`). 그림 API 주소와 동작은 어느 쪽이든 같다.
   - `local`(기본): `LocalFileStorage`(`firstory.storage.local-root`, 기본 `./data/storage`, test는 `build/test-storage`). 진짜 AI 서버와 같은 컴퓨터에서 같은 폴더를 볼 때만 쓴다.
   - `s3`: `S3FileStorage`. `STORAGE_S3_BUCKET`(필수, 비면 기동하지 않는다), `STORAGE_S3_REGION`(기본 `ap-northeast-2`). key가 그대로 객체 key다. AI 서버도 같은 버킷에 쓴다(AI 저장소 `FIRSTORY_STORAGE=s3`). 접근 키는 설정 파일에 두지 않고 AWS 기본 방식(`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` 환경 변수, EC2는 IAM 역할)으로 찾는다. 버킷은 공개하지 않는다(그림은 그림 API로만 내려준다).
-- key 형식은 `stories/{storyId}/runs/{runNo}/images/page-01.webp`, `.../images/sheet-{role}-{n}.png`, `.../images/cover.webp` (`StoryFiles`). 진짜 AI는 쪽·표지를 WebP로, 시트는 PNG로 저장한다. 이전 동화와 가짜 AI는 쪽·표지도 `.png`. AI에 넘기는 `output_prefix`도 `StoryFiles.runPrefix`로 만든다.
+- key 형식은 `stories/{storyId}/runs/{runNo}/images/page-01.webp`, `.../images/sheet-{role}-{n}.png`, `.../images/cover.webp`, `.../images/front-cover.webp`, `.../images/back-cover.webp` (`StoryFiles`). 진짜 AI는 쪽·표지를 WebP로, 시트는 PNG로 저장한다. 이전 동화와 가짜 AI는 쪽·표지도 `.png`. AI에 넘기는 `output_prefix`도 `StoryFiles.runPrefix`로 만든다.
 - key 검사는 `StorageKeys.validate` 하나로 한다(`..`, 빈 칸, 절대 경로, 역슬래시, `:` 거부. AI 저장소 `storage.py`와 같은 기준). `LocalFileStorage`는 `normalize()`한 경로가 루트 밖이면 한 번 더 거부한다.
-- 그림 API(`/api/stories/{id}/versions/{versionId}/pages/{pageNo}/image`, `/character-sheet`, `/cover`): 내 동화(`findByIdAndUserId`) → 그 동화의 버전 → 그 버전의 쪽 순서로 확인하고 하나라도 아니면 404. **파일 위치는 DB에 저장된 key로만 찾는다.** key가 `stories/{storyId}/`로 시작하는지 한 번 더 본다. 헤더는 key 확장자로 정한 `image/webp`·`image/png`(`StorageKeys.contentTypeOf`), `nosniff`, `private, max-age=3600`, `inline`. 오류를 JSON으로 내려야 해서 `produces`를 걸지 않는다.
+- 그림 API(`/api/stories/{id}/versions/{versionId}/pages/{pageNo}/image`, `/character-sheet`, `/cover`, `/front-cover`, `/back-cover`): 내 동화(`findByIdAndUserId`) → 그 동화의 버전 → 그 버전의 쪽 순서로 확인하고 하나라도 아니면 404. **파일 위치는 DB에 저장된 key로만 찾는다.** key가 `stories/{storyId}/`로 시작하는지 한 번 더 본다. 헤더는 key 확장자로 정한 `image/webp`·`image/png`(`StorageKeys.contentTypeOf`), `nosniff`, `private, max-age=3600`, `inline`. 오류를 JSON으로 내려야 해서 `produces`를 걸지 않는다.
 - **응답 어디에도 파일 key나 서버 경로를 넣지 않는다.** 주소는 DB id로만 만든다(`StoryImageUrls`).
 
 ## 알림 규칙
@@ -205,7 +205,7 @@ com.firstory
 - 홈 `counts.byCategory`는 상황 분류별 개수(`StoryRepository.countByCategory`, `LibraryFilter.ALL` 상태 기준, 분류 8개 모두 키, 없으면 0).
 - **BLOCKED 동화는 서재와 홈 어디에도 보이지 않는다.** 상세(`GET /api/stories/{id}`)에서는 상태 그대로 보여준다(차단 화면 재진입용).
 - **서재·홈 목록은 현재 버전과 아이를 페치 조인한다** (`StoryRepository.findLibrary`). 카드의 상황 분류(`category`, `categoryLabel`)는 Story에서 StoryInput으로 가는 연관이 없어 목록의 동화 id로 한 번에 읽는다(`LibraryService.cards`). 목록 크기와 무관하게 목록 1번 + 개수 1번 + 상황 분류 1번. 카드에 연관 엔티티를 더 쓰면 조인이나 한 번에 읽는 쿼리를 함께 늘린다.
-- 카드의 `title`, `coverUrl`은 버전이 있을 때만. `coverUrl`은 표지 그림 API(`story_versions.cover_key`, AI가 제목을 넣어 그린 정사각형)이고 표지가 없는 버전(이전 버전, 표지 실패)은 캐릭터 시트 그림 API(`StoryImageUrls.coverOrSheet`). 미리보기·상세·읽기도 같다. `label`은 `Story.libraryLabel()`, `category`는 `StoryInput.situationCategory`, `categoryLabel`은 `StoryInput.categoryLabel()`(기타면 직접 입력한 분류).
+- 카드의 `title`, `coverUrl`은 버전이 있을 때만. `coverUrl`은 표지 그림 API(`story_versions.cover_key`, AI가 제목을 넣어 그린 정사각형)이고 표지가 없는 버전(이전 버전, 표지 실패)은 캐릭터 시트 그림 API(`StoryImageUrls.coverOrSheet`). 미리보기·상세·읽기도 같다. 미리보기와 함께 읽기(`/book`)는 책 맨 앞·맨 뒤 그림 `frontCoverUrl`, `backCoverUrl`(`story_versions.front_cover_key`, `back_cover_key`, V14, 쪽과 같은 크기)도 주고 없으면 null(`StoryImageUrls.frontCover`, `backCover`). `label`은 `Story.libraryLabel()`, `category`는 `StoryInput.situationCategory`, `categoryLabel`은 `StoryInput.categoryLabel()`(기타면 직접 입력한 분류).
 - 삭제(`DELETE /api/stories/{id}`)는 생성 중(REQUESTED, GENERATING_TEXT, GENERATING_IMAGES)을 뺀 모든 상태에서. 소프트 삭제라 목록·상세·가이드·읽기·그림 API가 모두 404. 입력 원문과 그림 파일의 실제 파기는 아직 없다(TODO(PM) PRD 36).
 - 가이드는 **REVIEWING·COMPLETED**에서 지금 보여 주는 버전의 것(미리보기에서 동화 설명과 가이드를 보여 주려고). 읽기는 **COMPLETED일 때만**이고 확정된 현재 버전을 쓴다. 아니면 `INVALID_STATUS_TRANSITION`.
 - 읽기 세션: 시작 `201`, 이어 읽기는 가장 최근의 끝나지 않은 세션(없으면 `204`), 쪽 넘김은 1~page-count(`PAGE_OUT_OF_RANGE`), 끝난 세션의 쪽 넘김은 `INVALID_STATUS_TRANSITION`. 끝(complete)은 두 번 불러도 `204`이고 `Story.firstReadCompletedAt`은 처음 한 번만 남는다.
