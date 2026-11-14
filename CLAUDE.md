@@ -200,11 +200,12 @@ com.firstory
 
 ## 서재와 함께 읽기 (HOME-01, LIB-01~02, GDE-01, RD-01~03)
 
-- 서재(`GET /api/stories`) filter: ALL(BLOCKED와 임시저장 뺀 전부), CREATING(REQUESTED~GENERATING_IMAGES), REVIEWING, UNREAD(COMPLETED + 함께 읽은 적 없음), READ(COMPLETED + 읽은 적 있음), FAILED, DRAFT(임시저장 DRAFT·INTERVIEWING·CONFIRMING, 홈 이어 만들기 목록용) (`LibraryFilter`). 정렬은 `updated_at DESC, id DESC`, size 1~50(기본 20).
+- 서재(`GET /api/stories`) filter: ALL(BLOCKED와 임시저장 뺀 전부), CREATING(REQUESTED~GENERATING_IMAGES), REVIEWING, UNREAD(COMPLETED + 함께 읽은 적 없음), READ(COMPLETED + 읽은 적 있음), FAILED, DRAFT(임시저장 DRAFT·INTERVIEWING·CONFIRMING, 홈 이어 만들기 목록용) (`LibraryFilter`). `category`(여러 개)로 상황 분류(`StoryInput.situationCategory`)도 함께 거른다(`exists` 하위 쿼리). 정렬은 `updated_at DESC, id DESC`, size 1~50(기본 20).
 - **임시저장 동화(DRAFT, INTERVIEWING, CONFIRMING)는 서재 탭과 탭 숫자(`counts`)에 넣지 않는다.** `DRAFT` 필터로만 받는다. 홈 `inProgress`에는 그대로 들어간다.
+- 홈 `counts.byCategory`는 상황 분류별 개수(`StoryRepository.countByCategory`, `LibraryFilter.ALL` 상태 기준, 분류 8개 모두 키, 없으면 0).
 - **BLOCKED 동화는 서재와 홈 어디에도 보이지 않는다.** 상세(`GET /api/stories/{id}`)에서는 상태 그대로 보여준다(차단 화면 재진입용).
-- **서재·홈 목록은 현재 버전과 아이를 페치 조인한다** (`StoryRepository.findLibrary`). 카드의 상황 분류(`categoryLabel`)는 Story에서 StoryInput으로 가는 연관이 없어 목록의 동화 id로 한 번에 읽는다(`LibraryService.cards`). 목록 크기와 무관하게 목록 1번 + 개수 1번 + 상황 분류 1번. 카드에 연관 엔티티를 더 쓰면 조인이나 한 번에 읽는 쿼리를 함께 늘린다.
-- 카드의 `title`, `coverUrl`은 버전이 있을 때만. `coverUrl`은 표지 그림 API(`story_versions.cover_key`, AI가 제목을 넣어 그린 정사각형)이고 표지가 없는 버전(이전 버전, 표지 실패)은 캐릭터 시트 그림 API(`StoryImageUrls.coverOrSheet`). 미리보기·상세·읽기도 같다. `label`은 `Story.libraryLabel()`, `categoryLabel`은 `StoryInput.categoryLabel()`(기타면 직접 입력한 분류).
+- **서재·홈 목록은 현재 버전과 아이를 페치 조인한다** (`StoryRepository.findLibrary`). 카드의 상황 분류(`category`, `categoryLabel`)는 Story에서 StoryInput으로 가는 연관이 없어 목록의 동화 id로 한 번에 읽는다(`LibraryService.cards`). 목록 크기와 무관하게 목록 1번 + 개수 1번 + 상황 분류 1번. 카드에 연관 엔티티를 더 쓰면 조인이나 한 번에 읽는 쿼리를 함께 늘린다.
+- 카드의 `title`, `coverUrl`은 버전이 있을 때만. `coverUrl`은 표지 그림 API(`story_versions.cover_key`, AI가 제목을 넣어 그린 정사각형)이고 표지가 없는 버전(이전 버전, 표지 실패)은 캐릭터 시트 그림 API(`StoryImageUrls.coverOrSheet`). 미리보기·상세·읽기도 같다. `label`은 `Story.libraryLabel()`, `category`는 `StoryInput.situationCategory`, `categoryLabel`은 `StoryInput.categoryLabel()`(기타면 직접 입력한 분류).
 - 삭제(`DELETE /api/stories/{id}`)는 생성 중(REQUESTED, GENERATING_TEXT, GENERATING_IMAGES)을 뺀 모든 상태에서. 소프트 삭제라 목록·상세·가이드·읽기·그림 API가 모두 404. 입력 원문과 그림 파일의 실제 파기는 아직 없다(TODO(PM) PRD 36).
 - 가이드는 **REVIEWING·COMPLETED**에서 지금 보여 주는 버전의 것(미리보기에서 동화 설명과 가이드를 보여 주려고). 읽기는 **COMPLETED일 때만**이고 확정된 현재 버전을 쓴다. 아니면 `INVALID_STATUS_TRANSITION`.
 - 읽기 세션: 시작 `201`, 이어 읽기는 가장 최근의 끝나지 않은 세션(없으면 `204`), 쪽 넘김은 1~page-count(`PAGE_OUT_OF_RANGE`), 끝난 세션의 쪽 넘김은 `INVALID_STATUS_TRANSITION`. 끝(complete)은 두 번 불러도 `204`이고 `Story.firstReadCompletedAt`은 처음 한 번만 남는다.

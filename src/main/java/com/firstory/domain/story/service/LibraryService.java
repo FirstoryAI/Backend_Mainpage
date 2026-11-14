@@ -11,6 +11,7 @@ import com.firstory.domain.story.dto.StoryDetailResponse;
 import com.firstory.domain.story.entity.Story;
 import com.firstory.domain.story.entity.StoryInput;
 import com.firstory.domain.story.entity.LibraryFilter;
+import com.firstory.domain.story.entity.SituationCategory;
 import com.firstory.domain.story.entity.StoryStatus;
 import com.firstory.domain.story.repository.StoryInputRepository;
 import com.firstory.domain.story.repository.StoryRepository;
@@ -27,10 +28,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -57,13 +60,20 @@ public class LibraryService {
     private final UserRepository userRepository;
     private final FirstoryProperties properties;
 
+    /**
+     * @param categories 이 상황 분류인 동화만. null이나 빈 목록이면 거르지 않는다
+     */
     @Transactional(readOnly = true)
-    public LibraryResponse library(Long userId, LibraryFilter filter, int page, int size) {
+    public LibraryResponse library(Long userId, LibraryFilter filter, Set<SituationCategory> categories, int page,
+                                   int size) {
         if (page < 0 || size < 1 || size > MAX_SIZE) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED);
         }
+        boolean anyCategory = categories == null || categories.isEmpty();
+        // 빈 목록을 in에 넘기지 않으려고, 거르지 않을 때도 아무 값이나 채워 둔다 (anyCategory가 true면 쓰지 않는다)
+        Set<SituationCategory> categoryParam = anyCategory ? EnumSet.allOf(SituationCategory.class) : categories;
         Page<Story> stories = storyRepository.findLibrary(userId, filter.getStatuses(), filter.onlyRead(),
-                filter.onlyUnread(), PageRequest.of(page, size, RECENTLY_UPDATED));
+                filter.onlyUnread(), anyCategory, categoryParam, PageRequest.of(page, size, RECENTLY_UPDATED));
         return LibraryResponse.of(stories, cards(stories.getContent()));
     }
 
@@ -71,7 +81,8 @@ public class LibraryService {
     public HomeResponse home(Long userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
         List<StoryCardResponse> inProgress = cards(storyRepository.findLibrary(userId, IN_PROGRESS, false, false,
-                PageRequest.of(0, HOME_SIZE, RECENTLY_UPDATED)).getContent());
+                true, EnumSet.allOf(SituationCategory.class), PageRequest.of(0, HOME_SIZE, RECENTLY_UPDATED))
+                .getContent());
         List<StoryCardResponse> recent = cards(storyRepository.findRecentCompleted(userId, PageRequest.of(0, HOME_SIZE)));
         return new HomeResponse(user.hasSeenOnboarding(), inProgress, recent, counts(userId));
     }
@@ -80,10 +91,9 @@ public class LibraryService {
      * 카드 목록. 상황 분류는 StoryInput에 있어 목록의 동화 id로 한 번에 읽는다 (Story에서 StoryInput으로 가는 연관이 없다).
      */
     private List<StoryCardResponse> cards(List<Story> stories) {
-        Map<Long, String> categories = storyInputRepository.findAllById(stories.stream().map(Story::getId).toList())
-                .stream().filter(input -> input.categoryLabel() != null)
-                .collect(Collectors.toMap(StoryInput::getStoryId, StoryInput::categoryLabel));
-        return stories.stream().map(story -> StoryCardResponse.of(story, categories.get(story.getId()))).toList();
+        Map<Long, StoryInput> inputs = storyInputRepository.findAllById(stories.stream().map(Story::getId).toList())
+                .stream().collect(Collectors.toMap(StoryInput::getStoryId, Function.identity()));
+        return stories.stream().map(story -> StoryCardResponse.of(story, inputs.get(story.getId()))).toList();
     }
 
     /**
@@ -131,6 +141,20 @@ public class LibraryService {
                 failed += total;
             }
         }
-        return new HomeResponse.Counts(creating, reviewing, unread, read, failed);
+        return new HomeResponse.Counts(creating, reviewing, unread, read, failed, countByCategory(userId));
+    }
+
+    /**
+     * 서재 주제 칩 숫자. filter=ALL과 같은 기준(BLOCKED, 임시저장 제외)이고 분류마다 키가 있다(없으면 0).
+     */
+    private Map<SituationCategory, Long> countByCategory(Long userId) {
+        Map<SituationCategory, Long> counts = new EnumMap<>(SituationCategory.class);
+        for (SituationCategory category : SituationCategory.values()) {
+            counts.put(category, 0L);
+        }
+        for (Object[] row : storyRepository.countByCategory(userId, LibraryFilter.ALL.getStatuses())) {
+            counts.put((SituationCategory) row[0], ((Number) row[1]).longValue());
+        }
+        return counts;
     }
 }

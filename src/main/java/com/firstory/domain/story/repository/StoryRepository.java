@@ -1,5 +1,6 @@
 package com.firstory.domain.story.repository;
 
+import com.firstory.domain.story.entity.SituationCategory;
 import com.firstory.domain.story.entity.Story;
 import com.firstory.domain.story.entity.StoryStatus;
 import jakarta.persistence.LockModeType;
@@ -34,8 +35,10 @@ public interface StoryRepository extends JpaRepository<Story, Long> {
      * 서재 목록 (LIB-01). 현재 버전과 아이를 함께 읽어 목록 크기와 무관하게 쿼리 수가 일정하다.
      * 정렬은 Pageable로 받는다 (updatedAt DESC, id DESC).
      *
-     * @param onlyRead   true면 함께 읽은 것만 (firstReadCompletedAt 있음)
-     * @param onlyUnread true면 아직 안 읽은 것만
+     * @param onlyRead    true면 함께 읽은 것만 (firstReadCompletedAt 있음)
+     * @param onlyUnread  true면 아직 안 읽은 것만
+     * @param anyCategory true면 상황 분류로 거르지 않는다 (categories는 비어 있지 않은 아무 값)
+     * @param categories  anyCategory가 false일 때 이 상황 분류(StoryInput.situationCategory)인 동화만
      */
     @Query(value = """
             select s from Story s
@@ -43,15 +46,20 @@ public interface StoryRepository extends JpaRepository<Story, Long> {
             left join fetch s.child
             where s.user.id = :userId and s.status in :statuses
               and (:onlyRead = false or s.firstReadCompletedAt is not null)
-              and (:onlyUnread = false or s.firstReadCompletedAt is null)""",
+              and (:onlyUnread = false or s.firstReadCompletedAt is null)
+              and (:anyCategory = true or exists (select 1 from StoryInput i
+                   where i.storyId = s.id and i.situationCategory in :categories))""",
             countQuery = """
                     select count(s) from Story s
                     where s.user.id = :userId and s.status in :statuses
                       and (:onlyRead = false or s.firstReadCompletedAt is not null)
-                      and (:onlyUnread = false or s.firstReadCompletedAt is null)""")
+                      and (:onlyUnread = false or s.firstReadCompletedAt is null)
+                      and (:anyCategory = true or exists (select 1 from StoryInput i
+                           where i.storyId = s.id and i.situationCategory in :categories))""")
     Page<Story> findLibrary(@Param("userId") Long userId, @Param("statuses") Collection<StoryStatus> statuses,
                             @Param("onlyRead") boolean onlyRead, @Param("onlyUnread") boolean onlyUnread,
-                            Pageable pageable);
+                            @Param("anyCategory") boolean anyCategory,
+                            @Param("categories") Collection<SituationCategory> categories, Pageable pageable);
 
     /**
      * 홈의 최근 완성 동화. 최근 확정 순.
@@ -73,6 +81,18 @@ public interface StoryRepository extends JpaRepository<Story, Long> {
             where s.user.id = :userId
             group by s.status""")
     List<Object[]> countByStatus(@Param("userId") Long userId);
+
+    /**
+     * 상황 분류별 개수 (서재 주제 칩). [situationCategory, count]. 상황을 아직 받지 않은 동화는 세지 않는다.
+     */
+    @Query("""
+            select i.situationCategory, count(s)
+            from Story s, StoryInput i
+            where i.storyId = s.id and s.user.id = :userId and s.status in :statuses
+              and i.situationCategory is not null
+            group by i.situationCategory""")
+    List<Object[]> countByCategory(@Param("userId") Long userId,
+                                   @Param("statuses") Collection<StoryStatus> statuses);
 
     /**
      * 동화 상세 (LIB-02). 현재 버전과 아이를 함께 읽는다.
