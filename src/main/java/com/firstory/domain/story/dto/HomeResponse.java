@@ -12,7 +12,7 @@ public record HomeResponse(boolean onboardingSeen, List<StoryCardResponse> inPro
                            List<StoryCardResponse> recent, Counts counts) {
 
     /**
-     * 서재 탭별 개수 (BLOCKED는 세지 않는다).
+     * 서재 탭별 개수 (LibraryFilter 기준). BLOCKED와 임시저장(DRAFT, INTERVIEWING, CONFIRMING)은 세지 않는다.
      */
     public record Counts(long creating, long reviewing, long unread, long read, long failed) {
     }

@@ -114,8 +114,8 @@ GET {{host}}/api/children
 POST {{host}}/api/stories
 X-XSRF-TOKEN: {{xsrf}}
 
-### 3-2. 만드는 중인 동화 목록 (방금 만든 동화의 id를 storyId로)
-GET {{host}}/api/stories?filter=CREATING
+### 3-2. 이어 만들기(임시저장) 동화 목록 (방금 만든 동화의 id를 storyId로)
+GET {{host}}/api/stories?filter=DRAFT
 
 > {%
     client.global.set("storyId", response.body.items[0].id);
