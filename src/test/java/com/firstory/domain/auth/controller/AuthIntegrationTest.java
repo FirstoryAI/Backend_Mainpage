@@ -29,7 +29,8 @@ class AuthIntegrationTest extends IntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.expiresInSeconds").value(300));
         assertThat(mail.lastSubject(email)).isEqualTo("[FIRSTORY] 회원가입 인증번호예요");
-        assertThat(mail.lastText(email)).contains(mail.lastCode(email), "5분").doesNotContain(" 예요");
+        assertThat(mail.lastText(email)).contains(mail.lastCode(email), "5분", "firstory.official@gmail.com")
+                .doesNotContain(" 예요");
         assertThat(mail.lastHtml(email)).contains(mail.lastCode(email), "회원가입 인증번호예요", "/mail/logo.png");
         browser.post("/api/auth/email/verify", """
                 {"email": "%s", "code": "%s"}""".formatted(email.toUpperCase(), mail.lastCode(email)))

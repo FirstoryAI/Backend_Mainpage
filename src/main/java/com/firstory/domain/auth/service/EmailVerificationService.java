@@ -98,22 +98,22 @@ public class EmailVerificationService {
      */
     private MailContent mail(EmailPurpose purpose, String code) {
         if (purpose == EmailPurpose.PASSWORD_RESET) {
-            return new MailContent("[FIRSTORY] 비밀번호 재설정 인증번호예요", """
+            return new MailContent("[FIRSTORY] 비밀번호 재설정 인증번호예요", MailTemplates.withContact("""
                     FIRSTORY 비밀번호 재설정 인증번호예요.
 
                     %s
 
                     새 비밀번호를 만들 때 입력해 주세요. 5분 동안 쓸 수 있어요.
                     요청하지 않았다면 누군가 이메일을 잘못 입력했을 수 있어요. 비밀번호는 바뀌지 않았으니 이 메일은 지워도 괜찮아요."""
-                    .formatted(code), mailTemplates.html(MailTemplates.VERIFY_PASSWORD_RESET, Map.of("code", code)));
+                    .formatted(code)), mailTemplates.html(MailTemplates.VERIFY_PASSWORD_RESET, Map.of("code", code)));
         }
-        return new MailContent("[FIRSTORY] 회원가입 인증번호예요", """
+        return new MailContent("[FIRSTORY] 회원가입 인증번호예요", MailTemplates.withContact("""
                 FIRSTORY 회원가입 인증번호예요.
 
                 %s
 
                 가입 화면에 입력해 주세요. 5분 동안 쓸 수 있어요.
-                가입을 요청하지 않았다면 이 메일은 지워도 괜찮아요.""".formatted(code),
+                가입을 요청하지 않았다면 이 메일은 지워도 괜찮아요.""".formatted(code)),
                 mailTemplates.html(MailTemplates.VERIFY_SIGNUP, Map.of("code", code)));
     }
 
