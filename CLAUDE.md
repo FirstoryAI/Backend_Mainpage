@@ -75,7 +75,7 @@ com.firstory
 ├── global                config, entity(BaseTimeEntity), error, converter, security, mail(메일 발송), kakao(카카오 로그인 호출), ai(AI 서비스 호출), storage(파일 저장소)
 └── domain
     ├── auth              이메일 인증, 가입, 로그인, 카카오 로그인, 인증 메일 발송 기록
-    ├── user              회원, 동의, 내 정보
+    ├── user              회원(알림 수신 동의 포함), 동의 검사, 내 정보
     ├── child             아이 프로필, 성향
     ├── story             동화, 만들기 입력, 인터뷰, 상태
     ├── generation        생성 실행, 버전, 페이지
@@ -194,9 +194,10 @@ com.firstory
 
 ## 알림 규칙
 
-- `NotificationService.notify(runId, type)`는 **트랜잭션 밖에서** 부른다. 최신 EMAIL_NOTIFY 동의가 활성일 때만, 같은 (실행, 종류)가 없을 때만 PENDING 저장(channel EMAIL) → `EmailSender.send`(회원 이메일) → SENT/FAILED. 예외를 던지지 않는다(알림 실패가 생성 흐름을 깨뜨리지 않는다).
-- STORY_STARTED는 처음 만들기(INITIAL)에만, STORY_COMPLETED와 STORY_FAILED는 모든 실행에. 확정 때는 보내지 않는다(PRD 33). 문구는 `NotificationTemplate`(code가 `template_code`).
-- 알림 메일에 아이 정보, 동화 제목, 부모 입력을 넣지 않는다. V12 전의 문자 알림 기록은 channel SMS로 남아 있다.
+- `NotificationService.notify(runId, type)`는 **트랜잭션 밖에서** 부른다. 회원의 `users.email_notify`가 true일 때만, 같은 (실행, 종류)가 없을 때만 PENDING 저장(실행·종류·상태만, 받는 회원과 동화는 실행에서 찾는다) → `EmailSender.send`(회원 이메일) → SENT/FAILED(보낸 시각은 `updated_at`). 예외를 던지지 않는다(알림 실패가 생성 흐름을 깨뜨리지 않는다).
+- STORY_STARTED는 처음 만들기(INITIAL)에만, STORY_COMPLETED와 STORY_FAILED는 모든 실행에. 확정 때는 보내지 않는다(PRD 33). 문구는 `NotificationTemplate`.
+- 알림 메일에 아이 정보, 동화 제목, 부모 입력을 넣지 않는다.
+- 동의는 따로 기록하지 않는다(새 ERD, V15에서 `user_consents` 삭제). 가입 요청의 `consents`로 필수 동의(보호자·약관·개인정보)를 `ConsentPolicy`로 검사하고(가입 = 동의, 시각은 `users.created_at`), 알림 수신(선택)만 `users.email_notify`에 저장한다. `termsVersion`은 받지만 저장하지 않는다. 알림 설정 변경은 `User.changeEmailNotify`.
 
 ## 서재와 함께 읽기 (HOME-01, LIB-01~02, GDE-01, RD-01~03)
 

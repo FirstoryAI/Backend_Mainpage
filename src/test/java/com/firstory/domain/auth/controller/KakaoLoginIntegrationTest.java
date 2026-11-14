@@ -39,9 +39,8 @@ class KakaoLoginIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.hasPassword").value(false));
         browser.get("/api/me").andExpect(status().isOk());
         assertThat(jdbc.queryForObject("SELECT password_hash FROM users WHERE email = ?", String.class, email)).isNull();
-        assertThat(jdbc.queryForList("SELECT consent_type FROM user_consents uc JOIN users u ON u.id = uc.user_id "
-                + "WHERE u.email = ?", String.class, email))
-                .containsExactlyInAnyOrder("GUARDIAN", "TERMS", "PRIVACY", "EMAIL_NOTIFY");
+        assertThat(jdbc.queryForObject("SELECT email_notify FROM users WHERE email = ?", Boolean.class, email))
+                .isFalse();   // allConsents()는 EMAIL_NOTIFY false
 
         Browser again = browser();
         kakaoLogin(again, code, true)

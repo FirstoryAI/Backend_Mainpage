@@ -21,6 +21,13 @@ public final class ConsentPolicy {
         }
     }
 
+    /**
+     * 동화 알림 메일 수신(선택) 동의 여부. users.email_notify에 저장한다.
+     */
+    public static boolean emailNotify(Map<ConsentType, Boolean> agreements) {
+        return isAgreed(agreements, ConsentType.EMAIL_NOTIFY);
+    }
+
     private static boolean isAgreed(Map<ConsentType, Boolean> agreements, ConsentType type) {
         return agreements != null && Boolean.TRUE.equals(agreements.get(type));
     }

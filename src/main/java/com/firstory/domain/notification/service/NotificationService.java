@@ -4,15 +4,11 @@ import com.firstory.domain.generation.entity.GenerationRun;
 import com.firstory.domain.generation.entity.RunTrigger;
 import com.firstory.domain.generation.repository.GenerationRunRepository;
 import com.firstory.domain.notification.entity.Notification;
-import com.firstory.domain.notification.entity.NotificationChannel;
 import com.firstory.domain.notification.entity.NotificationTemplate;
 import com.firstory.domain.notification.entity.NotificationType;
 import com.firstory.domain.notification.repository.NotificationRepository;
 import com.firstory.domain.story.entity.Story;
-import com.firstory.domain.user.entity.ConsentType;
 import com.firstory.domain.user.entity.User;
-import com.firstory.domain.user.entity.UserConsent;
-import com.firstory.domain.user.repository.UserConsentRepository;
 import com.firstory.global.mail.EmailSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +16,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.time.Clock;
 
 /**
  * 생성 실행의 이메일 알림.
@@ -42,10 +37,8 @@ public class NotificationService {
 
     private final GenerationRunRepository runRepository;
     private final NotificationRepository notificationRepository;
-    private final UserConsentRepository consentRepository;
     private final EmailSender emailSender;
     private final TransactionTemplate transactionTemplate;
-    private final Clock clock;
 
     /**
      * 트랜잭션 밖에서 부른다 (메일 발송을 트랜잭션 안에서 하지 않는다). 예외를 던지지 않는다.
@@ -62,7 +55,7 @@ public class NotificationService {
         NotificationTemplate template = NotificationTemplate.of(type);
         Pending pending;
         try {
-            pending = transactionTemplate.execute(status -> prepare(runId, type, template));
+            pending = transactionTemplate.execute(status -> prepare(runId, type));
         } catch (DataIntegrityViolationException e) {
             // 같은 실행의 같은 알림을 다른 쪽이 먼저 저장했다
             return;
@@ -73,7 +66,7 @@ public class NotificationService {
         try {
             emailSender.send(pending.email(), template.getSubject(), template.getText());
             transactionTemplate.executeWithoutResult(status -> notificationRepository.findById(pending.notificationId())
-                    .ifPresent(notification -> notification.sent(null, clock.instant())));
+                    .ifPresent(Notification::sent));
         } catch (RuntimeException e) {
             log.warn("알림 메일을 보내지 못했어요: notification_id={}, cause={}", pending.notificationId(),
                     e.getClass().getSimpleName());
@@ -82,7 +75,7 @@ public class NotificationService {
         }
     }
 
-    private Pending prepare(Long runId, NotificationType type, NotificationTemplate template) {
+    private Pending prepare(Long runId, NotificationType type) {
         GenerationRun run = runRepository.findById(runId).orElse(null);
         if (run == null) {
             return null;
@@ -92,21 +85,14 @@ public class NotificationService {
         }
         Story story = run.getStory();
         User user = story.getUser();
-        if (user.isWithdrawn() || !agreedToEmail(user)) {
+        if (user.isWithdrawn() || !user.isEmailNotify()) {
             return null;
         }
         if (notificationRepository.existsByGenerationRunIdAndType(runId, type)) {
             return null;
         }
-        Notification notification = notificationRepository.saveAndFlush(Notification.pending(user, story, run, type,
-                NotificationChannel.EMAIL, template.name()));
+        Notification notification = notificationRepository.saveAndFlush(Notification.pending(run, type));
         return new Pending(notification.getId(), user.getEmail());
-    }
-
-    private boolean agreedToEmail(User user) {
-        return consentRepository.findTopByUserIdAndConsentTypeOrderByIdDesc(user.getId(), ConsentType.EMAIL_NOTIFY)
-                .map(UserConsent::isActive)
-                .orElse(false);
     }
 
     private record Pending(Long notificationId, String email) {
