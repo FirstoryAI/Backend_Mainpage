@@ -77,6 +77,9 @@ class LibraryIntegrationTest extends IntegrationTest {
     @Test
     void 서재_필터별로_나누고_BLOCKED는_어디에도_없다() throws Exception {
         long draft = create(StoryStatus.DRAFT, false);
+        long interviewing = create(StoryStatus.INTERVIEWING, false);
+        long confirming = create(StoryStatus.CONFIRMING, false);
+        long requested = create(StoryStatus.REQUESTED, false);
         long generating = create(StoryStatus.GENERATING_IMAGES, false);
         long reviewing = create(StoryStatus.REVIEWING, false);
         long unread = create(StoryStatus.COMPLETED, false);
@@ -84,18 +87,22 @@ class LibraryIntegrationTest extends IntegrationTest {
         long failed = create(StoryStatus.FAILED, false);
         long blocked = create(StoryStatus.BLOCKED, false);
 
-        parent.get("/api/stories")
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalElements").value(6))
+        // 서재(ALL)에는 BLOCKED와 임시저장이 없다
+        expectFilter("ALL", requested, generating, reviewing, unread, read, failed);
+        parent.get("/api/stories").andExpect(jsonPath("$.totalElements").value(6))
                 .andExpect(jsonPath("$.items[*].id", not(hasItem((int) blocked))));
-        expectFilter("CREATING", draft, generating);
+        expectFilter("CREATING", requested, generating);
         expectFilter("REVIEWING", reviewing);
         expectFilter("UNREAD", unread);
         expectFilter("READ", read);
         expectFilter("FAILED", failed);
+        // 임시저장은 이어 만들기 목록용 DRAFT 필터로만
+        expectFilter("DRAFT", draft, interviewing, confirming);
 
         parent.get("/api/stories?filter=CREATING")
-                .andExpect(jsonPath("$.items[*].label", contains("만드는 중", "만들던 이야기")));
+                .andExpect(jsonPath("$.items[*].label", everyIn("만드는 중")));
+        parent.get("/api/stories?filter=DRAFT")
+                .andExpect(jsonPath("$.items[*].label", everyIn("만들던 이야기")));
         parent.get("/api/stories?filter=REVIEWING").andExpect(jsonPath("$.items[0].label").value("확인을 기다려요"));
         parent.get("/api/stories?filter=UNREAD").andExpect(jsonPath("$.items[0].label").value("아직 안 읽었어요"));
         parent.get("/api/stories?filter=READ").andExpect(jsonPath("$.items[0].label").value("함께 읽었어요"));
@@ -117,7 +124,7 @@ class LibraryIntegrationTest extends IntegrationTest {
                         .value("/api/stories/" + completed + "/versions/" + versionId + "/character-sheet"))
                 .andExpect(jsonPath("$.items[0].createdAt").isNotEmpty())
                 .andExpect(jsonPath("$.items[0].updatedAt").isNotEmpty());
-        parent.get("/api/stories?filter=CREATING")
+        parent.get("/api/stories?filter=DRAFT")
                 .andExpect(jsonPath("$.items[0].id").value(draft))
                 .andExpect(jsonPath("$.items[0].title").value(nullValue()))
                 .andExpect(jsonPath("$.items[0].coverUrl").value(nullValue()))
@@ -126,11 +133,11 @@ class LibraryIntegrationTest extends IntegrationTest {
 
     @Test
     void 서재는_최근_수정_순으로_나눠_받는다() throws Exception {
-        long first = create(StoryStatus.DRAFT, false);
+        long first = create(StoryStatus.COMPLETED, false);
         advance(Duration.ofMinutes(1));
-        long second = create(StoryStatus.DRAFT, false);
+        long second = create(StoryStatus.REVIEWING, false);
         advance(Duration.ofMinutes(1));
-        long third = create(StoryStatus.DRAFT, false);
+        long third = create(StoryStatus.FAILED, false);
 
         parent.get("/api/stories?size=2")
                 .andExpect(jsonPath("$.items[*].id", contains((int) third, (int) second)))
@@ -172,7 +179,7 @@ class LibraryIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.saved").value(true));
         long empty = newDraft();
 
-        parent.get("/api/stories")
+        parent.get("/api/stories?filter=DRAFT")
                 .andExpect(jsonPath("$.items[?(@.id == %d)].categoryLabel".formatted(friend)).value("친구와 다툼"))
                 .andExpect(jsonPath("$.items[?(@.id == %d)].categoryLabel".formatted(other)).value("이사"))
                 .andExpect(jsonPath("$.items[?(@.id == %d)].categoryLabel".formatted(empty)).value(hasItem(nullValue())));
@@ -228,7 +235,8 @@ class LibraryIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.inProgress[*].status", everyIn("DRAFT", "CONFIRMING", "GENERATING_TEXT",
                         "REVIEWING", "FAILED")))
                 .andExpect(jsonPath("$.recent[*].id", contains((int) newest, (int) newer, (int) older)))
-                .andExpect(jsonPath("$.counts.creating").value(3))
+                // 임시저장(DRAFT, CONFIRMING)은 세지 않고 GENERATING_TEXT만
+                .andExpect(jsonPath("$.counts.creating").value(1))
                 .andExpect(jsonPath("$.counts.reviewing").value(1))
                 .andExpect(jsonPath("$.counts.unread").value(2))
                 .andExpect(jsonPath("$.counts.read").value(2))

@@ -101,7 +101,8 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `GET /api/home` | `inProgress`(만드는 중·확인 대기·실패 최근 3개), `recent`(최근 완성 3개), `counts{creating, reviewing, unread, read, failed}`, `onboardingSeen` |
+| 들어올 때 | `GET /api/home` | `inProgress`(만드는 중·확인 대기·실패 최근 3개, 임시저장도 들어감), `recent`(최근 완성 3개), `counts{creating, reviewing, unread, read, failed}`(서재 탭 숫자, 임시저장은 세지 않음), `onboardingSeen` |
+| 이어 만들기 목록 | `GET /api/stories?filter=DRAFT&size=50` | 만들다 멈춘 임시저장 동화(`DRAFT`, `INTERVIEWING`, `CONFIRMING`)만, 최근 수정 순 |
 | 카드 누름 | 카드 `status`로 화면을 고른다(위 표). 완성된 동화는 LIB-02 | |
 | 새 동화 만들기 | CRT-01로 | |
 
@@ -313,7 +314,9 @@
 | 들어올 때 / 탭 | `GET /api/stories?filter=ALL&page=0&size=20` | `items[]`(카드), `page`, `size`, `totalElements`, `hasNext` |
 | 더 보기 | `page`를 1씩 올린다(`hasNext`가 false면 끝) | |
 
-`filter`: `ALL`(기본), `CREATING`(만드는 중), `REVIEWING`(확인을 기다려요), `UNREAD`(아직 안 읽었어요), `READ`(함께 읽었어요), `FAILED`(만들지 못했어요). 탭 개수는 `GET /api/home`의 `counts`. 최근 수정 순.
+`filter`: `ALL`(기본), `CREATING`(만드는 중: `REQUESTED`, `GENERATING_TEXT`, `GENERATING_IMAGES`), `REVIEWING`(확인을 기다려요), `UNREAD`(아직 안 읽었어요), `READ`(함께 읽었어요), `FAILED`(만들지 못했어요). 탭 개수는 `GET /api/home`의 `counts`. 최근 수정 순.
+
+**만들다 멈춘 임시저장 동화(`DRAFT`, `INTERVIEWING`, `CONFIRMING`)는 서재에 나오지 않는다.** `ALL`, `CREATING`, `totalElements`, `counts` 모두 빼고 센다. 임시저장 동화는 홈의 이어 만들기 목록에서 `filter=DRAFT`로 받는다.
 
 ## LIB-02 동화 상세
 

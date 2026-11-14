@@ -29,15 +29,17 @@ public class LibraryController {
     private final LibraryService libraryService;
 
     @Operation(summary = "홈 (HOME-01)",
-            description = "만드는 중·확인을 기다리는·만들지 못한 동화 최근 3개, 최근 완성 3개, 탭별 개수. 회원 정보는 /api/me")
+            description = "만드는 중(임시저장 포함)·확인을 기다리는·만들지 못한 동화 최근 3개, 최근 완성 3개, 서재 탭별 개수"
+                    + "(임시저장은 세지 않는다). 회원 정보는 /api/me")
     @GetMapping("/api/home")
     public HomeResponse home(@AuthenticationPrincipal UserPrincipal principal) {
         return libraryService.home(principal.getUserId());
     }
 
     @Operation(summary = "서재 목록 (LIB-01)",
-            description = "filter: ALL(기본, BLOCKED 제외 전부), CREATING(만드는 중), REVIEWING(확인을 기다려요), "
-                    + "UNREAD(아직 안 읽었어요), READ(함께 읽었어요), FAILED(만들지 못했어요). "
+            description = "filter: ALL(기본, BLOCKED와 임시저장 제외 전부), CREATING(만드는 중: REQUESTED, GENERATING_TEXT, "
+                    + "GENERATING_IMAGES), REVIEWING(확인을 기다려요), UNREAD(아직 안 읽었어요), READ(함께 읽었어요), "
+                    + "FAILED(만들지 못했어요), DRAFT(임시저장: DRAFT, INTERVIEWING, CONFIRMING. 서재 탭이 아니라 이어 만들기 목록용). "
                     + "최근 수정 순. page는 0부터, size는 1~50(기본 20). 버전이 없으면 title, coverUrl은 null")
     @ApiErrorCodes(ErrorCode.VALIDATION_FAILED)
     @GetMapping("/api/stories")
