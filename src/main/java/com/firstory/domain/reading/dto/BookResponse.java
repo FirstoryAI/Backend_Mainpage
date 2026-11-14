@@ -18,11 +18,13 @@ import java.util.List;
  * 함께 읽기 화면 (RD-01). 확정된 버전의 표지와 쪽, 쪽 사이에 나올 대화 질문.
  * 그림은 imageUrl(그림 API)로 받는다. 파일 key나 저장 경로는 넣지 않는다.
  *
- * @param coverUrl 캐릭터 시트가 없으면 null
- * @param prompts  afterPage 쪽을 읽은 뒤에 보여준다 (RD-02)
+ * @param coverUrl      캐릭터 시트가 없으면 null
+ * @param frontCoverUrl 책 맨 앞 앞표지(쪽과 같은 크기, 제목 포함). 없으면(이전 버전, 표지 실패) null
+ * @param backCoverUrl  책 맨 뒤 뒤표지(쪽과 같은 크기, 글자 없음). 없으면 null
+ * @param prompts       afterPage 쪽을 읽은 뒤에 보여준다 (RD-02)
  */
-public record BookResponse(Long storyId, Long versionId, String title, String coverUrl, int pageCount,
-                           List<Page> pages, List<Prompt> prompts) {
+public record BookResponse(Long storyId, Long versionId, String title, String coverUrl, String frontCoverUrl,
+                           String backCoverUrl, int pageCount, List<Page> pages, List<Prompt> prompts) {
 
     /**
      * @param imageUrl     그림이 실패한 쪽(FAILED)은 null
@@ -41,7 +43,7 @@ public record BookResponse(Long storyId, Long versionId, String title, String co
                                   List<GuidePrompt> prompts) {
         Long storyId = story.getId();
         return new BookResponse(storyId, version.getId(), story.getTitle(), StoryCardResponse.coverUrl(story),
-                pageCount,
+                StoryImageUrls.frontCover(storyId, version), StoryImageUrls.backCover(storyId, version), pageCount,
                 pages.stream().map(page -> new Page(page.getPageNo(), page.getText(),
                         page.getImageStatus() == ImageStatus.DONE
                                 ? StoryImageUrls.page(storyId, version.getId(), page.getPageNo()) : null,

@@ -91,7 +91,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertThat(run.get("scope")).isEqualTo("ALL");
         assertThat(run.get("input_tokens")).isEqualTo(FakeAiClient.INPUT_TOKENS);
         assertThat(run.get("output_tokens")).isEqualTo(FakeAiClient.OUTPUT_TOKENS);
-        assertThat(run.get("image_count")).isEqualTo(12);   // 쪽 10 + 시트 + 표지
+        assertThat(run.get("image_count")).isEqualTo(14);   // 쪽 10 + 시트 + 표지 3 (정사각형·앞·뒤)
         assertThat(run.get("langsmith_trace_id")).isNotNull();
         assertThat(run.get("finished_at")).isNotNull();
         Map<String, Object> version = jdbc.queryForMap("SELECT * FROM story_versions WHERE story_id = ?", id);
@@ -171,6 +171,8 @@ class GenerationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.characterSheetUrl")
                         .value(storyUrl(id) + "/versions/" + versionId + "/character-sheet"))
                 .andExpect(jsonPath("$.coverUrl").value(storyUrl(id) + "/versions/" + versionId + "/cover"))
+                .andExpect(jsonPath("$.frontCoverUrl").value(storyUrl(id) + "/versions/" + versionId + "/front-cover"))
+                .andExpect(jsonPath("$.backCoverUrl").value(storyUrl(id) + "/versions/" + versionId + "/back-cover"))
                 .andExpect(jsonPath("$.pages", hasSize(10)))
                 .andExpect(jsonPath("$.pages[0].text").value(FakeAiClient.SAMPLE.pageText(1)))
                 .andExpect(jsonPath("$.pages[0].textPosition").value("BOTTOM"))
@@ -229,6 +231,31 @@ class GenerationIntegrationTest extends IntegrationTest {
         BufferedImage coverImage = ImageIO.read(new ByteArrayInputStream(cover));
         assertThat(coverImage.getWidth()).isEqualTo(1024);
         assertThat(coverImage.getHeight()).isEqualTo(1024);
+
+        // 앞·뒤표지는 쪽과 같은 크기 (#61)
+        for (String side : List.of("front-cover", "back-cover")) {
+            byte[] book = parent.get(storyUrl(id) + "/versions/" + versionId + "/" + side)
+                    .andExpect(status().isOk())
+                    .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "image/png"))
+                    .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                    .andReturn().getResponse().getContentAsByteArray();
+            BufferedImage bookImage = ImageIO.read(new ByteArrayInputStream(book));
+            assertThat(bookImage.getWidth()).as(side).isEqualTo(1920);
+            assertThat(bookImage.getHeight()).as(side).isEqualTo(1088);
+        }
+    }
+
+    @Test
+    void 앞뒤표지가_없는_버전은_주소가_null이고_그림은_404() throws Exception {
+        long id = reviewingStory();
+        long versionId = currentVersionId(id);
+        jdbc.update("UPDATE story_versions SET front_cover_key = NULL, back_cover_key = NULL WHERE id = ?", versionId);
+
+        parent.get(storyUrl(id) + "/preview")
+                .andExpect(jsonPath("$.frontCoverUrl").value(nullValue()))
+                .andExpect(jsonPath("$.backCoverUrl").value(nullValue()));
+        assertError(parent.get(storyUrl(id) + "/versions/" + versionId + "/front-cover"), ErrorCode.IMAGE_NOT_FOUND);
+        assertError(parent.get(storyUrl(id) + "/versions/" + versionId + "/back-cover"), ErrorCode.IMAGE_NOT_FOUND);
     }
 
     @Test
@@ -245,6 +272,10 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertError(parent.get(imageUrl(id, versionId, 11)), ErrorCode.IMAGE_NOT_FOUND);
         assertError(parent.get(imageUrl(id, versionId, 0)), ErrorCode.IMAGE_NOT_FOUND);
         browser().get(imageUrl(id, versionId, 1)).andExpect(status().isUnauthorized());
+        for (String side : List.of("/front-cover", "/back-cover")) {
+            assertError(other.get(storyUrl(id) + "/versions/" + versionId + side), ErrorCode.STORY_NOT_FOUND);
+            assertError(parent.get(storyUrl(id) + "/versions/" + otherVersionId + side), ErrorCode.VERSION_NOT_FOUND);
+        }
     }
 
     @Test
@@ -283,8 +314,10 @@ class GenerationIntegrationTest extends IntegrationTest {
                 assertThat(after.get(i)).isEqualTo(before.get(i));
             }
         }
-        // 일부 쪽 그림만 다시는 표지도 버전 1 것
+        // 일부 쪽 그림만 다시는 표지도 버전 1 것. 마지막 쪽이 아니라 앞·뒤표지도 (#61)
         assertThat(coverKey(v2)).isEqualTo(coverKey(v1)).contains("/runs/1/images/cover.png");
+        assertThat(bookCoverKey(v2, "front")).isEqualTo(bookCoverKey(v1, "front")).contains("/runs/1/images/front-cover.png");
+        assertThat(bookCoverKey(v2, "back")).isEqualTo(bookCoverKey(v1, "back")).contains("/runs/1/images/back-cover.png");
         Map<String, Object> run = jdbc.queryForMap("SELECT * FROM generation_runs WHERE story_id = ? AND run_no = 2", id);
         assertThat(run.get("trigger_type")).isEqualTo("REGENERATE");
         assertThat(run.get("scope")).isEqualTo("IMAGES");
@@ -781,6 +814,11 @@ class GenerationIntegrationTest extends IntegrationTest {
 
     private String coverKey(long versionId) {
         return jdbc.queryForObject("SELECT cover_key FROM story_versions WHERE id = ?", String.class, versionId);
+    }
+
+    private String bookCoverKey(long versionId, String side) {
+        return jdbc.queryForObject("SELECT " + side + "_cover_key FROM story_versions WHERE id = ?", String.class,
+                versionId);
     }
 
     private List<String> imageKeys(long versionId) {

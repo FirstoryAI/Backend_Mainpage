@@ -132,7 +132,7 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .mapToObj(n -> new AiGenerationResult.Page(n, n + "쪽", null,
                         n == 3 ? TextPosition.TOP : TextPosition.BOTTOM, prefix + "page-0" + n + ".png", "done"))
                 .toList();
-        AiGenerationResult result = new AiGenerationResult(1, "cp-1", "제목", null, null, List.of(), pages,
+        AiGenerationResult result = new AiGenerationResult(1, "cp-1", "제목", null, null, null, null, List.of(), pages,
                 new AiGenerationResult.Guide(null, "의도", List.of("팁"), "다리 질문", null, List.of(
                         new AiGenerationResult.Prompt(5, "다섯째 쪽 질문", "action", null, null),
                         new AiGenerationResult.Prompt(2, "둘째 쪽 질문", "emotion", "힌트", "장면 설명"))),
@@ -171,8 +171,8 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .mapToObj(n -> new AiGenerationResult.Page(n, n + "쪽", null, TextPosition.BOTTOM,
                         prefix + "page-0" + n + ".png", "done", n == 1 ? blocks : null))
                 .toList();
-        recorder.record(runId, new AiGenerationResult(1, "cp-1", "제목", null, null, List.of(), pages, null, null,
-                null));
+        recorder.record(runId, new AiGenerationResult(1, "cp-1", "제목", null, null, null, null, List.of(), pages,
+                null, null, null));
         parent.post("/api/stories/" + id + "/approve", null).andExpect(status().isOk());
 
         parent.get("/api/stories/" + id + "/book")
@@ -201,6 +201,10 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.title").value(FakeAiClient.SAMPLE.title(0)))
                 .andExpect(jsonPath("$.coverUrl").value("/api/stories/" + id + "/versions/" + versionId
                         + "/cover"))
+                .andExpect(jsonPath("$.frontCoverUrl").value("/api/stories/" + id + "/versions/" + versionId
+                        + "/front-cover"))
+                .andExpect(jsonPath("$.backCoverUrl").value("/api/stories/" + id + "/versions/" + versionId
+                        + "/back-cover"))
                 .andExpect(jsonPath("$.pageCount").value(10))
                 .andExpect(jsonPath("$.pages", hasSize(10)))
                 .andExpect(jsonPath("$.pages[0].imageUrl").value("/api/stories/" + id + "/versions/" + versionId

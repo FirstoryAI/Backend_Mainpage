@@ -368,6 +368,37 @@ class HttpAiClientTest {
         assertThat(result.safety()).isEqualTo(SafetyResult.ok());
     }
 
+    @Test
+    void 결과의_앞뒤표지_key를_읽는다() {
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/result"))
+                .andRespond(withSuccess("""
+                        {"run_no": 1, "checkpoint_id": "cp", "title": "제목",
+                         "cover_path": "stories/1/runs/1/images/cover.webp",
+                         "front_cover_path": "stories/1/runs/1/images/front-cover.webp",
+                         "back_cover_path": "stories/1/runs/1/images/back-cover.webp", "pages": []}""",
+                        MediaType.APPLICATION_JSON));
+
+        AiGenerationResult result = client.result(THREAD_ID);
+
+        assertThat(result.frontCoverPath()).isEqualTo("stories/1/runs/1/images/front-cover.webp");
+        assertThat(result.backCoverPath()).isEqualTo("stories/1/runs/1/images/back-cover.webp");
+    }
+
+    @Test
+    void 옛_AI_결과에_앞뒤표지가_없어도_읽는다() {
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/result"))
+                .andRespond(withSuccess("""
+                        {"run_no": 1, "checkpoint_id": "cp", "title": "제목",
+                         "cover_path": "stories/1/runs/1/images/cover.webp", "back_cover_path": null, "pages": []}""",
+                        MediaType.APPLICATION_JSON));
+
+        AiGenerationResult result = client.result(THREAD_ID);
+
+        assertThat(result.frontCoverPath()).isNull();
+        assertThat(result.backCoverPath()).isNull();
+        assertThat(result.coverPath()).isEqualTo("stories/1/runs/1/images/cover.webp");
+    }
+
     private static final String PAGE_WITH = """
             {"run_no": 1, "checkpoint_id": "cp", "title": "제목",
              "pages": [{"page_no": 1, "text": "글", "image_prompt": "p", "text_position": "top",

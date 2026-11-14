@@ -13,10 +13,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class FlywayMigrationTest extends IntegrationTest {
 
     @Test
-    void V1부터_V13까지_순서로_모두_성공한다() {
+    void V1부터_V14까지_순서로_모두_성공한다() {
         assertThat(jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE version IS NOT NULL ORDER BY installed_rank",
-                String.class)).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13");
+                String.class)).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14");
         assertThat(jdbc.queryForObject("SELECT bool_and(success) FROM flyway_schema_history", Boolean.class))
                 .isTrue();
     }
@@ -62,6 +62,15 @@ class FlywayMigrationTest extends IntegrationTest {
     @Test
     void V8_버전에_표지_컬럼이_있다() {
         assertThat(columns("story_versions")).contains("cover_key");
+    }
+
+    @Test
+    void V14_버전에_앞뒤표지_칸이_있다() {
+        assertThat(jdbc.queryForList("""
+                SELECT column_name || ':' || data_type || ':' || is_nullable FROM information_schema.columns
+                WHERE table_name = 'story_versions' AND column_name IN ('front_cover_key', 'back_cover_key')
+                ORDER BY column_name""", String.class))
+                .containsExactly("back_cover_key:character varying:YES", "front_cover_key:character varying:YES");
     }
 
     @Test
