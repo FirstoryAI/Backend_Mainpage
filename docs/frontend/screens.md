@@ -101,12 +101,12 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `GET /api/home` | `inProgress`(만드는 중·확인 대기·실패 최근 3개, 임시저장도 들어감), `recent`(최근 완성 3개), `counts{creating, reviewing, unread, read, failed}`(서재 탭 숫자, 임시저장은 세지 않음), `onboardingSeen` |
+| 들어올 때 | `GET /api/home` | `inProgress`(만드는 중·확인 대기·실패 최근 3개, 임시저장도 들어감), `recent`(최근 완성 3개), `counts{creating, reviewing, unread, read, failed, byCategory}`(서재 탭 숫자, 임시저장은 세지 않음. `byCategory`는 아래 LIB-01 주제 칩 숫자), `onboardingSeen` |
 | 이어 만들기 목록 | `GET /api/stories?filter=DRAFT&size=50` | 만들다 멈춘 임시저장 동화(`DRAFT`, `INTERVIEWING`, `CONFIRMING`)만, 최근 수정 순 |
 | 카드 누름 | 카드 `status`로 화면을 고른다(위 표). 완성된 동화는 LIB-02 | |
 | 새 동화 만들기 | CRT-01로 | |
 
-카드(`StoryCardResponse`): `id, title, status, label, categoryLabel, coverUrl, childDisplayName, createdAt, updatedAt`. `categoryLabel`은 상황 분류 문구("기타"를 골랐으면 직접 입력한 분류)이고, 상황을 아직 입력하지 않았으면 null. `title`, `coverUrl`은 그림이 나오기 전엔 null. `coverUrl`은 **제목이 그림 안에 들어간 정사각형(1:1) 표지**다. 표지가 없는 예전 동화는 캐릭터 시트(16:9) 주소라, 칸은 `object-fit: cover`로 채운다. **차단된 동화(BLOCKED)는 홈과 서재에 나오지 않는다.**
+카드(`StoryCardResponse`): `id, title, status, label, category, categoryLabel, coverUrl, childDisplayName, createdAt, updatedAt`. `category`는 상황 분류 코드(`SituationCategory`, 서재 주제 칩은 이 코드로 나눈다), `categoryLabel`은 상황 분류 문구("기타"를 골랐으면 직접 입력한 분류)이고, 상황을 아직 입력하지 않았으면 둘 다 null. `title`, `coverUrl`은 그림이 나오기 전엔 null. `coverUrl`은 **제목이 그림 안에 들어간 정사각형(1:1) 표지**다. 표지가 없는 예전 동화는 캐릭터 시트(16:9) 주소라, 칸은 `object-fit: cover`로 채운다. **차단된 동화(BLOCKED)는 홈과 서재에 나오지 않는다.**
 
 ---
 
@@ -317,6 +317,19 @@
 `filter`: `ALL`(기본), `CREATING`(만드는 중: `REQUESTED`, `GENERATING_TEXT`, `GENERATING_IMAGES`), `REVIEWING`(확인을 기다려요), `UNREAD`(아직 안 읽었어요), `READ`(함께 읽었어요), `FAILED`(만들지 못했어요). 탭 개수는 `GET /api/home`의 `counts`. 최근 수정 순.
 
 **만들다 멈춘 임시저장 동화(`DRAFT`, `INTERVIEWING`, `CONFIRMING`)는 서재에 나오지 않는다.** `ALL`, `CREATING`, `totalElements`, `counts` 모두 빼고 센다. 임시저장 동화는 홈의 이어 만들기 목록에서 `filter=DRAFT`로 받는다.
+
+**주제(상황 분류)로 거르기**: `category`를 붙인다. 여러 개면 되풀이한다(`?category=OTHER&category=SAFETY&category=FEAR`). `filter`와 함께 쓸 수 있고(`?filter=UNREAD&category=RULES`), 없으면 거르지 않는다. `totalElements`도 같은 기준. 상황을 아직 받지 않은 동화는 어느 `category`에도 들지 않는다. 없는 값은 400 `VALIDATION_FAILED`.
+
+| 칩 | `category` |
+|---|---|
+| 친구 관계 | `FRIEND_CONFLICT` |
+| 등원 · 적응 | `NEW_ENVIRONMENT` |
+| 가족 | `FAMILY_CHANGE` |
+| 떼쓰기 · 훈육 | `RULES` |
+| 이별 · 죽음 | `SEPARATION` |
+| 그 밖의 일 | `OTHER`, `SAFETY`, `FEAR` |
+
+칩 숫자는 `GET /api/home`의 `counts.byCategory`(분류 8개가 모두 키로 있고 없으면 0, `filter=ALL`과 같은 기준이라 임시저장과 BLOCKED는 세지 않는다). '그 밖의 일'은 `OTHER + SAFETY + FEAR`를 더한다. 예: `{"FRIEND_CONFLICT": 2, "NEW_ENVIRONMENT": 1, "SEPARATION": 0, "SAFETY": 0, "RULES": 1, "FAMILY_CHANGE": 0, "FEAR": 0, "OTHER": 1}`
 
 ## LIB-02 동화 상세
 
