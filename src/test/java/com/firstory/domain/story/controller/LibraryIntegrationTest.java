@@ -187,6 +187,81 @@ class LibraryIntegrationTest extends IntegrationTest {
                 .value("친구와 다툼"));
     }
 
+    @Test
+    void 서재를_상황_분류로_거르고_상태_필터와_함께_쓴다() throws Exception {
+        long friendUnread = createWithCategory(StoryStatus.COMPLETED, false, "FRIEND_CONFLICT");
+        long friendFailed = createWithCategory(StoryStatus.FAILED, false, "FRIEND_CONFLICT");
+        long rules = createWithCategory(StoryStatus.REVIEWING, false, "RULES");
+        long safety = createWithCategory(StoryStatus.COMPLETED, true, "SAFETY");
+        long fear = createWithCategory(StoryStatus.GENERATING_TEXT, false, "FEAR");
+        long other = createWithCategory(StoryStatus.COMPLETED, false, "OTHER");
+        createWithCategory(StoryStatus.CONFIRMING, false, "FRIEND_CONFLICT");   // 임시저장은 서재에 없다
+        createWithCategory(StoryStatus.BLOCKED, false, "FRIEND_CONFLICT");
+        create(StoryStatus.COMPLETED, false);                                    // 상황 없음
+
+        expectFilter("ALL&category=FRIEND_CONFLICT", friendUnread, friendFailed);
+        expectFilter("ALL&category=OTHER&category=SAFETY&category=FEAR", safety, fear, other);
+        expectFilter("UNREAD&category=FRIEND_CONFLICT", friendUnread);
+        expectFilter("FAILED&category=RULES");
+        expectFilter("REVIEWING&category=RULES", rules);
+        // 거르지 않으면 상황이 없는 동화도 나온다
+        parent.get("/api/stories").andExpect(jsonPath("$.totalElements").value(7));
+        parent.get("/api/stories?filter=DRAFT&category=FRIEND_CONFLICT").andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void 카드의_category는_상황_분류_코드이고_상황이_없으면_null() throws Exception {
+        long friend = createWithCategory(StoryStatus.COMPLETED, false, "FRIEND_CONFLICT");
+        long other = createWithCategory(StoryStatus.COMPLETED, false, "OTHER");
+        long empty = create(StoryStatus.COMPLETED, false);
+
+        parent.get("/api/stories")
+                .andExpect(jsonPath("$.items[?(@.id == %d)].category".formatted(friend)).value("FRIEND_CONFLICT"))
+                .andExpect(jsonPath("$.items[?(@.id == %d)].categoryLabel".formatted(friend)).value("친구와 다툼"))
+                .andExpect(jsonPath("$.items[?(@.id == %d)].category".formatted(other)).value("OTHER"))
+                .andExpect(jsonPath("$.items[?(@.id == %d)].categoryLabel".formatted(other)).value("이사"))
+                .andExpect(jsonPath("$.items[?(@.id == %d)].category".formatted(empty)).value(hasItem(nullValue())));
+    }
+
+    @Test
+    void 없는_상황_분류로_거르면_400() throws Exception {
+        parent.get("/api/stories?category=NOPE").andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    void 홈_counts의_byCategory는_분류별_개수이고_임시저장과_BLOCKED는_세지_않는다() throws Exception {
+        createWithCategory(StoryStatus.COMPLETED, false, "FRIEND_CONFLICT");
+        createWithCategory(StoryStatus.REVIEWING, false, "FRIEND_CONFLICT");
+        createWithCategory(StoryStatus.GENERATING_IMAGES, false, "RULES");
+        createWithCategory(StoryStatus.FAILED, false, "OTHER");
+        createWithCategory(StoryStatus.INTERVIEWING, false, "RULES");
+        createWithCategory(StoryStatus.CONFIRMING, false, "FEAR");
+        createWithCategory(StoryStatus.BLOCKED, false, "SAFETY");
+        create(StoryStatus.COMPLETED, false);
+
+        parent.get("/api/home")
+                .andExpect(jsonPath("$.counts.byCategory.FRIEND_CONFLICT").value(2))
+                .andExpect(jsonPath("$.counts.byCategory.RULES").value(1))
+                .andExpect(jsonPath("$.counts.byCategory.OTHER").value(1))
+                .andExpect(jsonPath("$.counts.byCategory.FEAR").value(0))
+                .andExpect(jsonPath("$.counts.byCategory.SAFETY").value(0))
+                .andExpect(jsonPath("$.counts.byCategory.NEW_ENVIRONMENT").value(0))
+                .andExpect(jsonPath("$.counts.byCategory.SEPARATION").value(0))
+                .andExpect(jsonPath("$.counts.byCategory.FAMILY_CHANGE").value(0))
+                .andExpect(jsonPath("$.counts.byCategory.length()").value(8));
+    }
+
+    // 상황 분류만 DB에 바로 넣는다 (OTHER면 직접 입력 분류 "이사")
+    private long createWithCategory(StoryStatus status, boolean read, String category) {
+        long id = create(status, read);
+        jdbc.update("""
+                UPDATE story_inputs SET situation_timing = 'PAST', situation_category = ?,
+                       situation_custom_category = CASE WHEN ? = 'OTHER' THEN '이사' END
+                WHERE story_id = ?""", category, category, id);
+        return id;
+    }
+
     private long newDraft() throws Exception {
         String body = parent.post("/api/stories", null).andExpect(status().isCreated()).andReturn()
                 .getResponse().getContentAsString();

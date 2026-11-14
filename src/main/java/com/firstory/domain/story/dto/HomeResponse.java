@@ -1,6 +1,10 @@
 package com.firstory.domain.story.dto;
 
+import com.firstory.domain.story.entity.SituationCategory;
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.util.List;
+import java.util.Map;
 
 /**
  * 홈 (HOME-01). 회원 정보(이메일, 휴대폰)는 넣지 않는다 (/api/me가 따로 있다).
@@ -14,6 +18,12 @@ public record HomeResponse(boolean onboardingSeen, List<StoryCardResponse> inPro
     /**
      * 서재 탭별 개수 (LibraryFilter 기준). BLOCKED와 임시저장(DRAFT, INTERVIEWING, CONFIRMING)은 세지 않는다.
      */
-    public record Counts(long creating, long reviewing, long unread, long read, long failed) {
+    public record Counts(long creating, long reviewing, long unread, long read, long failed,
+                         @Schema(description = "상황 분류별 개수 (서재 주제 칩). 분류 8개가 모두 있고 없으면 0. "
+                                 + "BLOCKED와 임시저장은 세지 않는다 (filter=ALL과 같은 기준)",
+                                 example = "{\"FRIEND_CONFLICT\": 2, \"NEW_ENVIRONMENT\": 1, \"SEPARATION\": 0, "
+                                         + "\"SAFETY\": 0, \"RULES\": 1, \"FAMILY_CHANGE\": 0, \"FEAR\": 0, "
+                                         + "\"OTHER\": 1}")
+                         Map<SituationCategory, Long> byCategory) {
     }
 }
