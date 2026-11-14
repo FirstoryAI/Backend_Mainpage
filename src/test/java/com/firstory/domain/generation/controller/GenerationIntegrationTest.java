@@ -628,7 +628,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         long id = confirmingStory(MESSAGE);
 
         confirm(id);
-        assertThat(mail.lastText(email)).contains("만들기 시작했어요");
+        assertThat(mail.lastText(email)).contains("만들기 시작했어요", "인스타그램 @firstory.official");
         assertThat(mail.lastSubject(email)).isEqualTo("[FIRSTORY] 맞춤 동화를 만들기 시작했어요");
         assertThat(mail.lastHtml(email)).contains("동화를 만들기 시작했어요", "href=\"https://app.test/home\"");
         pollTimes(POLLS_TO_REVIEW);

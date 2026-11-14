@@ -69,7 +69,8 @@ public class NotificationService {
             return;
         }
         try {
-            emailSender.send(pending.email(), new MailContent(template.getSubject(), template.getText(),
+            emailSender.send(pending.email(), new MailContent(template.getSubject(),
+                    MailTemplates.withContact(template.getText()),
                     mailTemplates.html(template.getHtmlTemplate(), Map.of())));
             transactionTemplate.executeWithoutResult(status -> notificationRepository.findById(pending.notificationId())
                     .ifPresent(Notification::sent));

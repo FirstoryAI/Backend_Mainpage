@@ -33,6 +33,21 @@ class MailTemplatesTest {
     }
 
     @Test
+    void 모든_메일_맨_아래에_문의_이메일과_인스타그램이_있다() {
+        for (String name : new String[]{MailTemplates.VERIFY_SIGNUP, MailTemplates.VERIFY_PASSWORD_RESET,
+                MailTemplates.STORY_STARTED, MailTemplates.STORY_COMPLETED, MailTemplates.STORY_FAILED}) {
+            assertThat(templates.html(name, Map.of("code", "1"))).as(name)
+                    .contains("mailto:firstory.official@gmail.com", "https://www.instagram.com/firstory.official/",
+                            "@firstory.official");
+        }
+        assertThat(MailTemplates.withContact("본문")).isEqualTo("""
+                본문
+
+                문의 firstory.official@gmail.com
+                인스타그램 @firstory.official""");
+    }
+
+    @Test
     void 주소_설정이_없으면_HTML을_만들지_않는다() {
         assertThat(new MailTemplates(null, "https://app.test").html(MailTemplates.STORY_STARTED, Map.of())).isNull();
         assertThat(new MailTemplates("https://api.test/mail", " ").html(MailTemplates.VERIFY_SIGNUP,

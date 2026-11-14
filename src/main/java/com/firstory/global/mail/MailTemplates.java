@@ -25,6 +25,10 @@ public class MailTemplates {
     public static final String STORY_COMPLETED = "story-completed";
     public static final String STORY_FAILED = "story-failed";
 
+    static final String CONTACT_TEXT = """
+            문의 firstory.official@gmail.com
+            인스타그램 @firstory.official""";
+
     private final String assetBase;
     private final String appUrl;
     private final Map<String, String> cache = new ConcurrentHashMap<>();
@@ -56,6 +60,13 @@ public class MailTemplates {
             throw new IllegalStateException("메일 템플릿에 채우지 않은 칸이 있어요: " + name);
         }
         return html;
+    }
+
+    /**
+     * 글자 메일 맨 아래에 문의 이메일과 인스타그램을 붙인다 (HTML은 템플릿 맨 아래에 있다).
+     */
+    public static String withContact(String text) {
+        return text + "\n\n" + CONTACT_TEXT;
     }
 
     private static String load(String name) {
