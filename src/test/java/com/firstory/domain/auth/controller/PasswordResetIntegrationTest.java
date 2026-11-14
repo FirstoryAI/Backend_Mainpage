@@ -56,6 +56,8 @@ class PasswordResetIntegrationTest extends IntegrationTest {
                 .isEqualTo(sentToRegistered.getResponse().getStatus());
         assertThat(sentToUnknown.getResponse().getContentAsString())
                 .isEqualTo(sentToRegistered.getResponse().getContentAsString());
+        assertThat(mail.lastSubject(registered)).isEqualTo("[FIRSTORY] 비밀번호 재설정 인증번호예요");
+        assertThat(mail.lastHtml(registered)).contains("비밀번호 재설정 인증번호예요", mail.lastCode(registered));
         assertThat(mail.lastText(unknown)).isNull();
 
         // 인증번호를 모르는 사람에게는 verify 결과도 같다

@@ -62,6 +62,8 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_ASSET_BASE_URL: https://${API_DOMAIN}/mail   # 메일 속 로고·캐릭터 (Spring이 /mail/*.png로 내려준다)
+      APP_URL: ${APP_URL:-}                             # 메일 버튼이 여는 프론트 주소. 비우면 HTML 없이 글자 메일
       # 카카오 로그인. 기본 fake(아무 code로 가짜 회원). 진짜 카카오는 .env에 KAKAO_MODE=http와 KAKAO_REST_API_KEY (#47)
       KAKAO_MODE: ${KAKAO_MODE:-fake}
       KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}

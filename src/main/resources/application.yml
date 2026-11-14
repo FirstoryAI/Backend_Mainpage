@@ -74,6 +74,8 @@ firstory:
     username: ${MAIL_USERNAME:}                 # Gmail이면 팀 계정 주소. smtp면 필수
     password: ${MAIL_PASSWORD:}                 # Gmail 앱 비밀번호(16자리). smtp면 필수
     from: ${MAIL_FROM:}                         # 보내는 주소. 비우면 username
+    asset-base-url: ${MAIL_ASSET_BASE_URL:}     # 메일 그림 주소 앞부분 (예: https://api.도메인/mail). 비우면 HTML 없이 글자만
+    app-url: ${APP_URL:}                        # 메일 버튼이 여는 프론트 주소 (예: https://www.도메인). 비우면 HTML 없이 글자만
   kakao:
     mode: ${KAKAO_MODE:http}                    # http | fake. local, test 프로필은 fake (카카오 없이)
     rest-api-key: ${KAKAO_REST_API_KEY:}        # 카카오 디벨로퍼스 REST API 키. http면 필수
@@ -107,6 +109,8 @@ firstory:
     mode: fake
   mail:
     mode: log
+    asset-base-url: https://api.test/mail
+    app-url: https://app.test
   kakao:
     mode: fake
   generation:

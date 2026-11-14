@@ -629,7 +629,8 @@ class GenerationIntegrationTest extends IntegrationTest {
 
         confirm(id);
         assertThat(mail.lastText(email)).contains("만들기 시작했어요");
-        assertThat(mail.lastSubject(email)).startsWith("[FIRSTORY]");
+        assertThat(mail.lastSubject(email)).isEqualTo("[FIRSTORY] 맞춤 동화를 만들기 시작했어요");
+        assertThat(mail.lastHtml(email)).contains("동화를 만들기 시작했어요", "href=\"https://app.test/home\"");
         pollTimes(POLLS_TO_REVIEW);
 
         assertThat(notificationTypes(id)).containsExactlyInAnyOrder("STORY_STARTED", "STORY_COMPLETED");
@@ -638,6 +639,8 @@ class GenerationIntegrationTest extends IntegrationTest {
                 WHERE r.story_id = ?""", String.class, id)).containsOnly("SENT");
         String text = mail.lastText(email);
         assertThat(text).contains("완성됐어요").doesNotContain(FakeAiClient.SAMPLE.title(0)).doesNotContain(MESSAGE);
+        assertThat(mail.lastHtml(email)).contains("맞춤 동화가 완성됐어요", "href=\"https://app.test/library\"")
+                .doesNotContain(FakeAiClient.SAMPLE.title(0)).doesNotContain(MESSAGE);
 
         // 같은 실행의 같은 알림은 다시 보내지 않는다
         long runId = jdbc.queryForObject("SELECT id FROM generation_runs WHERE story_id = ?", Long.class, id);

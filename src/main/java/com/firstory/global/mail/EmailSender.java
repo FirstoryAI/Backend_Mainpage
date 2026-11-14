@@ -6,5 +6,5 @@ package com.firstory.global.mail;
  */
 public interface EmailSender {
 
-    void send(String to, String subject, String text);
+    void send(String to, MailContent content);
 }

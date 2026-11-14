@@ -35,6 +35,8 @@ dev 프로필(`application-dev.yml`)이 하는 일:
 | `MAIL_USERNAME` | `smtp`일 때 | 아니오 | SMTP 계정. 팀 Gmail 주소 | (`log`면 비움) |
 | `MAIL_PASSWORD` | `smtp`일 때 | **예** | Gmail 앱 비밀번호 16자리 (계정 2단계 인증 뒤 myaccount.google.com/apppasswords) | (`log`면 비움) |
 | `MAIL_FROM` | 선택 | 아니오 | 보내는 주소. 비우면 `MAIL_USERNAME` | (비움) |
+| `MAIL_ASSET_BASE_URL` | 선택 | 아니오 | 메일 속 로고·캐릭터 그림 주소 앞부분. 백엔드 공개 주소 + `/mail` (예: `https://api.도메인/mail`). 비우면 HTML 없이 글자 메일 | (비움) |
+| `APP_URL` | 선택 | 아니오 | 메일 버튼이 여는 프론트 주소 (예: `https://www.도메인`). 비우면 HTML 없이 글자 메일 | (비움) |
 | `MAIL_HOST`, `MAIL_PORT` | 선택 | 아니오 | SMTP 서버. 기본 `smtp.gmail.com`, `587`(STARTTLS). Railway 요금제에 따라 SMTP 포트가 막혀 있을 수 있다 | (비움) |
 | `KAKAO_MODE` | 선택 | 아니오 | `http`(dev 기본, 진짜 카카오) 또는 `fake`(카카오 없이 가짜 회원. 실제 서비스에 쓰지 않는다) | `http` |
 | `KAKAO_REST_API_KEY` | `http`일 때 | **예** | 카카오 디벨로퍼스 [앱 키] REST API 키. 비면 기동 실패 | |

@@ -10,7 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 public class LoggingEmailSender implements EmailSender {
 
     @Override
-    public void send(String to, String subject, String text) {
-        log.info("[MAIL] {} ← {} / {}", EmailMask.mask(to), subject, text);
+    public void send(String to, MailContent content) {
+        log.info("[MAIL] {} ← {} / {}{}", EmailMask.mask(to), content.subject(), content.text(),
+                content.html() == null ? "" : " (+HTML)");
     }
 }

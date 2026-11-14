@@ -70,7 +70,7 @@ POST /api/auth/login             {"email", "password", "rememberMe": false}     
 POST /api/auth/logout                                                                      → 204 (그 뒤 GET /api/auth/csrf)
 ```
 
-- 휴대폰 번호는 받지 않는다. **이메일 인증번호(6자리, 5분 유효)**로 본인을 확인한다. 메일 제목은 `[FIRSTORY] 인증번호를 알려 드려요`.
+- 휴대폰 번호는 받지 않는다. **이메일 인증번호(6자리, 5분 유효)**로 본인을 확인한다. 메일 제목은 가입이면 `[FIRSTORY] 회원가입 인증번호예요`, 비밀번호 찾기면 `[FIRSTORY] 비밀번호 재설정 인증번호예요`. 홈 화면 디자인의 HTML 메일이고, HTML을 못 여는 메일 앱에는 글자 버전이 보인다.
 - **이메일 인증과 가입은 같은 브라우저 세션에서** 해야 한다. 인증 결과가 세션(`FSESSION`)에 10분 동안 남는다. 인증한 이메일과 가입 이메일이 달라도 `EMAIL_NOT_VERIFIED`.
 - 같은 이메일은 60초 뒤에 다시 받을 수 있고(`VERIFICATION_RESEND_TOO_SOON`) 1시간에 5번까지(`VERIFICATION_RATE_LIMITED`). 메일 서버 장애면 503 `EMAIL_SEND_FAILED`.
 - `send-code`(SIGNUP)는 이미 가입된 이메일이면 409 `DUPLICATE_EMAIL`(메일을 보내지 않는다).
