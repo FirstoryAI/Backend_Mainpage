@@ -487,11 +487,10 @@ public class FakeAiClient implements AiClient {
             storage.write(coverKey, png(color(1, runNo).darker(), COVER_SIZE, COVER_SIZE), "image/png");
         }
 
-        // 앞·뒤표지 (쪽과 같은 크기): 일부 쪽 그림만 다시면 앞표지는 이전 것, 뒤표지는 마지막 쪽을 다시 그릴 때만 새로
+        // 앞·뒤표지 (쪽과 같은 크기): 일부 쪽 그림만 다시면 둘 다 이전 것 (진짜 AI의 뒤표지는 주인공 혼자 그린 그림이라 쪽과 상관없다)
         boolean partial = base != null && targets != null;
         String frontCoverKey = partial ? base.frontCoverPath() : bookCover(prefix, "front-cover", runNo);
-        String backCoverKey = partial && !targets.contains(pageCount) ? base.backCoverPath()
-                : bookCover(prefix, "back-cover", runNo);
+        String backCoverKey = partial ? base.backCoverPath() : bookCover(prefix, "back-cover", runNo);
 
         List<AiGenerationResult.CharacterSheet> sheets;
         if (base != null) {
