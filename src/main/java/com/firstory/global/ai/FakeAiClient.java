@@ -487,6 +487,12 @@ public class FakeAiClient implements AiClient {
             storage.write(coverKey, png(color(1, runNo).darker(), COVER_SIZE, COVER_SIZE), "image/png");
         }
 
+        // 앞·뒤표지 (쪽과 같은 크기): 일부 쪽 그림만 다시면 앞표지는 이전 것, 뒤표지는 마지막 쪽을 다시 그릴 때만 새로
+        boolean partial = base != null && targets != null;
+        String frontCoverKey = partial ? base.frontCoverPath() : bookCover(prefix, "front-cover", runNo);
+        String backCoverKey = partial && !targets.contains(pageCount) ? base.backCoverPath()
+                : bookCover(prefix, "back-cover", runNo);
+
         List<AiGenerationResult.CharacterSheet> sheets;
         if (base != null) {
             sheets = base.characterSheets();
@@ -500,8 +506,9 @@ public class FakeAiClient implements AiClient {
                 ? new SafetyResult(SafetyLevel.REVISE, "harmful_discipline", "완성된 이야기에 아이에게 맞지 않는 표현이 있어요.")
                 : SafetyResult.ok();
         return new AiGenerationResult(runNo, checkpointId(runNo), SAMPLE.title(state.titleNo),
-                Map.of("hero", "아로", "run_no", runNo), coverKey, sheets, pages, SAMPLE.resultGuide(),
-                new AiGenerationResult.Cost(INPUT_TOKENS, OUTPUT_TOKENS, pageCount + 2), safety);   // 쪽 + 시트 + 표지
+                Map.of("hero", "아로", "run_no", runNo), coverKey, frontCoverKey, backCoverKey, sheets, pages,
+                SAMPLE.resultGuide(), new AiGenerationResult.Cost(INPUT_TOKENS, OUTPUT_TOKENS, pageCount + 4),
+                safety);   // 쪽 + 시트 + 표지 3 (정사각형·앞·뒤)
     }
 
     // AI 가짜 원고(mock.py)처럼 3의 배수 쪽만 위
@@ -519,6 +526,13 @@ public class FakeAiClient implements AiClient {
 
     private Color color(int pageNo, int runNo) {
         return Color.getHSBColor((pageNo - 1) / (float) pageCount, 0.45f + 0.1f * (runNo % 5), 0.95f);
+    }
+
+    // 앞·뒤표지는 쪽과 같은 크기 (진짜 AI와 같다)
+    private String bookCover(String prefix, String name, int runNo) {
+        String key = prefix + "images/" + name + ".png";
+        storage.write(key, png(color(name.startsWith("front") ? 2 : 3, runNo).darker()), "image/png");
+        return key;
     }
 
     // 글꼴 없이 그린다 (서버에 글꼴이 없어도 되게). 바탕색 위에 밝은 원 하나

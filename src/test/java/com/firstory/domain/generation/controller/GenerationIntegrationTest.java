@@ -91,7 +91,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertThat(run.get("scope")).isEqualTo("ALL");
         assertThat(run.get("input_tokens")).isEqualTo(FakeAiClient.INPUT_TOKENS);
         assertThat(run.get("output_tokens")).isEqualTo(FakeAiClient.OUTPUT_TOKENS);
-        assertThat(run.get("image_count")).isEqualTo(12);   // 쪽 10 + 시트 + 표지
+        assertThat(run.get("image_count")).isEqualTo(14);   // 쪽 10 + 시트 + 표지 3 (정사각형·앞·뒤)
         assertThat(run.get("langsmith_trace_id")).isNotNull();
         assertThat(run.get("finished_at")).isNotNull();
         Map<String, Object> version = jdbc.queryForMap("SELECT * FROM story_versions WHERE story_id = ?", id);
@@ -283,8 +283,10 @@ class GenerationIntegrationTest extends IntegrationTest {
                 assertThat(after.get(i)).isEqualTo(before.get(i));
             }
         }
-        // 일부 쪽 그림만 다시는 표지도 버전 1 것
+        // 일부 쪽 그림만 다시는 표지도 버전 1 것. 마지막 쪽이 아니라 앞·뒤표지도 (#61)
         assertThat(coverKey(v2)).isEqualTo(coverKey(v1)).contains("/runs/1/images/cover.png");
+        assertThat(bookCoverKey(v2, "front")).isEqualTo(bookCoverKey(v1, "front")).contains("/runs/1/images/front-cover.png");
+        assertThat(bookCoverKey(v2, "back")).isEqualTo(bookCoverKey(v1, "back")).contains("/runs/1/images/back-cover.png");
         Map<String, Object> run = jdbc.queryForMap("SELECT * FROM generation_runs WHERE story_id = ? AND run_no = 2", id);
         assertThat(run.get("trigger_type")).isEqualTo("REGENERATE");
         assertThat(run.get("scope")).isEqualTo("IMAGES");
@@ -781,6 +783,11 @@ class GenerationIntegrationTest extends IntegrationTest {
 
     private String coverKey(long versionId) {
         return jdbc.queryForObject("SELECT cover_key FROM story_versions WHERE id = ?", String.class, versionId);
+    }
+
+    private String bookCoverKey(long versionId, String side) {
+        return jdbc.queryForObject("SELECT " + side + "_cover_key FROM story_versions WHERE id = ?", String.class,
+                versionId);
     }
 
     private List<String> imageKeys(long versionId) {
