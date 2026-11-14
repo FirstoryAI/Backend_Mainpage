@@ -57,7 +57,7 @@ docker compose up -d                                                        # .e
 
 1. `GET /api/auth/csrf`를 먼저 실행한다. 브라우저에 `XSRF-TOKEN` 쿠키가 생긴다.
 2. POST/PUT/PATCH/DELETE는 Swagger UI가 이 쿠키 값을 `X-XSRF-TOKEN` 헤더로 자동으로 붙인다(`springdoc.swagger-ui.csrf.enabled=true`). 따로 입력할 것은 없다.
-3. 가입하려면 `email/send-code` → `email/verify`(local은 고정 인증번호 `000000`. 설정을 지우면 서버 로그의 `[MAIL] p*****@example.com ← ... 인증번호는 123456 예요`에서 확인) → `signup` 순서로 같은 브라우저에서 실행한다. 가입하면 바로 로그인된다. 카카오는 `kakao/login`(local은 아무 code) → `SIGNUP_REQUIRED`면 `kakao/signup`.
+3. 가입하려면 `email/send-code` → `email/verify`(local은 고정 인증번호 `000000`. 설정을 지우면 서버 로그의 `[MAIL] p*****@example.com ← [FIRSTORY] 회원가입 인증번호예요 / ... 123456 ...`에서 확인) → `signup` 순서로 같은 브라우저에서 실행한다. 가입하면 바로 로그인된다. 카카오는 `kakao/login`(local은 아무 code) → `SIGNUP_REQUIRED`면 `kakao/signup`.
 4. 로그인하면 `FSESSION` 쿠키로 인증된다. 이후 `/api/me`, `/api/children` 등을 바로 실행할 수 있다.
 5. 동화 만들기(CRT-01~05)는 `POST /api/stories` → `situation` → `child` → `message` → `interview/start` → `interview/answer` 순서다. local은 FakeAiClient라 동화마다 정해진 1~15번째 답변이나 `{"skip": true}`에서 인터뷰가 끝난다(CONFIRMING). 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`를 넣으면 그 위기 신호로 판단한다.
    이어서 `confirm` → `generation`(local 예시값은 단계당 40초라 약 2분 40초면 REVIEWING. `FIRSTORY_AI_FAKE_STAGE_DURATION=5s`로 띄우면 약 25초) → `preview` → 그림 API(`imageUrl`을 브라우저에서 연다) → `regenerate` → `current-version` → `approve` 순서로 확정까지 해 볼 수 있다. 전하고 싶은 말이나 답변에 `[[FAIL]]`을 넣으면 첫 생성이 실패하고(`retry`로 다시 시도), `[[OUTPUT_REVISE]]`는 결과 위기 신호로 실패, `[[PAGE_FAIL]]`은 5쪽 그림만 실패, `[[AI_DOWN]]`은 다음 AI 호출 한 번이 `AI_UNAVAILABLE`이다(`docs/frontend/fake-ai.md`).
@@ -197,6 +197,7 @@ com.firstory
 - `NotificationService.notify(runId, type)`는 **트랜잭션 밖에서** 부른다. 회원의 `users.email_notify`가 true일 때만, 같은 (실행, 종류)가 없을 때만 PENDING 저장(실행·종류·상태만, 받는 회원과 동화는 실행에서 찾는다) → `EmailSender.send`(회원 이메일) → SENT/FAILED(보낸 시각은 `updated_at`). 예외를 던지지 않는다(알림 실패가 생성 흐름을 깨뜨리지 않는다).
 - STORY_STARTED는 처음 만들기(INITIAL)에만, STORY_COMPLETED와 STORY_FAILED는 모든 실행에. 확정 때는 보내지 않는다(PRD 33). 문구는 `NotificationTemplate`.
 - 알림 메일에 아이 정보, 동화 제목, 부모 입력을 넣지 않는다.
+- 메일은 `EmailSender.send(to, MailContent(subject, text, html))`. HTML은 `MailTemplates`(`resources/mail/*.html`, 홈 화면 디자인, `{{assetBase}}`·`{{appUrl}}`·`{{code}}`를 채운다)이고 `SmtpEmailSender`가 글자와 HTML을 함께(multipart/alternative) 보낸다. `MAIL_ASSET_BASE_URL`이나 `APP_URL`이 비면 HTML 없이 글자만. 로고·캐릭터 그림은 `resources/static/mail/*.png`이고 로그인 없이 `GET /mail/*.png`(`SecurityConfig`). 인증번호 메일은 가입과 비밀번호 찾기 문구가 다르다. 템플릿을 고칠 때는 저장소 밖 `mail-preview/build.py`로 미리보기와 함께 다시 만든다.
 - 동의는 따로 기록하지 않는다(새 ERD, V15에서 `user_consents` 삭제). 가입 요청의 `consents`로 필수 동의(보호자·약관·개인정보)를 `ConsentPolicy`로 검사하고(가입 = 동의, 시각은 `users.created_at`), 알림 수신(선택)만 `users.email_notify`에 저장한다. `termsVersion`은 받지만 저장하지 않는다. 알림 설정 변경은 `User.changeEmailNotify`.
 
 ## 서재와 함께 읽기 (HOME-01, LIB-01~02, GDE-01, RD-01~03)
@@ -250,6 +251,7 @@ com.firstory
 | `ALLOWED_ORIGINS` | `http://localhost:5173` | (비움) 또는 프론트 출처 | CORS. 쉼표로 구분. 비우면 CORS 설정을 등록하지 않음 |
 | `REMEMBER_ME_KEY` | 로컬용 임의값 | 비밀값 | remember-me 서명 키 |
 | `MAIL_MODE` | `smtp` (local, test는 `log`, dev는 `log` 기본) | `smtp` | `log`는 보내지 않고 로그만(local, test, dev에서만 허용) |
+| `MAIL_ASSET_BASE_URL`, `APP_URL` | (비움, test는 example 주소) | 백엔드 공개 주소 + `/mail`, 프론트 주소 | 메일 그림 주소 앞부분, 메일 버튼이 여는 주소. 둘 중 하나라도 비면 HTML 없이 글자 메일 |
 | `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` | (비움) | 팀 Gmail 주소, 앱 비밀번호(비밀값) | SMTP 계정. `smtp`면 앞의 둘은 필수. `MAIL_FROM` 비우면 username. `MAIL_HOST`, `MAIL_PORT` 기본 `smtp.gmail.com`, `587` |
 | `KAKAO_MODE` | `http` (local, test는 `fake`) | `http` | 카카오 로그인 구현 |
 | `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET` | (비움) | 비밀값 | 카카오 디벨로퍼스 REST API 키(`http`면 필수), Client Secret(켰을 때만) |

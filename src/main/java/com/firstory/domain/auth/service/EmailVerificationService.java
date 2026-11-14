@@ -12,6 +12,8 @@ import com.firstory.global.config.FirstoryProperties.Mail.MailMode;
 import com.firstory.global.error.BusinessException;
 import com.firstory.global.error.ErrorCode;
 import com.firstory.global.mail.EmailSender;
+import com.firstory.global.mail.MailContent;
+import com.firstory.global.mail.MailTemplates;
 import com.firstory.global.mail.MailSendException;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 
 /**
  * 이메일 인증번호. 발송 기록 저장은 트랜잭션 안에서, 메일 발송은 트랜잭션 밖에서 한다 (SMTP가 수 초 걸릴 수 있다).
@@ -38,11 +41,11 @@ public class EmailVerificationService {
 
     static final int HOURLY_SEND_LIMIT = 5;
     static final Duration RESEND_INTERVAL = Duration.ofSeconds(60);
-    static final String SUBJECT = "[FIRSTORY] 인증번호를 알려 드려요";
 
     private final EmailSendLogRepository emailSendLogRepository;
     private final UserRepository userRepository;
     private final EmailSender emailSender;
+    private final MailTemplates mailTemplates;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
     private final ObjectProvider<LocalFixedVerificationCode> localFixedCode;
@@ -81,7 +84,7 @@ public class EmailVerificationService {
 
         String code = newCode();
         try {
-            emailSender.send(email, SUBJECT, text(code));
+            emailSender.send(email, mail(purpose, code));
         } catch (MailSendException e) {
             log.warn("인증 메일을 보내지 못했어요: purpose={}, cause={}", purpose, e.getMessage());
             throw new BusinessException(ErrorCode.EMAIL_SEND_FAILED);
@@ -90,12 +93,28 @@ public class EmailVerificationService {
         return EmailVerification.VALIDITY;
     }
 
-    private static String text(String code) {
-        return """
-                FIRSTORY 인증번호는 %s 예요.
-                5분 안에 화면에 입력해 주세요.
+    /**
+     * 가입과 비밀번호 찾기는 무엇 때문에 온 메일인지 알 수 있게 문구를 나눈다 (#58).
+     */
+    private MailContent mail(EmailPurpose purpose, String code) {
+        if (purpose == EmailPurpose.PASSWORD_RESET) {
+            return new MailContent("[FIRSTORY] 비밀번호 재설정 인증번호예요", """
+                    FIRSTORY 비밀번호 재설정 인증번호예요.
 
-                요청하지 않았다면 이 메일은 지워도 괜찮아요.""".formatted(code);
+                    %s
+
+                    새 비밀번호를 만들 때 입력해 주세요. 5분 동안 쓸 수 있어요.
+                    요청하지 않았다면 누군가 이메일을 잘못 입력했을 수 있어요. 비밀번호는 바뀌지 않았으니 이 메일은 지워도 괜찮아요."""
+                    .formatted(code), mailTemplates.html(MailTemplates.VERIFY_PASSWORD_RESET, Map.of("code", code)));
+        }
+        return new MailContent("[FIRSTORY] 회원가입 인증번호예요", """
+                FIRSTORY 회원가입 인증번호예요.
+
+                %s
+
+                가입 화면에 입력해 주세요. 5분 동안 쓸 수 있어요.
+                가입을 요청하지 않았다면 이 메일은 지워도 괜찮아요.""".formatted(code),
+                mailTemplates.html(MailTemplates.VERIFY_SIGNUP, Map.of("code", code)));
     }
 
     /**

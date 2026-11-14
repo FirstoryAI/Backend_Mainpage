@@ -2,6 +2,7 @@ package com.firstory.support;
 
 import com.firstory.domain.user.entity.User;
 import com.firstory.global.mail.EmailSender;
+import com.firstory.global.mail.MailContent;
 import com.firstory.global.mail.LoggingEmailSender;
 
 import java.util.Map;
@@ -21,12 +22,12 @@ public class RecordingEmailSender implements EmailSender {
     private volatile RuntimeException failure;
 
     @Override
-    public void send(String to, String subject, String text) {
+    public void send(String to, MailContent content) {
         if (failure != null) {
             throw failure;
         }
-        last.put(User.normalizeEmail(to), new Sent(subject, text));
-        delegate.send(to, subject, text);
+        last.put(User.normalizeEmail(to), new Sent(content.subject(), content.text(), content.html()));
+        delegate.send(to, content);
     }
 
     /**
@@ -42,6 +43,14 @@ public class RecordingEmailSender implements EmailSender {
     public String lastText(String email) {
         Sent sent = last.get(User.normalizeEmail(email));
         return sent == null ? null : sent.text();
+    }
+
+    /**
+     * 이 주소로 마지막에 보낸 메일의 HTML. 없으면 null.
+     */
+    public String lastHtml(String email) {
+        Sent sent = last.get(User.normalizeEmail(email));
+        return sent == null ? null : sent.html();
     }
 
     public String lastSubject(String email) {
@@ -61,6 +70,6 @@ public class RecordingEmailSender implements EmailSender {
         return matcher.group();
     }
 
-    private record Sent(String subject, String text) {
+    private record Sent(String subject, String text, String html) {
     }
 }

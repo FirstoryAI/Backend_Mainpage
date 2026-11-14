@@ -10,11 +10,15 @@ import com.firstory.domain.notification.repository.NotificationRepository;
 import com.firstory.domain.story.entity.Story;
 import com.firstory.domain.user.entity.User;
 import com.firstory.global.mail.EmailSender;
+import com.firstory.global.mail.MailContent;
+import com.firstory.global.mail.MailTemplates;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+
+import java.util.Map;
 
 
 /**
@@ -38,6 +42,7 @@ public class NotificationService {
     private final GenerationRunRepository runRepository;
     private final NotificationRepository notificationRepository;
     private final EmailSender emailSender;
+    private final MailTemplates mailTemplates;
     private final TransactionTemplate transactionTemplate;
 
     /**
@@ -64,7 +69,8 @@ public class NotificationService {
             return;
         }
         try {
-            emailSender.send(pending.email(), template.getSubject(), template.getText());
+            emailSender.send(pending.email(), new MailContent(template.getSubject(), template.getText(),
+                    mailTemplates.html(template.getHtmlTemplate(), Map.of())));
             transactionTemplate.executeWithoutResult(status -> notificationRepository.findById(pending.notificationId())
                     .ifPresent(Notification::sent));
         } catch (RuntimeException e) {

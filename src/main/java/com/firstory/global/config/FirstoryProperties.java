@@ -106,7 +106,12 @@ public record FirstoryProperties(Story story, Policy policy, Ai ai, Web web, Aut
      * @param username SMTP 로그인 계정 (Gmail이면 팀 계정 주소)
      * @param password SMTP 비밀번호 (Gmail이면 2단계 인증 뒤 만든 앱 비밀번호 16자리). smtp인데 비면 기동 실패
      */
-    public record Mail(MailMode mode, String host, int port, String username, String password, String from) {
+    /**
+     * @param assetBaseUrl 메일 속 로고·캐릭터 그림 주소 앞부분 (백엔드 공개 주소 + /mail). 비우면 HTML 없이 글자만 보낸다
+     * @param appUrl       메일 버튼이 여는 프론트 주소. 비우면 HTML 없이 글자만 보낸다
+     */
+    public record Mail(MailMode mode, String host, int port, String username, String password, String from,
+                       String assetBaseUrl, String appUrl) {
 
         public enum MailMode {
             LOG,
@@ -120,6 +125,8 @@ public record FirstoryProperties(Story story, Policy policy, Ai ai, Web web, Aut
             username = blankToNull(username);
             password = blankToNull(password);
             from = blankToNull(from) == null ? username : from.trim();
+            assetBaseUrl = blankToNull(assetBaseUrl);
+            appUrl = blankToNull(appUrl);
             if (mode == MailMode.SMTP && (username == null || password == null)) {
                 throw new IllegalStateException(
                         "firstory.mail.mode=smtp이면 MAIL_USERNAME과 MAIL_PASSWORD가 필요해요. 메일 없이 띄우려면 MAIL_MODE=log로 실행해요.");

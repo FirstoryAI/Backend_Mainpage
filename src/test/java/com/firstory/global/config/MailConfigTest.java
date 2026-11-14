@@ -17,7 +17,7 @@ class MailConfigTest {
 
     @Test
     void log는_local_test_dev에서만_쓸_수_있다() {
-        FirstoryProperties log = properties(new Mail(MailMode.LOG, null, 0, null, null, null));
+        FirstoryProperties log = properties(new Mail(MailMode.LOG, null, 0, null, null, null, null, null));
 
         assertThat(config.emailSender(log, profile("dev"))).isInstanceOf(LoggingEmailSender.class);
         assertThat(config.emailSender(log, profile("local"))).isInstanceOf(LoggingEmailSender.class);
@@ -27,11 +27,11 @@ class MailConfigTest {
 
     @Test
     void smtp는_계정과_앱_비밀번호가_있어야_하고_기본은_Gmail_587이다() {
-        assertThatThrownBy(() -> new Mail(MailMode.SMTP, null, 0, "team@gmail.com", " ", null))
+        assertThatThrownBy(() -> new Mail(MailMode.SMTP, null, 0, "team@gmail.com", " ", null, null, null))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("MAIL_PASSWORD");
-        assertThatThrownBy(() -> new Mail(null, null, 0, null, null, null)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> new Mail(null, null, 0, null, null, null, null, null)).isInstanceOf(IllegalStateException.class);
 
-        Mail smtp = new Mail(MailMode.SMTP, "", 0, "team@gmail.com", "abcd efgh ijkl mnop", "");
+        Mail smtp = new Mail(MailMode.SMTP, "", 0, "team@gmail.com", "abcd efgh ijkl mnop", "", null, null);
         assertThat(smtp.host()).isEqualTo("smtp.gmail.com");
         assertThat(smtp.port()).isEqualTo(587);
         assertThat(smtp.from()).isEqualTo("team@gmail.com");

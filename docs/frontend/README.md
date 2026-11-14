@@ -71,7 +71,7 @@ Swagger에서 직접 눌러 볼 때는 먼저 `GET /api/auth/csrf`를 실행한�
 
 local에서는 메일을 실제로 보내지 않고, 이메일 인증번호가 항상 **`000000`** 이다 (`application-local.yml`의 `firstory.auth.local-fixed-code`, `firstory.mail.mode: log`). 만료(5분), 5번 틀리면 다시 받기, 60초 재발송 제한 같은 규칙은 운영과 같다.
 
-이 설정을 지우면 무작위 번호가 서버 로그에 `[MAIL] p*****@example.com ← [FIRSTORY] 인증번호를 알려 드려요 / FIRSTORY 인증번호는 123456 예요.`처럼 찍힌다. 이 설정은 local, dev 프로필에서만 동작하고, 다른 프로필에 넣으면 서버가 뜨지 않는다.
+이 설정을 지우면 무작위 번호가 서버 로그에 `[MAIL] p*****@example.com ← [FIRSTORY] 회원가입 인증번호예요 / FIRSTORY 회원가입 인증번호예요. 123456 ...`처럼 찍힌다. 이 설정은 local, dev 프로필에서만 동작하고, 다른 프로필에 넣으면 서버가 뜨지 않는다.
 
 카카오 로그인도 local은 가짜 카카오(`firstory.kakao.mode: fake`)라 카카오 키 없이 된다. 아무 `code`로 `POST /api/auth/kakao/login`을 부르면 `kakao-{code}@example.com` 회원이 된다 (auth.md "카카오 로그인").
 
