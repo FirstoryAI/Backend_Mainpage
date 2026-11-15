@@ -1,6 +1,7 @@
 package com.firstory.domain.reading.controller;
 
 import com.firstory.domain.generation.entity.GenerationRun;
+import com.firstory.domain.generation.entity.PageSoundWord;
 import com.firstory.domain.generation.entity.PageTextBlock;
 import com.firstory.domain.generation.entity.TextColor;
 import com.firstory.domain.generation.entity.TextPosition;
@@ -190,6 +191,34 @@ class ReadingIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void sound_word가_있는_쪽은_soundWord로_없는_쪽은_null로_내려간다() throws Exception {
+        Long userId = userId(parent);
+        StoryStates states = new StoryStates(tx, userRepository, storyRepository, storyInputRepository,
+                runRepository, versionRepository);
+        long id = states.create(userId, StoryStatus.GENERATING_IMAGES, false, clock.instant());
+        long runId = tx.execute(status -> runRepository.save(Fixtures.run(storyRepository.getReferenceById(id), 1)))
+                .getId();
+        String prefix = "stories/" + id + "/runs/1/images/";
+        PageSoundWord word = new PageSoundWord("훌쩍훌쩍", 62.5, 31.0, TextColor.LIGHT);
+        List<AiGenerationResult.Page> pages = IntStream.rangeClosed(1, 10)
+                .mapToObj(n -> new AiGenerationResult.Page(n, n + "쪽", null, TextPosition.BOTTOM,
+                        prefix + "page-0" + n + ".png", "done", null, n == 1 ? word : null))
+                .toList();
+        recorder.record(runId, new AiGenerationResult(1, "cp-1", "제목", null, null, null, null, List.of(), pages,
+                null, null, null));
+        parent.post("/api/stories/" + id + "/approve", null).andExpect(status().isOk());
+
+        parent.get("/api/stories/" + id + "/book")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pages[0].soundWord.text").value("훌쩍훌쩍"))
+                .andExpect(jsonPath("$.pages[0].soundWord.x").value(62.5))
+                .andExpect(jsonPath("$.pages[0].soundWord.y").value(31.0))
+                .andExpect(jsonPath("$.pages[0].soundWord.color").value("LIGHT"))
+                .andExpect(jsonPath("$.pages[1].soundWord").value(nullValue()))
+                .andExpect(jsonPath("$.pages[9].soundWord").value(nullValue()));
+    }
+
+    @Test
     void 읽기_흐름은_book_시작_쪽_넘김_대화_끝이고_서재에_함께_읽었어요로_보인다() throws Exception {
         long id = StoryFlow.completed(parent, poller);
         long versionId = currentVersionId(id);
@@ -216,6 +245,11 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.pages[0].textBlocks[0].y").value(80.0))
                 .andExpect(jsonPath("$.pages[0].textBlocks[0].color").value("DARK"))
                 .andExpect(jsonPath("$.pages[2].textBlocks[0].y").value(7.0))
+                // 가짜 AI 의성어: 샘플 글의 첫 **말**, x 75, y 40, DARK. 별표 말이 없는 쪽(1쪽)은 null
+                .andExpect(jsonPath("$.pages[1].soundWord.text").value("콩닥콩닥"))
+                .andExpect(jsonPath("$.pages[1].soundWord.x").value(75.0))
+                .andExpect(jsonPath("$.pages[1].soundWord.color").value("DARK"))
+                .andExpect(jsonPath("$.pages[0].soundWord").value(nullValue()))
                 .andExpect(jsonPath("$.prompts[*].afterPage", contains(4, 8)))
                 .andExpect(jsonPath("$.prompts[0].question").isNotEmpty())
                 .andExpect(jsonPath("$.prompts[0].parentHint").isNotEmpty());

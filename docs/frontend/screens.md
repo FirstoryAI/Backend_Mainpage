@@ -252,7 +252,7 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `GET /api/stories/{id}/preview` | `version{id, versionNo, title}`, `characterSheetUrl`, `coverUrl`, `frontCoverUrl`, `backCoverUrl`, `pages[]{pageNo, text, imageStatus, imageUrl, textPosition, textBlocks}`, `regenerateRemaining` |
+| 들어올 때 | `GET /api/stories/{id}/preview` | `version{id, versionNo, title}`, `characterSheetUrl`, `coverUrl`, `frontCoverUrl`, `backCoverUrl`, `pages[]{pageNo, text, imageStatus, imageUrl, textPosition, textBlocks, soundWord}`, `regenerateRemaining` |
 | 다시 만들기 | REV-02 | |
 | 동화 설명과 부모용 가이드 | GDE-01 (`GET .../guide`, REVIEWING에서도 된다) | 동화 설명은 `beforeReading.intent` |
 | 버전 목록 | 아래 "버전 목록" | |
@@ -272,6 +272,10 @@
   - 줄은 받은 대로 그린다(`white-space: nowrap`). 직접 줄바꿈하지 않는다. `**강조**`는 굵게 그린다(바로 아래 설명).
   - `textBlocks`가 `null`이면 지금처럼 `textPosition` 자리에 그린다. 휴대폰(760px 이하)도 지금 방식 그대로를 권한다(새 그림은 위·아래 띠를 비우지 않아 상자가 인물을 가릴 수 있다. 어떻게 할지는 프론트가 정한다).
 - 쪽 글의 `**콩닥콩닥**`은 의성어·의태어 강조 표시다. 굵게 등으로 바꿔 보여 준다.
+- `soundWord`는 그 의성어·의태어를 그림 위 소리 주인 옆에 띄울 자리다: `{text, x, y, color}` (`text`는 별표를 뺀 말, `x`·`y`는 말 **가운데**의 그림 폭·높이 대비 %, `color`는 `DARK` | `LIGHT`). 옛 동화, 별표 말이 없는 쪽, 그림이 실패한 쪽은 `null`이고 그때는 아무것도 띄우지 않는다. 본문의 굵은 글씨는 그대로 둔다(같은 말이 글과 그림에 둘 다 보인다).
+  - 그림 칸 안에 `position: absolute; left: x%; top: y%; transform: translate(-50%, -50%)`로 놓는다.
+  - 글자 크기는 그림 칸 폭의 약 3.5%(`3.5cqw`), ±20% 안에서 정한다. 서버가 이 크기로 글 덩어리·인물과 겹치지 않게 자리를 잡았다.
+  - 글자색 기본은 `DARK` = 진한 회색, `LIGHT` = 흰색. 굵기·외곽선·살짝 기울이기 같은 모양은 프론트가 정한다(크기 범위 안에서).
 
 ## REV-02 다시 만들기
 
@@ -359,7 +363,7 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `GET /api/stories/{id}/book` | `title, coverUrl, frontCoverUrl, backCoverUrl, pageCount, pages[]{pageNo, text, imageUrl, imageStatus, textPosition}, prompts[]{id, afterPage, question, parentHint}` |
+| 들어올 때 | `GET /api/stories/{id}/book` | `title, coverUrl, frontCoverUrl, backCoverUrl, pageCount, pages[]{pageNo, text, imageUrl, imageStatus, textPosition, textBlocks, soundWord}, prompts[]{id, afterPage, question, parentHint}` |
 | 이어 읽기 확인 | `GET /api/stories/{id}/reading-sessions/resume` | 200 `{sessionId, lastPage, startedAt}`이면 "이어 읽을까요?", **204면 이어 읽을 것 없음** |
 | 처음부터 읽기 | `POST /api/stories/{id}/reading-sessions` | 201 `{sessionId, lastPage: 0}` |
 | 쪽 넘길 때마다 | `PUT /api/reading-sessions/{sessionId}/progress` `{page}` (1~10) | 204 |

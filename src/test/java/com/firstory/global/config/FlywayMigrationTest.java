@@ -20,10 +20,10 @@ class FlywayMigrationTest extends IntegrationTest {
     DataSource dataSource;
 
     @Test
-    void V1부터_V15까지_순서로_모두_성공한다() {
+    void V1부터_V16까지_순서로_모두_성공한다() {
         assertThat(jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE version IS NOT NULL ORDER BY installed_rank",
-                String.class)).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15");
+                String.class)).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16");
         assertThat(jdbc.queryForObject("SELECT bool_and(success) FROM flyway_schema_history", Boolean.class))
                 .isTrue();
     }
@@ -91,6 +91,17 @@ class FlywayMigrationTest extends IntegrationTest {
     @Test
     void V10_입력에_상황_정리_컬럼이_있다() {
         assertThat(columns("story_inputs")).contains("situation_summary");
+    }
+
+    @Test
+    void V16_쪽에_의성어_자리_컬럼이_있고_비어_있어도_된다() {
+        assertThat(columns("story_pages")).contains("sound_word");
+        assertThat(jdbc.queryForObject("""
+                SELECT is_nullable FROM information_schema.columns
+                WHERE table_name = 'story_pages' AND column_name = 'sound_word'""", String.class)).isEqualTo("YES");
+        assertThat(jdbc.queryForObject("""
+                SELECT data_type FROM information_schema.columns
+                WHERE table_name = 'story_pages' AND column_name = 'sound_word'""", String.class)).isEqualTo("jsonb");
     }
 
     @Test

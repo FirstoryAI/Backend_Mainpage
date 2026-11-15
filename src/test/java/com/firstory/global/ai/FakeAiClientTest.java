@@ -413,6 +413,9 @@ class FakeAiClientTest {
         assertThat(result.pages().get(FakeAiClient.FAILED_PAGE - 1).imagePath()).isNull();
         assertThat(result.pages().get(FakeAiClient.FAILED_PAGE - 1).textBlocks()).isNull();   // 진짜 AI처럼 그림이 실패한 쪽은 글 덩어리가 없다
         assertThat(result.pages()).filteredOn(AiGenerationResult.Page::imageDone).allMatch(page -> page.textBlocks() != null);
+        assertThat(result.pages().get(FakeAiClient.FAILED_PAGE - 1).soundWord()).isNull();   // 그림이 실패한 쪽은 의성어도 없다
+        assertThat(result.pages()).filteredOn(AiGenerationResult.Page::imageDone)
+                .allMatch(page -> (page.soundWord() != null) == page.text().contains("**"));
 
         // 그 쪽만 다시 그리면 성공한다
         client.regenerate(THREAD_ID, RegenerateScope.IMAGES, List.of(FakeAiClient.FAILED_PAGE), null,
