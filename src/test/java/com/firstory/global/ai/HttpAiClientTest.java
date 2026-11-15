@@ -2,6 +2,7 @@ package com.firstory.global.ai;
 
 import com.firstory.domain.child.entity.Child;
 import com.firstory.domain.generation.entity.PageSoundWord;
+import com.firstory.domain.generation.entity.PieceSide;
 import com.firstory.domain.generation.entity.PageTextBlock;
 import com.firstory.domain.generation.entity.RegenerateScope;
 import com.firstory.domain.generation.entity.TextColor;
@@ -413,12 +414,15 @@ class HttpAiClientTest {
     }
 
     @Test
-    void sound_word를_읽는다() {
+    void sound_word_조각과_색을_읽는다() {
         AiGenerationResult result = resultWithSound("""
-                {"text": "훌쩍훌쩍", "x": 62.5, "y": 31.0, "color": "dark"}""");
+                {"text": "훌쩍훌쩍", "color": "#E03E4E", "pieces": [
+                  {"text": "훌쩍", "x": 18.2, "y": 46.0, "side": "left"},
+                  {"text": "훌쩍", "x": 37.9, "y": 46.0, "side": "right"}]}""");
 
-        assertThat(result.pages().getFirst().soundWord())
-                .isEqualTo(new PageSoundWord("훌쩍훌쩍", 62.5, 31.0, TextColor.DARK));
+        assertThat(result.pages().getFirst().soundWord()).isEqualTo(new PageSoundWord("훌쩍훌쩍", "#E03E4E", List.of(
+                new PageSoundWord.Piece("훌쩍", 18.2, 46.0, PieceSide.LEFT),
+                new PageSoundWord.Piece("훌쩍", 37.9, 46.0, PieceSide.RIGHT))));
     }
 
     @Test
@@ -434,12 +438,14 @@ class HttpAiClientTest {
     @ValueSource(strings = {
             "\"문자열\"",
             "[]",
-            "{\"text\": \"\", \"x\": 50, \"y\": 50, \"color\": \"dark\"}",
-            "{\"text\": \"톡\", \"x\": 120, \"y\": 50, \"color\": \"dark\"}",
-            "{\"text\": \"톡\", \"x\": 50, \"y\": 50, \"color\": \"red\"}",
-            "{\"text\": \"톡\", \"x\": 50, \"y\": 50}",
-            "{\"text\": \"톡\", \"x\": \"50\", \"y\": 50, \"color\": \"dark\"}",
-            "{\"text\": 7, \"x\": 50, \"y\": 50, \"color\": \"dark\"}"
+            "{\"text\": \"훌쩍\", \"x\": 62.5, \"y\": 31.0, \"color\": \"dark\"}",
+            "{\"text\": \"\", \"color\": \"#FFFFFF\", \"pieces\": [{\"text\": \"\", \"x\": 1, \"y\": 1, \"side\": \"center\"}]}",
+            "{\"text\": \"톡\", \"color\": \"#FFFFFF\", \"pieces\": [{\"text\": \"톡\", \"x\": 120, \"y\": 1, \"side\": \"center\"}]}",
+            "{\"text\": \"톡\", \"color\": \"red\", \"pieces\": [{\"text\": \"톡\", \"x\": 1, \"y\": 1, \"side\": \"center\"}]}",
+            "{\"text\": \"톡\", \"color\": \"#FFFFFF\", \"pieces\": [{\"text\": \"톡\", \"x\": 1, \"y\": 1, \"side\": \"up\"}]}",
+            "{\"text\": \"톡\", \"color\": \"#FFFFFF\", \"pieces\": [{\"text\": \"톡\", \"x\": \"1\", \"y\": 1, \"side\": \"center\"}]}",
+            "{\"text\": \"톡\", \"color\": \"#FFFFFF\", \"pieces\": \"톡\"}",
+            "{\"text\": 7, \"color\": \"#FFFFFF\", \"pieces\": []}"
     })
     void 깨진_sound_word는_그_쪽만_null이고_결과는_읽힌다(String broken) {
         AiGenerationResult result = resultWithSound(broken);

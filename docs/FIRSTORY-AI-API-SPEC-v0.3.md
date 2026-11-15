@@ -315,7 +315,8 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
         { "paragraphs": [["유치원 그림 시간이었어요.", "토끼 라라는 분홍 앞치마를 입었어요."]], "x": 5.0, "y": 7.0, "color": "dark" },
         { "paragraphs": [["라라는 고양이 미나에게 꽃을 보여 주고 싶었어요."]], "x": 55.0, "y": 7.0, "color": "light" }
       ],
-      "sound_word": { "text": "쿵쿵", "x": 62.5, "y": 31.0, "color": "dark" } }
+      "sound_word": { "text": "쿵쿵", "color": "#E03E4E",
+                      "pieces": [ { "text": "쿵", "x": 58.0, "y": 31.0, "side": "left" }, { "text": "쿵", "x": 67.0, "y": 31.0, "side": "right" } ] } }
   ],
   "guide": { "...": "04-guide.json 그대로 (synopsis, before_reading, prompts[], after_reading)" },
   "cost": { "input_tokens": 41230, "output_tokens": 8120, "image_count": 9 },
@@ -332,7 +333,7 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
   - `x`, `y`: 덩어리 왼쪽 위 모서리. 그림 전체 폭·높이에 대한 %(0~100)
   - `color`: `dark` | `light` (글자색. Spring은 `DARK` | `LIGHT`로 저장하고 응답에 싣는다)
   - 형식이 어긋나면(덩어리 0개나 3개 이상, x·y가 0~100 밖, 색이 다른 값, 문단이나 줄이 빈 값) Spring은 그 쪽만 `null`로 저장하고 경고 로그(thread_id, 쪽 번호)만 남긴다. 생성은 실패시키지 않는다
-- `sound_word` (선택): 본문의 `**말**`(의성어·의태어)을 그림 위 소리 주인 옆 어디에 띄울지 AI가 정한 자리 `{text, x, y, color}`. `text`는 별표를 뺀 말(본문에 둘 이상이면 첫 번째), `x`·`y`는 말 **가운데**의 그림 폭·높이 대비 %(0~100), `color`는 `dark` | `light`(바탕 밝기). AI는 글 자리 찾기 호출에서 같이 정하고, 글 덩어리·주인 칸·접히는 선·가장자리를 피한다. 별표 말이 없는 쪽, 그림이 실패한 쪽, 놓을 곳이 없는 쪽, 이 필드가 생기기 전 AI는 없거나 `null`. Spring은 형식이 어긋나면 그 쪽만 null로 저장한다 (FirstoryAI/AI_worker#92)
+- `sound_word` (선택): 본문의 `**말**`(의성어·의태어)을 그림 위 **소리 근원**(목소리·표정·몸 움직임은 그 캐릭터 얼굴, 물건 소리·움직임은 그 물건) 옆에 띄울 조각과 색 `{text, color, pieces[{text, x, y, side}]}`. `text`는 별표를 뺀 말(본문에 둘 이상이면 첫 번째). 같은 두 글자가 반복되는 4글자 말(데굴데굴)은 두 조각(`side` `left`·`right`, 근원 양옆), 나머지는 한 조각(`center`). `x`·`y`는 조각 **가운데**의 그림 폭·높이 대비 %(0~100), 조각 글을 이으면 `text`(공백 뺀 것). `color`는 `#RRGGBB`로, 코드가 팔레트에서 그 자리 배경과 가장 잘 구별되는 색을 고른다. AI는 근원·캐릭터 칸만 짚고 자리는 코드가 정한다(캐릭터·글 덩어리·접히는 선·가장자리를 피하고, 다른 캐릭터보다 근원에 가까운 곳만). 별표 말이 없는 쪽, 그림이 실패한 쪽, 놓을 곳이 없는 쪽, 이 필드가 생기기 전 AI는 없거나 `null`. Spring은 형식이 어긋나면 그 쪽만 null로 저장한다 (FirstoryAI/AI_worker#92, #102)
 - review interrupt payload에는 이미지 정보가 없으므로 `graph.get_state(cfg).values["illustrations"]`에서 읽어 합친다
 - `checkpoint_id`: `parent_review`에서 멈춘 시점 (`get_state(cfg).config["configurable"]["checkpoint_id"]`)
 - `safety`: 완성 본문 판단 (4장)
