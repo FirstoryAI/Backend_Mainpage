@@ -2,6 +2,7 @@ package com.firstory.global.ai;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.firstory.domain.generation.entity.PageSoundWord;
 import com.firstory.domain.generation.entity.PageTextBlock;
 import com.firstory.domain.generation.entity.RegenerateScope;
 import com.firstory.domain.generation.entity.TextColor;
@@ -382,7 +383,7 @@ public class HttpAiClient implements AiClient {
                     pages == null ? List.of() : pages.stream()
                             .map(page -> new AiGenerationResult.Page(page.pageNo(), page.text(), page.imagePrompt(),
                                     TextPosition.fromAi(page.textPosition()), page.imagePath(), page.imageStatus(),
-                                    textBlocks(threadId, page)))
+                                    textBlocks(threadId, page), soundWord(threadId, page)))
                             .toList(),
                     guide(guide),
                     cost == null ? null : new AiGenerationResult.Cost(cost.inputTokens(), cost.outputTokens(),
@@ -404,6 +405,24 @@ public class HttpAiClient implements AiClient {
                 log.warn("text_blocks 형식이 맞지 않아 뺐어요: thread_id={}, page_no={}", threadId, page.pageNo());
             }
             return blocks;
+        }
+
+        // 없거나(옛 AI, 별표 말이 없는 쪽) 형식이 어긋나면 그 쪽만 null. 로그에는 thread_id와 쪽 번호만 (말이 부모 입력일 수 있다)
+        private static PageSoundWord soundWord(String threadId, PageBody page) {
+            JsonNode node = page.soundWord();
+            if (node == null || node.isNull() || node.isMissingNode()) {
+                return null;
+            }
+            PageSoundWord word = node.isObject() && node.path("text").isString() && node.path("x").isNumber()
+                    && node.path("y").isNumber()
+                    ? PageSoundWord.validated(new PageSoundWord(node.path("text").asString(), node.path("x").asDouble(),
+                    node.path("y").asDouble(),
+                    TextColor.fromAi(node.path("color").isString() ? node.path("color").asString() : null)))
+                    : null;
+            if (word == null) {
+                log.warn("sound_word 형식이 맞지 않아 뺐어요: thread_id={}, page_no={}", threadId, page.pageNo());
+            }
+            return word;
         }
 
         // 모양이 하나라도 다르면 null (검사는 PageTextBlock.validated가 한다)
@@ -469,7 +488,8 @@ public class HttpAiClient implements AiClient {
                     @JsonProperty("text_position") String textPosition,
                     @JsonProperty("image_path") String imagePath,
                     @JsonProperty("image_status") String imageStatus,
-                    @JsonProperty("text_blocks") JsonNode textBlocks) {
+                    @JsonProperty("text_blocks") JsonNode textBlocks,
+                    @JsonProperty("sound_word") JsonNode soundWord) {
     }
 
     record CostBody(@JsonProperty("input_tokens") int inputTokens, @JsonProperty("output_tokens") int outputTokens,

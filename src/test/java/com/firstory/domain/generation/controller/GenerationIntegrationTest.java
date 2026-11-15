@@ -186,6 +186,9 @@ class GenerationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.pages[0].textBlocks[0].y").value(80.0))
                 .andExpect(jsonPath("$.pages[2].textBlocks[0].y").value(7.0))
                 .andExpect(jsonPath("$.pages[0].textBlocks[0].color").value("DARK"))
+                .andExpect(jsonPath("$.pages[1].soundWord.text").value("콩닥콩닥"))
+                .andExpect(jsonPath("$.pages[1].soundWord.y").value(40.0))
+                .andExpect(jsonPath("$.pages[3].soundWord").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.pages[*].imageStatus", everyItem(org.hamcrest.Matchers.is("DONE"))))
                 .andExpect(jsonPath("$.pages[*].imageUrl", everyItem(matchesPattern(
                         "/api/stories/" + id + "/versions/" + versionId + "/pages/\\d+/image"))))

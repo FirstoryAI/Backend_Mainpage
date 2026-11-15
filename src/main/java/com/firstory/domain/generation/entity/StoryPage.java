@@ -65,8 +65,13 @@ public class StoryPage extends BaseTimeEntity {
     @Column(name = "text_blocks", columnDefinition = "jsonb")
     private List<PageTextBlock> textBlocks;
 
+    /** 그림 위 의성어·의태어 자리. 옛 쪽, 별표 말이 없는 쪽, 그림이 실패한 쪽, 형식이 어긋난 쪽은 null */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "sound_word", columnDefinition = "jsonb")
+    private PageSoundWord soundWord;
+
     private StoryPage(StoryVersion version, int pageNo, String text, String imagePrompt, TextPosition textPosition,
-                      List<PageTextBlock> textBlocks, String imageKey, ImageStatus imageStatus) {
+                      List<PageTextBlock> textBlocks, PageSoundWord soundWord, String imageKey, ImageStatus imageStatus) {
         if (pageNo < FIRST_PAGE) {
             throw new IllegalArgumentException("쪽 번호는 1 이상이어야 해요: " + pageNo);
         }
@@ -76,13 +81,16 @@ public class StoryPage extends BaseTimeEntity {
         this.imagePrompt = imagePrompt;
         this.textPosition = Objects.requireNonNull(textPosition);
         this.textBlocks = textBlocks;
+        this.soundWord = soundWord;
         this.imageKey = imageKey;
         this.imageStatus = Objects.requireNonNull(imageStatus);
     }
 
     public static StoryPage create(StoryVersion version, int pageNo, String text, String imagePrompt,
-                                   TextPosition textPosition, List<PageTextBlock> textBlocks) {
-        return new StoryPage(version, pageNo, text, imagePrompt, textPosition, textBlocks, null, ImageStatus.PENDING);
+                                   TextPosition textPosition, List<PageTextBlock> textBlocks,
+                                   PageSoundWord soundWord) {
+        return new StoryPage(version, pageNo, text, imagePrompt, textPosition, textBlocks, soundWord, null,
+                ImageStatus.PENDING);
     }
 
     public void imageDone(String imageKey) {
@@ -99,6 +107,7 @@ public class StoryPage extends BaseTimeEntity {
      * "그림만 다시" 때 바뀌지 않은 쪽은 S3 파일을 복사하지 않고 키만 공유한다.
      */
     public StoryPage copyTo(StoryVersion target) {
-        return new StoryPage(target, pageNo, text, imagePrompt, textPosition, textBlocks, imageKey, imageStatus);
+        return new StoryPage(target, pageNo, text, imagePrompt, textPosition, textBlocks, soundWord, imageKey,
+                imageStatus);
     }
 }

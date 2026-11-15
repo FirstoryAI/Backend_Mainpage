@@ -1,6 +1,7 @@
 package com.firstory.global.ai;
 
 import com.firstory.domain.child.entity.Child;
+import com.firstory.domain.generation.entity.PageSoundWord;
 import com.firstory.domain.generation.entity.PageTextBlock;
 import com.firstory.domain.generation.entity.RegenerateScope;
 import com.firstory.domain.generation.entity.TextColor;
@@ -397,6 +398,54 @@ class HttpAiClientTest {
         assertThat(result.frontCoverPath()).isNull();
         assertThat(result.backCoverPath()).isNull();
         assertThat(result.coverPath()).isEqualTo("stories/1/runs/1/images/cover.webp");
+    }
+
+    private static final String PAGE_WITH_SOUND = """
+            {"run_no": 1, "checkpoint_id": "cp", "title": "제목",
+             "pages": [{"page_no": 1, "text": "미루가 **훌쩍훌쩍** 울었어요.", "image_prompt": "p", "text_position": "top",
+                        "image_path": "stories/123/runs/1/images/page-01.png", "image_status": "done",
+                        "sound_word": %s}]}""";
+
+    private AiGenerationResult resultWithSound(String soundWordJson) {
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/result"))
+                .andRespond(withSuccess(PAGE_WITH_SOUND.formatted(soundWordJson), MediaType.APPLICATION_JSON));
+        return client.result(THREAD_ID);
+    }
+
+    @Test
+    void sound_word를_읽는다() {
+        AiGenerationResult result = resultWithSound("""
+                {"text": "훌쩍훌쩍", "x": 62.5, "y": 31.0, "color": "dark"}""");
+
+        assertThat(result.pages().getFirst().soundWord())
+                .isEqualTo(new PageSoundWord("훌쩍훌쩍", 62.5, 31.0, TextColor.DARK));
+    }
+
+    @Test
+    void 옛_AI_결과에_sound_word가_없어도_읽는다() {
+        AiGenerationResult result = resultWith("null");   // sound_word 키 없음
+
+        assertThat(result.pages().getFirst().soundWord()).isNull();
+        server.reset();
+        assertThat(resultWithSound("null").pages().getFirst().soundWord()).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "\"문자열\"",
+            "[]",
+            "{\"text\": \"\", \"x\": 50, \"y\": 50, \"color\": \"dark\"}",
+            "{\"text\": \"톡\", \"x\": 120, \"y\": 50, \"color\": \"dark\"}",
+            "{\"text\": \"톡\", \"x\": 50, \"y\": 50, \"color\": \"red\"}",
+            "{\"text\": \"톡\", \"x\": 50, \"y\": 50}",
+            "{\"text\": \"톡\", \"x\": \"50\", \"y\": 50, \"color\": \"dark\"}",
+            "{\"text\": 7, \"x\": 50, \"y\": 50, \"color\": \"dark\"}"
+    })
+    void 깨진_sound_word는_그_쪽만_null이고_결과는_읽힌다(String broken) {
+        AiGenerationResult result = resultWithSound(broken);
+
+        assertThat(result.pages().getFirst().soundWord()).isNull();
+        assertThat(result.pages().getFirst().text()).isEqualTo("미루가 **훌쩍훌쩍** 울었어요.");
     }
 
     private static final String PAGE_WITH = """

@@ -1,6 +1,7 @@
 package com.firstory.domain.generation.dto;
 
 import com.firstory.domain.generation.entity.ImageStatus;
+import com.firstory.domain.generation.entity.PageSoundWord;
 import com.firstory.domain.generation.entity.PageTextBlock;
 import com.firstory.domain.generation.entity.StoryPage;
 import com.firstory.domain.generation.entity.StoryVersion;
@@ -29,6 +30,8 @@ public record PreviewResponse(Long storyId, StoryStatus status, VersionSummary v
             + "{\"paragraphs\": [[\"라라는 고양이 미나에게 꽃을 보여 주고 싶었어요.\"]], \"x\": 55.0, \"y\": 7.0, "
             + "\"color\": \"LIGHT\"}]";
 
+    public static final String SOUND_WORD_EXAMPLE = "{\"text\": \"훌쩍훌쩍\", \"x\": 62.5, \"y\": 31.0, \"color\": \"DARK\"}";
+
     public record VersionSummary(Long id, int versionNo, String title) {
     }
 
@@ -36,10 +39,12 @@ public record PreviewResponse(Long storyId, StoryStatus status, VersionSummary v
      * @param imageUrl     그림이 실패한 쪽(FAILED)은 null
      * @param textPosition 옛 화면용 글 자리. textBlocks가 null일 때만 이걸로 그린다
      * @param textBlocks   글 덩어리 배치(1~2개). 옛 동화와 그림이 실패한 쪽은 null
+     * @param soundWord    의성어·의태어 자리. 말 가운데 x·y %. 옛 동화·별표 말 없는 쪽·그림 실패 쪽은 null
      */
     public record Page(int pageNo, String text, ImageStatus imageStatus, String imageUrl,
                        TextPosition textPosition,
-                       @Schema(example = TEXT_BLOCKS_EXAMPLE) List<PageTextBlock> textBlocks) {
+                       @Schema(example = TEXT_BLOCKS_EXAMPLE) List<PageTextBlock> textBlocks,
+                       @Schema(example = SOUND_WORD_EXAMPLE) PageSoundWord soundWord) {
     }
 
     public static PreviewResponse of(Story story, StoryVersion version, List<StoryPage> pages,
@@ -54,7 +59,7 @@ public record PreviewResponse(Long storyId, StoryStatus status, VersionSummary v
                 pages.stream().map(page -> new Page(page.getPageNo(), page.getText(), page.getImageStatus(),
                         page.getImageStatus() == ImageStatus.DONE
                                 ? StoryImageUrls.page(storyId, version.getId(), page.getPageNo()) : null,
-                        page.getTextPosition(), page.getTextBlocks()))
+                        page.getTextPosition(), page.getTextBlocks(), page.getSoundWord()))
                         .toList(),
                 regenerateRemaining);
     }

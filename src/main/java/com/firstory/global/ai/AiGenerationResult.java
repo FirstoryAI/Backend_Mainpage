@@ -1,5 +1,6 @@
 package com.firstory.global.ai;
 
+import com.firstory.domain.generation.entity.PageSoundWord;
 import com.firstory.domain.generation.entity.PageTextBlock;
 import com.firstory.domain.generation.entity.TextPosition;
 
@@ -36,13 +37,19 @@ public record AiGenerationResult(int runNo, String checkpointId, String title, M
      * @param textPosition 그림 위 글 자리 (AI text_position. 없으면 BOTTOM)
      * @param imageStatus  done | failed (AI 값 그대로)
      * @param textBlocks   글 덩어리 배치 (AI text_blocks). 없거나 형식이 어긋나면 null
+     * @param soundWord    의성어·의태어 자리 (AI sound_word). 없거나 형식이 어긋나면 null
      */
     public record Page(int pageNo, String text, String imagePrompt, TextPosition textPosition, String imagePath,
-                       String imageStatus, List<PageTextBlock> textBlocks) {
+                       String imageStatus, List<PageTextBlock> textBlocks, PageSoundWord soundWord) {
+
+        public Page(int pageNo, String text, String imagePrompt, TextPosition textPosition, String imagePath,
+                    String imageStatus, List<PageTextBlock> textBlocks) {
+            this(pageNo, text, imagePrompt, textPosition, imagePath, imageStatus, textBlocks, null);
+        }
 
         public Page(int pageNo, String text, String imagePrompt, TextPosition textPosition, String imagePath,
                     String imageStatus) {
-            this(pageNo, text, imagePrompt, textPosition, imagePath, imageStatus, null);
+            this(pageNo, text, imagePrompt, textPosition, imagePath, imageStatus, null, null);
         }
 
         public boolean imageDone() {

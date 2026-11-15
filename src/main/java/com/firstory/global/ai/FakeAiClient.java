@@ -1,5 +1,6 @@
 package com.firstory.global.ai;
 
+import com.firstory.domain.generation.entity.PageSoundWord;
 import com.firstory.domain.generation.entity.PageTextBlock;
 import com.firstory.domain.generation.entity.RegenerateScope;
 import com.firstory.domain.generation.entity.TextColor;
@@ -36,6 +37,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 진짜 AI 서버 없이 동화 만들기부터 확정까지 돌리기 위한 가짜 (firstory.ai.mode=fake, local과 test).
@@ -466,7 +469,7 @@ public class FakeAiClient implements AiClient {
             String text = previous != null ? previous.text() : SAMPLE.pageText(pageNo);
             if (!redraw) {
                 pages.add(new AiGenerationResult.Page(pageNo, text, previous.imagePrompt(), previous.textPosition(),
-                        previous.imagePath(), previous.imageStatus(), previous.textBlocks()));
+                        previous.imagePath(), previous.imageStatus(), previous.textBlocks(), previous.soundWord()));
             } else if (state.mishaps.pageFail() && pageNo == FAILED_PAGE) {
                 pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, textPosition(pageNo), null,
                         "failed", null));   // 진짜 AI도 그림이 실패한 쪽에는 textBlocks를 주지 않는다
@@ -474,7 +477,7 @@ public class FakeAiClient implements AiClient {
                 String key = prefix + "images/page-%02d.png".formatted(pageNo);
                 storage.write(key, png(color(pageNo, runNo)), "image/png");
                 pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, textPosition(pageNo), key,
-                        "done", textBlocks(text, textPosition(pageNo))));
+                        "done", textBlocks(text, textPosition(pageNo)), soundWord(text)));
             }
         }
 
@@ -522,6 +525,14 @@ public class FakeAiClient implements AiClient {
         return List.of(new PageTextBlock(List.of(List.of(firstLine)), 5.0,
                 position == TextPosition.TOP ? 7.0 : 80.0, TextColor.DARK));
     }
+
+    // 글에 **말**이 있으면 첫 말을 x 75, y 40, DARK에 (진짜 AI는 그림을 보고 소리 주인 옆을 고른다). 없으면 null
+    private static PageSoundWord soundWord(String text) {
+        Matcher m = SOUND_WORD.matcher(text);
+        return m.find() && !m.group(1).isBlank() ? new PageSoundWord(m.group(1).strip(), 75.0, 40.0, TextColor.DARK) : null;
+    }
+
+    private static final Pattern SOUND_WORD = Pattern.compile("\\*\\*(.+?)\\*\\*");
 
     private Color color(int pageNo, int runNo) {
         return Color.getHSBColor((pageNo - 1) / (float) pageCount, 0.45f + 0.1f * (runNo % 5), 0.95f);
