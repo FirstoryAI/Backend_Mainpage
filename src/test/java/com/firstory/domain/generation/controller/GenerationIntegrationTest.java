@@ -30,6 +30,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.matchesPattern;
@@ -187,7 +188,10 @@ class GenerationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.pages[2].textBlocks[0].y").value(7.0))
                 .andExpect(jsonPath("$.pages[0].textBlocks[0].color").value("DARK"))
                 .andExpect(jsonPath("$.pages[1].soundWord.text").value("콩닥콩닥"))
-                .andExpect(jsonPath("$.pages[1].soundWord.y").value(40.0))
+                .andExpect(jsonPath("$.pages[1].soundWord.color").value("#7B4FD6"))
+                .andExpect(jsonPath("$.pages[1].soundWord.pieces[*].text", contains("콩닥", "콩닥")))
+                .andExpect(jsonPath("$.pages[1].soundWord.pieces[*].side", contains("LEFT", "RIGHT")))
+                .andExpect(jsonPath("$.pages[1].soundWord.pieces[0].y").value(40.0))
                 .andExpect(jsonPath("$.pages[3].soundWord").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.pages[*].imageStatus", everyItem(org.hamcrest.Matchers.is("DONE"))))
                 .andExpect(jsonPath("$.pages[*].imageUrl", everyItem(matchesPattern(

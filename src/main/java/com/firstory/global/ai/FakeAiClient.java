@@ -1,6 +1,7 @@
 package com.firstory.global.ai;
 
 import com.firstory.domain.generation.entity.PageSoundWord;
+import com.firstory.domain.generation.entity.PieceSide;
 import com.firstory.domain.generation.entity.PageTextBlock;
 import com.firstory.domain.generation.entity.RegenerateScope;
 import com.firstory.domain.generation.entity.TextColor;
@@ -526,10 +527,20 @@ public class FakeAiClient implements AiClient {
                 position == TextPosition.TOP ? 7.0 : 80.0, TextColor.DARK));
     }
 
-    // 글에 **말**이 있으면 첫 말을 x 75, y 40, DARK에 (진짜 AI는 그림을 보고 소리 주인 옆을 고른다). 없으면 null
+    // 글에 **말**이 있으면 첫 말을 고정 자리에, 색 #7B4FD6. 반복 4글자(콩닥콩닥)면 두 조각 x 30·45, 아니면 한 조각 x 75. y는 40.
+    // (진짜 AI는 그림을 보고 소리 근원 옆을 고른다). 없으면 null
     private static PageSoundWord soundWord(String text) {
         Matcher m = SOUND_WORD.matcher(text);
-        return m.find() && !m.group(1).isBlank() ? new PageSoundWord(m.group(1).strip(), 75.0, 40.0, TextColor.DARK) : null;
+        if (!m.find() || m.group(1).isBlank()) {
+            return null;
+        }
+        String word = m.group(1).strip();
+        String w = word.replace(" ", "");
+        List<PageSoundWord.Piece> pieces = w.length() == 4 && w.substring(0, 2).equals(w.substring(2))
+                ? List.of(new PageSoundWord.Piece(w.substring(0, 2), 30.0, 40.0, PieceSide.LEFT),
+                new PageSoundWord.Piece(w.substring(2), 45.0, 40.0, PieceSide.RIGHT))
+                : List.of(new PageSoundWord.Piece(w, 75.0, 40.0, PieceSide.CENTER));
+        return new PageSoundWord(word, "#7B4FD6", pieces);
     }
 
     private static final Pattern SOUND_WORD = Pattern.compile("\\*\\*(.+?)\\*\\*");

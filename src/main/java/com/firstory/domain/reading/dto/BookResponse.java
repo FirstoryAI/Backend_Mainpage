@@ -31,7 +31,7 @@ public record BookResponse(Long storyId, Long versionId, String title, String co
      * @param imageUrl     그림이 실패한 쪽(FAILED)은 null
      * @param textPosition 옛 화면용 글 자리. textBlocks가 null일 때만 이걸로 그린다
      * @param textBlocks   글 덩어리 배치(1~2개). 옛 동화와 그림이 실패한 쪽은 null
-     * @param soundWord    의성어·의태어 자리. 말 가운데 x·y %. 옛 동화·별표 말 없는 쪽·그림 실패 쪽은 null
+     * @param soundWord    의성어·의태어 조각(1~2개, 조각 가운데 x·y %)과 색 #RRGGBB. 옛 동화·별표 말 없는 쪽·그림 실패 쪽은 null
      */
     public record Page(int pageNo, String text, String imageUrl, ImageStatus imageStatus,
                        TextPosition textPosition,

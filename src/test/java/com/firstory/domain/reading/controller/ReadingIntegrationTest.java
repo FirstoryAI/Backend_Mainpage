@@ -2,6 +2,7 @@ package com.firstory.domain.reading.controller;
 
 import com.firstory.domain.generation.entity.GenerationRun;
 import com.firstory.domain.generation.entity.PageSoundWord;
+import com.firstory.domain.generation.entity.PieceSide;
 import com.firstory.domain.generation.entity.PageTextBlock;
 import com.firstory.domain.generation.entity.TextColor;
 import com.firstory.domain.generation.entity.TextPosition;
@@ -199,7 +200,9 @@ class ReadingIntegrationTest extends IntegrationTest {
         long runId = tx.execute(status -> runRepository.save(Fixtures.run(storyRepository.getReferenceById(id), 1)))
                 .getId();
         String prefix = "stories/" + id + "/runs/1/images/";
-        PageSoundWord word = new PageSoundWord("훌쩍훌쩍", 62.5, 31.0, TextColor.LIGHT);
+        PageSoundWord word = new PageSoundWord("훌쩍훌쩍", "#E03E4E", List.of(
+                new PageSoundWord.Piece("훌쩍", 18.2, 46.0, PieceSide.LEFT),
+                new PageSoundWord.Piece("훌쩍", 37.9, 46.0, PieceSide.RIGHT)));
         List<AiGenerationResult.Page> pages = IntStream.rangeClosed(1, 10)
                 .mapToObj(n -> new AiGenerationResult.Page(n, n + "쪽", null, TextPosition.BOTTOM,
                         prefix + "page-0" + n + ".png", "done", null, n == 1 ? word : null))
@@ -207,13 +210,19 @@ class ReadingIntegrationTest extends IntegrationTest {
         recorder.record(runId, new AiGenerationResult(1, "cp-1", "제목", null, null, null, null, List.of(), pages,
                 null, null, null));
         parent.post("/api/stories/" + id + "/approve", null).andExpect(status().isOk());
+        // 11/16 전 옛 모양이 DB에 남은 쪽: 읽지 못하면 그 쪽만 null, 응답은 200 (#72)
+        jdbc.update("""
+                UPDATE story_pages SET sound_word = '{"text": "톡", "x": 50, "y": 50, "color": "DARK"}'::jsonb
+                WHERE page_no = 2 AND version_id IN (SELECT id FROM story_versions WHERE story_id = ?)""", id);
 
         parent.get("/api/stories/" + id + "/book")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.pages[0].soundWord.text").value("훌쩍훌쩍"))
-                .andExpect(jsonPath("$.pages[0].soundWord.x").value(62.5))
-                .andExpect(jsonPath("$.pages[0].soundWord.y").value(31.0))
-                .andExpect(jsonPath("$.pages[0].soundWord.color").value("LIGHT"))
+                .andExpect(jsonPath("$.pages[0].soundWord.color").value("#E03E4E"))
+                .andExpect(jsonPath("$.pages[0].soundWord.pieces[0].text").value("훌쩍"))
+                .andExpect(jsonPath("$.pages[0].soundWord.pieces[0].x").value(18.2))
+                .andExpect(jsonPath("$.pages[0].soundWord.pieces[1].y").value(46.0))
+                .andExpect(jsonPath("$.pages[0].soundWord.pieces[1].side").value("RIGHT"))
                 .andExpect(jsonPath("$.pages[1].soundWord").value(nullValue()))
                 .andExpect(jsonPath("$.pages[9].soundWord").value(nullValue()));
     }
@@ -245,10 +254,11 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.pages[0].textBlocks[0].y").value(80.0))
                 .andExpect(jsonPath("$.pages[0].textBlocks[0].color").value("DARK"))
                 .andExpect(jsonPath("$.pages[2].textBlocks[0].y").value(7.0))
-                // 가짜 AI 의성어: 샘플 글의 첫 **말**, x 75, y 40, DARK. 별표 말이 없는 쪽(1쪽)은 null
+                // 가짜 AI 의성어: 샘플 글의 첫 **말**, 반복 4글자라 두 조각 x 30·45, y 40, #7B4FD6. 별표 말이 없는 쪽(1쪽)은 null
                 .andExpect(jsonPath("$.pages[1].soundWord.text").value("콩닥콩닥"))
-                .andExpect(jsonPath("$.pages[1].soundWord.x").value(75.0))
-                .andExpect(jsonPath("$.pages[1].soundWord.color").value("DARK"))
+                .andExpect(jsonPath("$.pages[1].soundWord.pieces[0].x").value(30.0))
+                .andExpect(jsonPath("$.pages[1].soundWord.pieces[1].side").value("RIGHT"))
+                .andExpect(jsonPath("$.pages[1].soundWord.color").value("#7B4FD6"))
                 .andExpect(jsonPath("$.pages[0].soundWord").value(nullValue()))
                 .andExpect(jsonPath("$.prompts[*].afterPage", contains(4, 8)))
                 .andExpect(jsonPath("$.prompts[0].question").isNotEmpty())

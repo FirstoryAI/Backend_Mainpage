@@ -3,6 +3,7 @@ package com.firstory.global.ai;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.firstory.domain.generation.entity.PageSoundWord;
+import com.firstory.domain.generation.entity.PieceSide;
 import com.firstory.domain.generation.entity.PageTextBlock;
 import com.firstory.domain.generation.entity.RegenerateScope;
 import com.firstory.domain.generation.entity.TextColor;
@@ -413,16 +414,28 @@ public class HttpAiClient implements AiClient {
             if (node == null || node.isNull() || node.isMissingNode()) {
                 return null;
             }
-            PageSoundWord word = node.isObject() && node.path("text").isString() && node.path("x").isNumber()
-                    && node.path("y").isNumber()
-                    ? PageSoundWord.validated(new PageSoundWord(node.path("text").asString(), node.path("x").asDouble(),
-                    node.path("y").asDouble(),
-                    TextColor.fromAi(node.path("color").isString() ? node.path("color").asString() : null)))
+            PageSoundWord word = node.isObject() && node.path("text").isString() && node.path("color").isString()
+                    && node.path("pieces").isArray()
+                    ? PageSoundWord.validated(new PageSoundWord(node.path("text").asString(), node.path("color").asString(),
+                    pieces(node.path("pieces"))))
                     : null;
             if (word == null) {
                 log.warn("sound_word 형식이 맞지 않아 뺐어요: thread_id={}, page_no={}", threadId, page.pageNo());
             }
             return word;
+        }
+
+        // 조각 하나라도 모양이 어긋나면 그 자리를 null로 둔다 (validated가 전체를 null로)
+        private static List<PageSoundWord.Piece> pieces(JsonNode array) {
+            List<PageSoundWord.Piece> out = new ArrayList<>();
+            for (JsonNode p : array) {
+                out.add(p.isObject() && p.path("text").isString() && p.path("x").isNumber() && p.path("y").isNumber()
+                        && p.path("side").isString()
+                        ? new PageSoundWord.Piece(p.path("text").asString(), p.path("x").asDouble(), p.path("y").asDouble(),
+                        PieceSide.fromAi(p.path("side").asString()))
+                        : null);
+            }
+            return out;
         }
 
         // 모양이 하나라도 다르면 null (검사는 PageTextBlock.validated가 한다)

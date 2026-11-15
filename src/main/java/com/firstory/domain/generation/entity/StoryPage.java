@@ -65,10 +65,15 @@ public class StoryPage extends BaseTimeEntity {
     @Column(name = "text_blocks", columnDefinition = "jsonb")
     private List<PageTextBlock> textBlocks;
 
-    /** 그림 위 의성어·의태어 자리. 옛 쪽, 별표 말이 없는 쪽, 그림이 실패한 쪽, 형식이 어긋난 쪽은 null */
+    /** 그림 위 의성어·의태어 조각과 색. 옛 쪽, 별표 말이 없는 쪽, 그림이 실패한 쪽, 형식이 어긋난 쪽은 null */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "sound_word", columnDefinition = "jsonb")
     private PageSoundWord soundWord;
+
+    /** 저장된 의성어. 지금 모양으로 읽지 못한 값(11/16 전 옛 모양 등)은 null로 내린다 */
+    public PageSoundWord getSoundWord() {
+        return PageSoundWord.validated(soundWord);
+    }
 
     private StoryPage(StoryVersion version, int pageNo, String text, String imagePrompt, TextPosition textPosition,
                       List<PageTextBlock> textBlocks, PageSoundWord soundWord, String imageKey, ImageStatus imageStatus) {
