@@ -1,7 +1,6 @@
 package com.firstory.domain.notification.service;
 
 import com.firstory.domain.generation.entity.GenerationRun;
-import com.firstory.domain.generation.entity.RunTrigger;
 import com.firstory.domain.generation.repository.GenerationRunRepository;
 import com.firstory.domain.notification.entity.Notification;
 import com.firstory.domain.notification.entity.NotificationTemplate;
@@ -29,11 +28,10 @@ import java.util.Map;
  *   <li>같은 (실행, 종류)가 이미 있으면 보내지 않는다 (UNIQUE)</li>
  *   <li>PENDING으로 저장 → 트랜잭션 밖에서 메일 발송 → SENT / FAILED 저장</li>
  * </ol>
- * 시작 알림(STORY_STARTED)은 처음 만들기(INITIAL)에만 보낸다. 다시 만들기·다시 시도는 완료·실패만.
+ * 완료(STORY_COMPLETED)와 실패(STORY_FAILED)만 모든 실행에 보낸다. 시작 알림은 보내지 않는다 (#74).
  * 확정 때는 보내지 않는다 (PRD 33). 알림 실패는 생성 흐름을 깨뜨리지 않는다 (예외를 삼키고 로그만).
  * 메일에는 아이 정보, 동화 제목, 부모 입력을 넣지 않고 로그에 이메일을 남기지 않는다.
  */
-// TODO(PM): 다시 만들기·다시 시도의 시작 알림을 보낼지
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -85,9 +83,6 @@ public class NotificationService {
     private Pending prepare(Long runId, NotificationType type) {
         GenerationRun run = runRepository.findById(runId).orElse(null);
         if (run == null) {
-            return null;
-        }
-        if (type == NotificationType.STORY_STARTED && run.getTriggerType() != RunTrigger.INITIAL) {
             return null;
         }
         Story story = run.getStory();

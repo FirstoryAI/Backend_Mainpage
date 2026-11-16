@@ -195,7 +195,7 @@ com.firstory
 ## 알림 규칙
 
 - `NotificationService.notify(runId, type)`는 **트랜잭션 밖에서** 부른다. 회원의 `users.email_notify`가 true일 때만, 같은 (실행, 종류)가 없을 때만 PENDING 저장(실행·종류·상태만, 받는 회원과 동화는 실행에서 찾는다) → `EmailSender.send`(회원 이메일) → SENT/FAILED(보낸 시각은 `updated_at`). 예외를 던지지 않는다(알림 실패가 생성 흐름을 깨뜨리지 않는다).
-- STORY_STARTED는 처음 만들기(INITIAL)에만, STORY_COMPLETED와 STORY_FAILED는 모든 실행에. 확정 때는 보내지 않는다(PRD 33). 문구는 `NotificationTemplate`.
+- 동화 알림은 STORY_COMPLETED와 STORY_FAILED만, 모든 실행에. 시작 알림(STORY_STARTED)은 보내지 않는다(#74, enum은 지난 기록용으로만 남김). 확정 때는 보내지 않는다(PRD 33). 문구는 `NotificationTemplate`.
 - 알림 메일에 아이 정보, 동화 제목, 부모 입력을 넣지 않는다.
 - 메일은 `EmailSender.send(to, MailContent(subject, text, html))`. HTML은 `MailTemplates`(`resources/mail/*.html`, 홈 화면 디자인, `{{assetBase}}`·`{{appUrl}}`·`{{code}}`를 채운다)이고 `SmtpEmailSender`가 글자와 HTML을 함께(multipart/alternative) 보낸다. `MAIL_ASSET_BASE_URL`이나 `APP_URL`이 비면 HTML 없이 글자만. 로고·캐릭터 그림은 `resources/static/mail/*.png`이고 로그인 없이 `GET /mail/*.png`(`SecurityConfig`). 인증번호 메일은 가입과 비밀번호 찾기 문구가 다르다. 템플릿을 고칠 때는 저장소 밖 `mail-preview/build.py`로 미리보기와 함께 다시 만든다.
 - 동의는 따로 기록하지 않는다(새 ERD, V15에서 `user_consents` 삭제). 가입 요청의 `consents`로 필수 동의(보호자·약관·개인정보)를 `ConsentPolicy`로 검사하고(가입 = 동의, 시각은 `users.created_at`), 알림 수신(선택)만 `users.email_notify`에 저장한다. `termsVersion`은 받지만 저장하지 않는다. 알림 설정 변경은 `User.changeEmailNotify`.
@@ -301,7 +301,7 @@ com.firstory
 - 차단된 동화의 입력 데이터를 보관할지 바로 지울지 (ST-05). 지금은 그대로 둔다 (`SafetyGuard`)
 - 위기 신호 차단 화면의 상담 기관 이름과 번호 (G-FACT). 백엔드는 `helpKind`만 준다
 - 전하고 싶은 말(CRT-04) 글자 수 제한. 지금은 제한하지 않는다 (`MessageRequest`)
-- 알림 문구 (`NotificationTemplate` 임시값). 다시 만들기·다시 시도의 시작 알림을 보낼지 (지금은 보내지 않는다)
+- 알림 문구 (`NotificationTemplate` 임시값)
 - 삭제한 동화의 입력 원문과 그림 파일 실제 파기 (PRD 36). 지금은 소프트 삭제만
 - 탈퇴 시 개인정보 파기 시점 (PRD 36). 지금은 회원만 소프트 삭제하고 아이, 동화 데이터는 그대로 둔다
 - 아이 대상 연령 범위 (임시: 0~144개월, `BirthYmPolicy.MAX_AGE_MONTHS`)

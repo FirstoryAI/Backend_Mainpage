@@ -16,9 +16,6 @@ import java.util.Arrays;
 @RequiredArgsConstructor
 public enum NotificationTemplate {
 
-    STORY_STARTED(NotificationType.STORY_STARTED, MailTemplates.STORY_STARTED,
-            "[FIRSTORY] 맞춤 동화를 만들기 시작했어요",
-            "동화를 만들기 시작했어요.\n보통 4~5분이면 완성돼요. 다 되면 다시 알려 드릴게요."),
     STORY_COMPLETED(NotificationType.STORY_COMPLETED, MailTemplates.STORY_COMPLETED,
             "[FIRSTORY] 맞춤 동화가 완성됐어요",
             "맞춤 동화가 완성됐어요.\nFIRSTORY 서재에서 새 동화를 확인해 보세요."),

@@ -6,8 +6,6 @@ import com.firstory.domain.generation.entity.RegenerateScope;
 import com.firstory.domain.generation.entity.RunTrigger;
 import com.firstory.domain.generation.entity.StoryFiles;
 import com.firstory.domain.generation.repository.GenerationRunRepository;
-import com.firstory.domain.notification.entity.NotificationType;
-import com.firstory.domain.notification.service.NotificationService;
 import com.firstory.domain.story.entity.Story;
 import com.firstory.domain.story.entity.StoryInput;
 import com.firstory.domain.story.entity.StoryStatus;
@@ -40,7 +38,6 @@ public class GenerationService {
     private final StoryLoader loader;
     private final GenerationRunRepository runRepository;
     private final AiClient aiClient;
-    private final NotificationService notificationService;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
@@ -67,16 +64,13 @@ public class GenerationService {
                 StoryFiles.runPrefix(story.getId(), prepared.runNo()), prepared.tone(), prepared.context(),
                 prepared.summary());
         // ③
-        Started started = transactionTemplate.execute(status -> {
+        return transactionTemplate.execute(status -> {
             Story locked = loader.lockUnchanged(story);
             GenerationRun run = runRepository.save(GenerationRun.start(locked, prepared.runNo(), RunTrigger.INITIAL,
                     RegenerateScope.ALL, null, List.of(), null, runId.toString(), clock.instant()));
             locked.changeStatus(StoryStatus.REQUESTED);
-            return new Started(run.getId(), GenerationStatusResponse.of(locked, run));
+            return GenerationStatusResponse.of(locked, run);
         });
-        // 트랜잭션 밖에서 문자 알림
-        notificationService.notify(started.runId(), NotificationType.STORY_STARTED);
-        return started.response();
     }
 
     /**
@@ -94,8 +88,5 @@ public class GenerationService {
     }
 
     private record Prepared(Story story, int runNo, Tone tone, Map<String, Object> context, String summary) {
-    }
-
-    private record Started(Long runId, GenerationStatusResponse response) {
     }
 }

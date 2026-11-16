@@ -518,7 +518,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertThat(storyStatus(id)).isEqualTo("FAILED");
         generation(id).andExpect(jsonPath("$.status").value("FAILED"))
                 .andExpect(jsonPath("$.error").value(FakeAiClient.FAILURE_CODE));
-        assertThat(notificationTypes(id)).containsExactlyInAnyOrder("STORY_STARTED", "STORY_FAILED");
+        assertThat(notificationTypes(id)).containsExactly("STORY_FAILED");
         assertThat(mail.lastText(email)).contains("만들지 못했어요");
         // 결과 위기 신호가 아닌 실패는 retry
         int regenerateCalls = ai.regenerateCalls(threadId(id));
@@ -535,9 +535,8 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertThat(regenerateCount(id)).isZero();
         assertThat(jdbc.queryForObject("SELECT trigger_type FROM generation_runs WHERE story_id = ? AND run_no = 2",
                 String.class, id)).isEqualTo("RETRY");
-        // 다시 시도는 시작 알림 없이 완료 알림만
-        assertThat(notificationTypes(id)).containsExactlyInAnyOrder("STORY_STARTED", "STORY_FAILED",
-                "STORY_COMPLETED");
+        // 다시 시도도 완료 알림만
+        assertThat(notificationTypes(id)).containsExactlyInAnyOrder("STORY_FAILED", "STORY_COMPLETED");
     }
 
     @Test
@@ -629,32 +628,32 @@ class GenerationIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void 이메일_알림에_동의했으면_시작과_완료를_한_번씩_기록한다() throws Exception {
+    void 이메일_알림에_동의했으면_시작_알림_없이_완료를_한_번_기록한다() throws Exception {
         String email = newEmail();
         parent = signUpWithEmailNotify(email);
         long id = confirmingStory(MESSAGE);
+        String signupSubject = mail.lastSubject(email);
 
         confirm(id);
-        assertThat(mail.lastText(email)).contains("만들기 시작했어요", "인스타그램 @firstory.official");
-        assertThat(mail.lastSubject(email)).isEqualTo("[FIRSTORY] 맞춤 동화를 만들기 시작했어요");
-        assertThat(mail.lastHtml(email)).contains("동화를 만들기 시작했어요", "href=\"https://app.test/home\"");
+        assertThat(notificationTypes(id)).isEmpty();
+        assertThat(mail.lastSubject(email)).isEqualTo(signupSubject);
         pollTimes(POLLS_TO_REVIEW);
 
-        assertThat(notificationTypes(id)).containsExactlyInAnyOrder("STORY_STARTED", "STORY_COMPLETED");
+        assertThat(notificationTypes(id)).containsExactly("STORY_COMPLETED");
         assertThat(jdbc.queryForList("""
                 SELECT n.status FROM notifications n JOIN generation_runs r ON r.id = n.generation_run_id
                 WHERE r.story_id = ?""", String.class, id)).containsOnly("SENT");
         String text = mail.lastText(email);
-        assertThat(text).contains("완성됐어요").doesNotContain(FakeAiClient.SAMPLE.title(0)).doesNotContain(MESSAGE);
+        assertThat(text).contains("완성됐어요", "인스타그램 @firstory.official").doesNotContain(FakeAiClient.SAMPLE.title(0)).doesNotContain(MESSAGE);
         assertThat(mail.lastHtml(email)).contains("맞춤 동화가 완성됐어요", "href=\"https://app.test/library\"")
                 .doesNotContain(FakeAiClient.SAMPLE.title(0)).doesNotContain(MESSAGE);
 
         // 같은 실행의 같은 알림은 다시 보내지 않는다
         long runId = jdbc.queryForObject("SELECT id FROM generation_runs WHERE story_id = ?", Long.class, id);
         notificationService.notify(runId, NotificationType.STORY_COMPLETED);
-        assertThat(notifications(id)).isEqualTo(2);
+        assertThat(notifications(id)).isEqualTo(1);
 
-        // 다시 만들기는 시작 알림 없이 완료만
+        // 다시 만들기도 완료만
         regenerate(id, """
                 {"scope": "IMAGES"}""").andExpect(status().isAccepted());
         pollTimes(POLLS_TO_REVIEW_IMAGES);
