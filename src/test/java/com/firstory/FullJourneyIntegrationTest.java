@@ -145,7 +145,9 @@ class FullJourneyIntegrationTest extends IntegrationTest {
                 {"versionId": %d}""".formatted(version1))
                 .andExpect(status().isOk());
         parent.get(story + "/preview").andExpect(jsonPath("$.version.versionNo").value(1));
-        parent.post(story + "/approve", null)
+        parent.post(story + "/approve", """
+                {"feedback": {"situationReflection": "잘 반영되었어요", "storySatisfaction": "만족해요",
+                 "readingIntent": "꼭 읽어보고 싶어요", "comment": ""}}""")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.confirmedAt").isNotEmpty());
@@ -191,7 +193,10 @@ class FullJourneyIntegrationTest extends IntegrationTest {
             parent.put(session + "/progress", """
                     {"page": %d}""".formatted(page)).andExpect(status().isNoContent());
         }
-        parent.post(session + "/complete", null).andExpect(status().isNoContent());
+        parent.post(session + "/complete", """
+                {"feedback": {"childInterest": "HIGH", "conversationFlow": "NATURAL",
+                 "conversationHelpfulness": "VERY", "comment": "또 읽고 싶대요"}}""")
+                .andExpect(status().isNoContent());
         parent.get("/api/stories?filter=UNREAD").andExpect(jsonPath("$.items", hasSize(0)));
         parent.get("/api/stories?filter=READ").andExpect(jsonPath("$.items[*].id", contains((int) storyId)));
         parent.get(story).andExpect(jsonPath("$.readCount").value(1));

@@ -20,6 +20,13 @@ public interface StoryRepository extends JpaRepository<Story, Long> {
 
     Optional<Story> findByIdAndUserId(Long id, Long userId);
 
+    /**
+     * 내 동화를 처음부터 잠가 읽는다. 같은 동화에 동시에 들어온 확정을 차례로 처리한다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from Story s where s.id = :id and s.user.id = :userId")
+    Optional<Story> findOwnedForUpdate(@Param("id") Long id, @Param("userId") Long userId);
+
     Optional<Story> findByThreadId(String threadId);
 
     /**

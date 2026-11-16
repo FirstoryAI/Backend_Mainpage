@@ -1,5 +1,6 @@
 package com.firstory.domain.generation.controller;
 
+import com.firstory.domain.generation.dto.ApproveRequest;
 import com.firstory.domain.generation.dto.ApproveResponse;
 import com.firstory.domain.generation.dto.CurrentVersionRequest;
 import com.firstory.domain.generation.dto.GenerationStatusResponse;
@@ -81,11 +82,13 @@ public class ReviewController {
         return reviewService.showVersion(principal.getUserId(), id, request.versionId());
     }
 
-    @Operation(summary = "확정 (REV-04)", description = "REVIEWING에서. 지금 보여 주는 버전으로 확정한다. 알림은 보내지 않는다")
-    @ApiErrorCodes({ErrorCode.STORY_BLOCKED, ErrorCode.INVALID_STATUS_TRANSITION})
+    @Operation(summary = "확정 (REV-04)", description = "REVIEWING에서. 지금 보여 주는 버전으로 확정한다. 알림은 보내지 않는다. "
+            + "본문은 없어도 된다. feedback(확정 전 피드백)을 보내면 확정과 함께 저장하고, 저장하지 못하면 확정도 하지 않는다")
+    @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.STORY_BLOCKED, ErrorCode.INVALID_STATUS_TRANSITION})
     @PostMapping("/approve")
-    public ApproveResponse approve(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id) {
-        return reviewService.approve(principal.getUserId(), id);
+    public ApproveResponse approve(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id,
+                                   @Valid @RequestBody(required = false) ApproveRequest request) {
+        return reviewService.approve(principal.getUserId(), id, request == null ? null : request.feedback());
     }
 
     @Operation(summary = "실패 후 다시 시도 (ST-03)",

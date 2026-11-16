@@ -1,5 +1,6 @@
 package com.firstory.domain.generation.service;
 
+import com.firstory.domain.generation.dto.ApproveRequest;
 import com.firstory.domain.generation.dto.ApproveResponse;
 import com.firstory.domain.generation.dto.GenerationStatusResponse;
 import com.firstory.domain.generation.dto.PreviewResponse;
@@ -9,9 +10,11 @@ import com.firstory.domain.generation.entity.GenerationRun;
 import com.firstory.domain.generation.entity.RegenerateScope;
 import com.firstory.domain.generation.entity.RunStatus;
 import com.firstory.domain.generation.entity.RunTrigger;
+import com.firstory.domain.generation.entity.StoryFeedback;
 import com.firstory.domain.generation.entity.StoryFiles;
 import com.firstory.domain.generation.entity.StoryVersion;
 import com.firstory.domain.generation.repository.GenerationRunRepository;
+import com.firstory.domain.generation.repository.StoryFeedbackRepository;
 import com.firstory.domain.generation.repository.StoryPageRepository;
 import com.firstory.domain.generation.repository.StoryVersionRepository;
 import com.firstory.domain.safety.entity.SafetyOutcome;
@@ -59,6 +62,7 @@ public class ReviewService {
     private final GenerationRunRepository runRepository;
     private final StoryVersionRepository versionRepository;
     private final StoryPageRepository pageRepository;
+    private final StoryFeedbackRepository feedbackRepository;
     private final GenerationService generationService;
     private final SafetyGuard safetyGuard;
     private final AiClient aiClient;
@@ -69,12 +73,13 @@ public class ReviewService {
 
     public ReviewService(StoryLoader loader, GenerationRunRepository runRepository,
                          StoryVersionRepository versionRepository, StoryPageRepository pageRepository,
-                         GenerationService generationService, SafetyGuard safetyGuard, AiClient aiClient,
+                         StoryFeedbackRepository feedbackRepository, GenerationService generationService, SafetyGuard safetyGuard, AiClient aiClient,
                          TransactionTemplate transactionTemplate, Clock clock, FirstoryProperties properties) {
         this.loader = loader;
         this.runRepository = runRepository;
         this.versionRepository = versionRepository;
         this.pageRepository = pageRepository;
+        this.feedbackRepository = feedbackRepository;
         this.generationService = generationService;
         this.safetyGuard = safetyGuard;
         this.aiClient = aiClient;
@@ -165,11 +170,21 @@ public class ReviewService {
     /**
      * 확정 (REV-04). Spring이 기준이라 먼저 저장한다. AI 쪽 정리(approve)가 실패해도 확정은 그대로 둔다.
      * 확정 때는 알림을 보내지 않는다 (PRD 33).
+     * <p>
+     * 피드백이 있으면 확정과 같은 트랜잭션에 저장한다. 저장이 실패하면 확정도 되지 않는다.
+     * 동화를 잠가 읽어서 같은 동화에 확정이 동시에 들어와도 두 번째는 INVALID_STATUS_TRANSITION이고 피드백은 하나다.
+     *
+     * @param feedback 확정 전 피드백. null이면 확정만 한다
      */
-    public ApproveResponse approve(Long userId, Long storyId) {
+    public ApproveResponse approve(Long userId, Long storyId, ApproveRequest.Feedback feedback) {
         Story story = transactionTemplate.execute(status -> {
-            Story found = loader.findEditable(userId, storyId, REVIEWING);
+            Story found = loader.findEditableForUpdate(userId, storyId, REVIEWING);
             found.confirm(clock.instant());
+            if (feedback != null) {
+                feedbackRepository.save(StoryFeedback.record(found, found.getCurrentVersion(),
+                        feedback.situationReflection(), feedback.storySatisfaction(), feedback.readingIntent(),
+                        feedback.comment()));
+            }
             return found;
         });
         try {

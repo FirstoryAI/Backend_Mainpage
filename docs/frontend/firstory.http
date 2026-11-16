@@ -210,9 +210,12 @@ X-XSRF-TOKEN: {{xsrf}}
 
 {"versionId": {{versionId}}}
 
-### 5-5. 확정 (REV-04) → COMPLETED
+### 5-5. 확정 (REV-04) → COMPLETED. 확정 전 피드백도 함께 저장 (본문 없이 보내면 확정만)
 POST {{host}}/api/stories/{{storyId}}/approve
+Content-Type: application/json
 X-XSRF-TOKEN: {{xsrf}}
+
+{"feedback": {"situationReflection": "WELL", "storySatisfaction": "SATISFIED", "readingIntent": "DEFINITELY", "comment": ""}}
 
 ### 6-1. 홈 (HOME-01)
 GET {{host}}/api/home
@@ -265,9 +268,12 @@ X-XSRF-TOKEN: {{xsrf}}
 
 {"page": 10}
 
-### 7-7. 다 읽음 (RD-03) → 204
+### 7-7. 다 읽음 (RD-03) → 204. 읽기 완료 피드백도 함께 저장 (본문 없이 보내면 끝내기만)
 POST {{host}}/api/reading-sessions/{{sessionId}}/complete
+Content-Type: application/json
 X-XSRF-TOKEN: {{xsrf}}
+
+{"feedback": {"childInterest": "HIGH", "conversationFlow": "NATURAL", "conversationHelpfulness": "VERY", "comment": ""}}
 
 ### 7-8. 서재 함께 읽었어요 → 방금 동화가 있다
 GET {{host}}/api/stories?filter=READ

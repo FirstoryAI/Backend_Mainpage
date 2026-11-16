@@ -1,6 +1,7 @@
 package com.firstory.domain.reading.controller;
 
 import com.firstory.domain.reading.dto.BookResponse;
+import com.firstory.domain.reading.dto.CompleteRequest;
 import com.firstory.domain.reading.dto.DialogueRequest;
 import com.firstory.domain.reading.dto.ProgressRequest;
 import com.firstory.domain.reading.dto.ReadingSessionResponse;
@@ -81,11 +82,14 @@ public class ReadingController {
         readingService.recordDialogue(principal.getUserId(), sessionId, promptId, request.action());
     }
 
-    @Operation(summary = "다 읽음 (RD-03)", description = "세션을 끝내고 동화를 \"함께 읽었어요\"로 바꾼다. 두 번 불러도 204")
-    @ApiErrorCodes(ErrorCode.READING_SESSION_NOT_FOUND)
+    @Operation(summary = "다 읽음 (RD-03)", description = "세션을 끝내고 동화를 \"함께 읽었어요\"로 바꾼다. 두 번 불러도 204. "
+            + "본문은 없어도 된다. feedback(읽기 완료 피드백)을 보내면 끝내면서 이 세션에 저장하고, 저장하지 못하면 끝내지도 않는다. "
+            + "세션마다 처음 받은 피드백만 남는다(다시 보내면 204이고 바꾸지 않는다)")
+    @ApiErrorCodes({ErrorCode.READING_SESSION_NOT_FOUND, ErrorCode.VALIDATION_FAILED})
     @PostMapping("/api/reading-sessions/{sessionId:\\d+}/complete")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void complete(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long sessionId) {
-        readingService.complete(principal.getUserId(), sessionId);
+    public void complete(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long sessionId,
+                         @Valid @RequestBody(required = false) CompleteRequest request) {
+        readingService.complete(principal.getUserId(), sessionId, request == null ? null : request.feedback());
     }
 }

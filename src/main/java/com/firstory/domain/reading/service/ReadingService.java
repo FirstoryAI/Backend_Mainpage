@@ -6,11 +6,14 @@ import com.firstory.domain.guide.entity.GuidePrompt;
 import com.firstory.domain.guide.repository.GuidePromptRepository;
 import com.firstory.domain.guide.service.GuideService;
 import com.firstory.domain.reading.dto.BookResponse;
+import com.firstory.domain.reading.dto.CompleteRequest;
 import com.firstory.domain.reading.dto.ReadingSessionResponse;
 import com.firstory.domain.reading.entity.DialogueAction;
 import com.firstory.domain.reading.entity.DialogueActionType;
+import com.firstory.domain.reading.entity.ReadingFeedback;
 import com.firstory.domain.reading.entity.ReadingSession;
 import com.firstory.domain.reading.repository.DialogueActionRepository;
+import com.firstory.domain.reading.repository.ReadingFeedbackRepository;
 import com.firstory.domain.reading.repository.ReadingSessionRepository;
 import com.firstory.domain.story.entity.Story;
 import com.firstory.domain.story.entity.StoryStatus;
@@ -39,18 +42,21 @@ public class ReadingService {
     private final GuidePromptRepository promptRepository;
     private final ReadingSessionRepository sessionRepository;
     private final DialogueActionRepository dialogueActionRepository;
+    private final ReadingFeedbackRepository feedbackRepository;
     private final Clock clock;
     private final int pageCount;
 
     public ReadingService(StoryLoader loader, StoryPageRepository pageRepository,
                           GuidePromptRepository promptRepository, ReadingSessionRepository sessionRepository,
-                          DialogueActionRepository dialogueActionRepository, Clock clock,
+                          DialogueActionRepository dialogueActionRepository,
+                          ReadingFeedbackRepository feedbackRepository, Clock clock,
                           FirstoryProperties properties) {
         this.loader = loader;
         this.pageRepository = pageRepository;
         this.promptRepository = promptRepository;
         this.sessionRepository = sessionRepository;
         this.dialogueActionRepository = dialogueActionRepository;
+        this.feedbackRepository = feedbackRepository;
         this.clock = clock;
         this.pageCount = properties.story().pageCount();
     }
@@ -105,12 +111,21 @@ public class ReadingService {
 
     /**
      * RD-03 끝. 이미 끝난 세션이면 그대로 둔다.
+     * <p>
+     * 피드백이 있으면 같은 트랜잭션에 저장한다. 저장이 실패하면 끝내지도 않는다. 세션을 잠가 읽으므로
+     * 다시 시도해도 피드백은 세션마다 처음 받은 하나만 남는다(이미 있으면 새로 받은 것은 버린다).
+     *
+     * @param feedback 읽기 완료 피드백. null이면 끝내기만 한다
      */
     @Transactional
-    public void complete(Long userId, Long sessionId) {
+    public void complete(Long userId, Long sessionId, CompleteRequest.Feedback feedback) {
         ReadingSession session = ownedSession(userId, sessionId);
         session.complete(clock.instant());
         session.getStory().markFirstReadCompleted(clock.instant());
+        if (feedback != null && !feedbackRepository.existsBySessionId(session.getId())) {
+            feedbackRepository.save(ReadingFeedback.record(session, feedback.childInterest(),
+                    feedback.conversationFlow(), feedback.conversationHelpfulness(), feedback.comment()));
+        }
     }
 
     // 세션을 잠가서 같은 세션에 동시에 들어온 요청을 차례로 처리한다

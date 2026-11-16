@@ -308,8 +308,8 @@ expect 200
 contains '"versionNo":1'
 ok
 
-step "확정 (POST approve)"
-call POST "$STORY/approve"
+step "확정 (POST approve, 확정 전 피드백 함께)"
+call POST "$STORY/approve" '{"feedback":{"situationReflection":"잘 반영되었어요","storySatisfaction":"만족해요","readingIntent":"꼭 읽어보고 싶어요","comment":""}}'
 expect 200
 contains '"status":"COMPLETED"'
 ok
@@ -367,8 +367,8 @@ for page in 1 2 3 4 5 6 7 8 9 10; do
 done
 ok
 
-step "다 읽음 (POST complete)"
-call POST "$SESSION/complete"
+step "다 읽음 (POST complete, 읽기 완료 피드백 함께)"
+call POST "$SESSION/complete" '{"feedback":{"childInterest":"HIGH","conversationFlow":"NATURAL","conversationHelpfulness":"VERY","comment":"또 읽고 싶대요"}}'
 expect 204
 ok
 

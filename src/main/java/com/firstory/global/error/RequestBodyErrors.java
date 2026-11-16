@@ -4,6 +4,7 @@ import org.springframework.util.ReflectionUtils;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.databind.exc.InvalidFormatException;
+import tools.jackson.databind.exc.ValueInstantiationException;
 
 import java.lang.reflect.Field;
 import java.util.Collection;
@@ -45,6 +46,11 @@ final class RequestBodyErrors {
         }
         if (jackson instanceof InvalidFormatException format && format.getTargetType() != null
                 && format.getTargetType().isEnum()) {
+            return new ValidationErrorResponse.FieldMessage(field, UNKNOWN_CHOICE);
+        }
+        // @JsonCreator로 값을 찾는 enum(FeedbackChoice)이 받은 값을 찾지 못했다
+        if (jackson instanceof ValueInstantiationException instantiation && instantiation.getType() != null
+                && instantiation.getType().isEnumType()) {
             return new ValidationErrorResponse.FieldMessage(field, UNKNOWN_CHOICE);
         }
         return new ValidationErrorResponse.FieldMessage(field, WRONG_TYPE);
