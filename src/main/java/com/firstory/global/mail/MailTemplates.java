@@ -21,7 +21,6 @@ public class MailTemplates {
 
     public static final String VERIFY_SIGNUP = "verify-signup";
     public static final String VERIFY_PASSWORD_RESET = "verify-password-reset";
-    public static final String STORY_STARTED = "story-started";
     public static final String STORY_COMPLETED = "story-completed";
     public static final String STORY_FAILED = "story-failed";
 
