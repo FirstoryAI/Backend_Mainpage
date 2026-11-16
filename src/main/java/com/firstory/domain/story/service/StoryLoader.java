@@ -32,7 +32,20 @@ public class StoryLoader {
      * 변경 요청용. 차단된 동화는 STORY_BLOCKED, 허용하지 않는 상태는 INVALID_STATUS_TRANSITION.
      */
     public Story findEditable(Long userId, Long storyId, Set<StoryStatus> allowed) {
-        Story story = findOwned(userId, storyId);
+        return checkEditable(findOwned(userId, storyId), allowed);
+    }
+
+    /**
+     * findEditable과 같고 동화 행을 잠근다. 트랜잭션에서 이 동화를 처음 읽을 때 불러야 지금 상태를 본다
+     * (이미 읽은 엔티티는 잠가도 다시 읽지 않는다).
+     */
+    public Story findEditableForUpdate(Long userId, Long storyId, Set<StoryStatus> allowed) {
+        Story story = storyRepository.findOwnedForUpdate(storyId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
+        return checkEditable(story, allowed);
+    }
+
+    private static Story checkEditable(Story story, Set<StoryStatus> allowed) {
         if (story.getStatus() == StoryStatus.BLOCKED) {
             throw new BusinessException(ErrorCode.STORY_BLOCKED);
         }

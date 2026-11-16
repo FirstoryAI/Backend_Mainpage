@@ -308,9 +308,26 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 이대로 확정 | `POST /api/stories/{id}/approve` | 200 `{storyId, status: "COMPLETED", confirmedAt}` → LIB-02 또는 GDE-01 |
+| 이대로 확정 | `POST /api/stories/{id}/approve` `{feedback}` | 200 `{storyId, status: "COMPLETED", confirmedAt}` → LIB-02 또는 GDE-01 |
 
 확정 후에는 다시 만들 수 없다.
+
+확정 전 피드백 팝업의 답은 `feedback`에 담아 확정과 함께 보낸다. 확정과 같이 저장하고, 저장하지 못하면(400) 확정도 되지 않는다. 동화마다 하나만 남는다(확정은 한 번만 되므로 다시 보내면 409 `INVALID_STATUS_TRANSITION`).
+
+```json
+{"feedback": {"situationReflection": "WELL", "storySatisfaction": "SATISFIED", "readingIntent": "DEFINITELY", "comment": ""}}
+```
+
+| 필드 | 값 (코드: 화면 문구) |
+|---|---|
+| `situationReflection` (필수) | `WELL`: 잘 반영되었어요, `PARTLY`: 어느 정도 반영되었어요, `LACKING`: 아쉬운 부분이 있어요 |
+| `storySatisfaction` (필수) | `SATISFIED`: 만족해요, `NEUTRAL`: 보통이에요, `DISSATISFIED`: 아쉬워요 |
+| `readingIntent` (필수) | `DEFINITELY`: 꼭 읽어보고 싶어요, `MAYBE`: 기회가 되면 읽어보고 싶어요, `NOT_YET`: 아직 읽어볼 생각이 없어요 |
+| `comment` (선택) | 500자까지. 빈 문자열이나 공백만 있으면 저장하지 않는다 |
+
+- 선택 답은 코드로 보내는 것을 권한다. 지금처럼 화면 문구를 그대로 보내도 받는다(문구가 한 글자라도 다르면 400 `고를 수 없는 값이에요.`).
+- 선택 답이 빠지면 400 `VALIDATION_FAILED`, `fields[0].field`가 `feedback.storySatisfaction`처럼 그 항목이다. 500자를 넘으면 `feedback.comment`.
+- 본문 없이(또는 `feedback` 없이) 보내도 예전처럼 확정만 한다.
 
 ---
 
@@ -385,10 +402,25 @@
 
 | 때 | API |
 |---|---|
-| 마지막 쪽 뒤 | `POST /api/reading-sessions/{sessionId}/complete` → 204 (두 번 불러도 204) |
+| 마지막 쪽 뒤 | `POST /api/reading-sessions/{sessionId}/complete` `{feedback}` → 204 (두 번 불러도 204) |
 | 다음 | GDE-01의 `afterReading`(읽은 뒤 질문)이나 서재로. 이 동화는 서재 `READ`(함께 읽었어요)로 옮겨진다 |
 
 끝난 세션에 쪽 넘김을 보내면 409 `INVALID_STATUS_TRANSITION`. 다른 회원의 세션은 404 `READING_SESSION_NOT_FOUND`.
+
+읽기 완료 피드백 팝업의 답은 `feedback`에 담아 보낸다. 끝내면서 그 세션과 동화에 저장하고, 저장하지 못하면(400) 끝내지도 않는다. 세션마다 처음 받은 피드백 하나만 남는다. 응답이 끊겨 다시 보내도 204이고 처음 값을 바꾸지 않는다.
+
+```json
+{"feedback": {"childInterest": "HIGH", "conversationFlow": "NATURAL", "conversationHelpfulness": "VERY", "comment": ""}}
+```
+
+| 필드 | 값 (코드: 화면 문구) |
+|---|---|
+| `childInterest` (필수) | `HIGH`: 매우 흥미로워했어요, `MEDIUM`: 보통이었어요, `LOW`: 흥미를 보이지 않았어요 |
+| `conversationFlow` (필수) | `NATURAL`: 자연스럽게 대화를 나눴어요, `USUAL`: 평소와 비슷했어요, `NONE`: 대화로 이어지지 않았어요 |
+| `conversationHelpfulness` (필수) | `VERY`: 많은 도움이 되었어요, `SOMEWHAT`: 조금 도움이 되었어요, `NOT_MUCH`: 별로 도움이 되지 않았어요 |
+| `comment` (선택) | 500자까지. 빈 문자열이나 공백만 있으면 저장하지 않는다 |
+
+선택 답 형식, 400 응답, 본문 없이 보낼 때는 REV-04 확정 피드백과 같다.
 
 ---
 

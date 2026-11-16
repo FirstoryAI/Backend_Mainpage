@@ -78,9 +78,9 @@ com.firstory
     ├── user              회원(알림 수신 동의 포함), 동의 검사, 내 정보
     ├── child             아이 프로필, 성향
     ├── story             동화, 만들기 입력, 인터뷰, 상태
-    ├── generation        생성 실행, 버전, 페이지
+    ├── generation        생성 실행, 버전, 페이지, 확정 전 피드백
     ├── guide             대화 가이드, 대화 질문
-    ├── reading           읽기 세션, 대화 버튼 기록
+    ├── reading           읽기 세션, 대화 버튼 기록, 읽기 완료 피드백
     ├── safety            위기 신호
     └── notification      이메일 알림
 ```
@@ -180,7 +180,14 @@ com.firstory
 - 그림만 다시는 바뀌지 않은 쪽이 이전 실행의 파일 key를 그대로 쓴다. 글 다시 만들기도 AI가 장면이 바뀐 쪽만 새로 그려, 나머지 쪽과 캐릭터 시트는 이전 실행 key다. 파일을 복사하지 않는다.
 - 다시 시도(`retry`, FAILED → REQUESTED)는 마지막 실패 실행과 같은 범위·쪽·기준 버전으로 RETRY 실행을 만든다. 다시 만들기 횟수에 넣지 않는다. 마지막 실패가 결과 위기 신호(`OUTPUT_UNSAFE`)면 AI 그래프는 부모 검토에서 멈춰 있어 `AiClient.retry`가 409이므로 `AiClient.regenerate`를 부른다(범위는 실패한 실행의 것, ALL이면 CHARACTER_STORY, 기준은 그 실행의 기준 버전 checkpointId, 첫 생성이면 null).
 - AI 결과의 가이드는 AI 저장소 `nodes/render.py`의 04-guide.json 그대로(`synopsis`, `before_reading{intent, tips}`, `prompts[{after_page, purpose, text, parent_hint}]`, `after_reading{bridge_question, if_undecided}`). `text` → `guide_prompts.question`, `seq`는 받은 순서대로 1부터, `parent_hint`와 `if_undecided`는 없을 수 있다. `synopsis`(동화 줄거리)는 `reading_guides.synopsis`에 저장하고 동화 상세(`StoryDetailResponse.synopsis`)로 지금 보여 주는 버전의 것을 내린다. 없거나 빈 문자열이면 null.
-- 확정(`approve`)은 Spring이 먼저 저장하고(COMPLETED, confirmedAt) 트랜잭션 밖에서 `AiClient.approve`를 부른다. AI가 실패해도 확정은 유지한다.
+- 확정(`approve`)은 Spring이 먼저 저장하고(COMPLETED, confirmedAt) 트랜잭션 밖에서 `AiClient.approve`를 부른다. AI가 실패해도 확정은 유지한다. 동화를 처음부터 잠가 읽는다(`StoryLoader.findEditableForUpdate`).
+
+## 피드백 (Backend#76)
+
+- 확정 전 피드백(`story_feedbacks`, 동화마다 하나, 확정한 버전)과 읽기 완료 피드백(`reading_feedbacks`, 세션마다 하나, 세션의 동화)은 V17. 확정·다 읽음 요청 본문의 `feedback`으로 받고 **완료 처리와 같은 트랜잭션에 저장한다**(저장 실패면 완료도 실패). 본문이나 `feedback`이 없으면 완료만 한다(이전 호출 호환).
+- 선택 답 3개는 필수(`@NotNull`), `comment`는 선택·500자(`@Size`)이고 앞뒤 공백을 지워 비면 null로 저장한다. 부모 입력이라 요청 DTO `toString`에서 가린다.
+- 선택 답은 `FeedbackChoice` enum 코드로 저장하고 화면 문구는 enum에만 둔다. 요청은 코드와 화면 문구를 모두 받는다(`@JsonCreator` → `FeedbackChoice.of`. 프론트가 처음에 문구를 보내도록 만들어졌다). 둘 다 아니면 `RequestBodyErrors`가 `ValueInstantiationException`을 "고를 수 없는 값이에요."로 바꾼다. 문구를 바꾸면 `FeedbackChoiceTest`와 프론트 `FeedbackDialog.jsx`를 함께 본다.
+- 다시 보내도 겹치지 않는다: 확정은 REVIEWING에서 한 번만 되고(두 번째는 INVALID_STATUS_TRANSITION), 다 읽음은 세션을 잠근 채 이미 피드백이 있으면 새로 받은 것을 버린다(처음 값 유지, 204). 두 테이블 모두 UNIQUE.
 
 ## 파일 저장소와 그림 API
 

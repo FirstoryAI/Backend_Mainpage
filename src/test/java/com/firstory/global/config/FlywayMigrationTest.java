@@ -20,10 +20,11 @@ class FlywayMigrationTest extends IntegrationTest {
     DataSource dataSource;
 
     @Test
-    void V1부터_V16까지_순서로_모두_성공한다() {
+    void V1부터_V17까지_순서로_모두_성공한다() {
         assertThat(jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE version IS NOT NULL ORDER BY installed_rank",
-                String.class)).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16");
+                String.class)).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
+                "17");
         assertThat(jdbc.queryForObject("SELECT bool_and(success) FROM flyway_schema_history", Boolean.class))
                 .isTrue();
     }
@@ -91,6 +92,18 @@ class FlywayMigrationTest extends IntegrationTest {
     @Test
     void V10_입력에_상황_정리_컬럼이_있다() {
         assertThat(columns("story_inputs")).contains("situation_summary");
+    }
+
+    @Test
+    void V17_확정과_읽기_완료_피드백_테이블이_있고_하나씩만_저장된다() {
+        assertThat(columns("story_feedbacks")).contains("story_id", "version_id", "situation_reflection",
+                "story_satisfaction", "reading_intent", "comment");
+        assertThat(columns("reading_feedbacks")).contains("session_id", "story_id", "child_interest",
+                "conversation_flow", "conversation_helpfulness", "comment");
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM information_schema.table_constraints
+                WHERE constraint_type = 'UNIQUE' AND table_name IN ('story_feedbacks', 'reading_feedbacks')""",
+                Integer.class)).isEqualTo(2);
     }
 
     @Test

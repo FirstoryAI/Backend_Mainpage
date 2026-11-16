@@ -97,6 +97,17 @@ class UnreadableBodyIntegrationTest extends IntegrationTest {
         return ((Number) JsonPath.read(body, "$.storyId")).longValue();
     }
 
+    @Test
+    void 피드백_선택_답이_코드도_문구도_아니면_그_필드(CapturedOutput output) throws Exception {
+        Browser parent = signUp(newEmail());
+        String body = """
+                {"feedback": {"situationReflection": "%s", "storySatisfaction": "SATISFIED",
+                 "readingIntent": "DEFINITELY"}}""".formatted(RAW);
+
+        assertField(parent.post("/api/stories/1/approve", body), "feedback.situationReflection",
+                "고를 수 없는 값이에요.", output);
+    }
+
     private static void assertField(ResultActions result, String field, String message, CapturedOutput output)
             throws Exception {
         String response = result
