@@ -1,6 +1,7 @@
 package com.firstory.domain.user.service;
 
 import com.firstory.domain.auth.entity.PasswordPolicy;
+import com.firstory.domain.credit.service.CreditService;
 import com.firstory.domain.user.dto.MeResponse;
 import com.firstory.domain.user.entity.User;
 import com.firstory.domain.user.repository.UserRepository;
@@ -21,6 +22,7 @@ import java.time.Clock;
 public class MeService {
 
     private final UserRepository userRepository;
+    private final CreditService creditService;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
 
@@ -79,8 +81,10 @@ public class MeService {
     }
 
     private MeResponse toResponse(User user) {
+        CreditService.CreditSummary credits = creditService.summary(user.getId());
         return new MeResponse(user.getId(), user.getEmail(), user.hasSeenOnboarding(), user.isEmailNotify(),
-                user.isKakaoLinked(), user.hasPassword());
+                user.isKakaoLinked(), user.hasPassword(), user.getSignupSource(), credits.unlimited(),
+                credits.remaining());
     }
 
 

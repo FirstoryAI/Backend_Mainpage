@@ -55,6 +55,8 @@
 | `KAKAO_SIGNUP_EXPIRED` | 400 | 카카오 가입 시간이 지났어요. 카카오 로그인을 다시 해 주세요. | `POST /api/auth/kakao/signup` (카카오 로그인 없이, 다른 세션, 10분 지남) |
 | `KAKAO_EMAIL_REGISTERED` | 409 | 이미 이메일로 가입한 계정이 있어요. 이메일과 비밀번호로 로그인해 주세요. | `POST /api/auth/kakao/login`, `kakao/signup` (같은 이메일의 이메일 회원이 있다. 계정을 합치지 않는다) → 이메일 로그인 화면 |
 | `KAKAO_ACCOUNT_REGISTERED` | 409 | 이미 가입한 카카오 계정이에요. 카카오 로그인을 다시 해 주세요. | `POST /api/auth/kakao/signup` (다른 기기에서 먼저 가입했다) |
+| `SIGNUP_INVITE_REQUIRED` | 403 | 지금은 초대받은 분만 가입할 수 있어요. 받은 초대 링크로 들어와 주세요. | 베타 동안. `email/send-code`(SIGNUP), `signup`, `kakao/signup` (초대 링크·사전 연락·개발용 이메일이 아님) |
+| `INVITE_CLOSED` | 403 | 초대가 마감됐어요. 지금은 초대받은 분만 가입할 수 있어요. | 베타 동안. 초대 링크는 눌렀지만 가입하려는 사이 선착순이 찼거나 마감 시각이 지남 |
 | `INTERESTS_LIMIT_EXCEEDED` | 400 | 좋아하는 것은 고른 것과 직접 입력을 합쳐 5개까지예요. | `POST/PUT /api/children`, `PUT /api/stories/{id}/child` |
 | `CUSTOM_VALUE_REQUIRED` | 400 | 기타를 고르면 내용을 직접 입력해 주세요. | `POST/PUT /api/children`, `PUT /api/stories/{id}/child`, `PUT /api/stories/{id}/situation` |
 | `CUSTOM_VALUE_TOO_LONG` | 400 | 직접 입력은 {n}자까지 쓸 수 있어요. | 같은 곳. `{n}` 자리에 항목별 글자 수가 채워져 온다 (성향 20, 좋아하는 것 20, 상황 분류·반응 30) |
@@ -68,6 +70,7 @@
 | `MOMENT_ONLY_FOR_PAST` | 400 | 아이의 반응과 감정은 있었던 일에서만 고를 수 있어요. | `PUT /api/stories/{id}/situation` (UPCOMING인데 reactions·emotions를 보냄) |
 | `VERSION_NOT_IN_STORY` | 400 | 이 동화의 버전이 아니에요. | `PUT /api/stories/{id}/current-version` 내부 검사. 보통은 그 전에 `VERSION_NOT_FOUND`가 난다 |
 | `REGENERATION_LIMIT_REACHED` | 409 | 다시 만들기 횟수를 모두 썼어요. | `POST /api/stories/{id}/regenerate` (`regenerateRemaining` 0) |
+| `STORY_LIMIT_REACHED` | 403 | 무료로 만들 수 있는 동화를 모두 만들었어요. | `POST /api/stories`(시작), `POST /confirm`(다른 동화로 그사이 다 씀). 남은 횟수는 `GET /api/me`의 `storiesRemaining` |
 | `PAGE_OUT_OF_RANGE` | 400 | 없는 쪽이에요. | `PUT /api/reading-sessions/{sessionId}/progress` (1~10 밖) |
 | `STORY_BLOCKED` | 409 | 이 내용으로는 동화를 만들 수 없어요. | 차단된 동화의 변경 요청 전부(입력, 인터뷰, 확인, 다시 만들기, 확정 등) → ST-05 |
 | `STORY_INPUT_INCOMPLETE` | 400 | 상황과 아이 정보를 먼저 입력해 주세요. | `POST /api/stories/{id}/interview/start` (상황이나 아이 정보 없음) |

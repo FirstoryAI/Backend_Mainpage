@@ -76,7 +76,7 @@ public class SecurityConfig {
                                 "/api/auth/email/send-code", "/api/auth/email/verify", "/api/auth/email/check",
                                 "/api/auth/signup", "/api/auth/login", "/api/auth/password/reset",
                                 "/api/auth/kakao/login", "/api/auth/kakao/signup").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/auth/csrf", "/api/health").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/csrf", "/api/health", "/api/invite/*").permitAll()
                         // 메일 속 로고·캐릭터 (resources/static/mail). 메일 앱이 로그인 없이 불러간다
                         .requestMatchers(HttpMethod.GET, "/mail/*.png").permitAll()
                         // Swagger. springdoc이 꺼진 운영에서는 이 경로에 핸들러가 없어 404가 난다

@@ -206,6 +206,102 @@ Actions는 SSH를 쓰지 않는다. GitHub OIDC로 AWS 역할을 받아 **SSM Ru
 - AI 워커를 다시 띄우면 그 순간 돌던 생성은 FAILED가 된다(부모가 다시 시도하면 체크포인트에서 이어 간다). 인터뷰와 미리보기 중인 동화는 볼륨의 체크포인트로 이어 간다. **데모 중에는 다시 배포하지 않는다.**
 - `docker compose down -v`는 볼륨(DB, 체크포인트, 인증서)까지 지운다. 쓰지 않는다.
 
+## 베타 초대와 무료 이용권
+
+동화 한 편을 AI로 처음 만들 때(생성 확정) 이용권 1회를 쓴다. 다시 만들기·다시 시도는 쓰지 않는다.
+
+| 가입 경로 | 무료 | 설정 |
+|---|---|---|
+| 초대 링크 (공용 코드, 선착순) | 코드의 `credit_amount`회, `credit_expires_at`까지 | `invite_codes` 행 |
+| 사전 연락 이메일 | 행의 `credit_amount`회, `credit_expires_at`까지 | `pre_contacts` 행 |
+| 개발용 이메일 | 무제한 | `.env`의 `UNLIMITED_EMAILS` |
+| 일반 가입·기존 회원 | 1회, 기한 없음 | (자동) |
+
+무료는 한 종류만 받는다(초대·사전 연락 2회면 일반 1회는 없다). `.env`의 `BETA_INVITE_ONLY=true`면 초대 링크·사전 연락·개발용 이메일만 가입할 수 있다. 베타가 끝나면 `false`로 바꾸고 `docker compose up -d`.
+
+DB 작업은 compose 폴더에서 `docker compose exec postgres psql -U firstory firstory`로 들어가서 한다. 시각 뒤의 `+09`는 한국 시간이라는 뜻이라 꼭 붙인다.
+
+초대 코드 만들기
+
+```sql
+-- 1) 추측하기 어려운 코드를 하나 만든다 (결과를 복사해 아래에 넣는다)
+SELECT substr(md5(random()::text || clock_timestamp()::text), 1, 12) AS code;
+
+-- 2) 선착순 100명, 링크 마감과 무료 2회 기한 모두 11/22 23:59
+INSERT INTO invite_codes (code, max_uses, closes_at, credit_amount, credit_expires_at, created_at, updated_at)
+VALUES ('여기에코드', 100, '2026-11-22 23:59:59+09', 2, '2026-11-22 23:59:59+09', now(), now());
+
+-- 보낼 링크: https://firstoryofficial.com/api/invite/여기에코드
+```
+
+사전 연락 이메일 등록 (이미 회원이면 다음에 앱을 열 때 받는다)
+
+```sql
+INSERT INTO pre_contacts (email, credit_amount, credit_expires_at, created_at, updated_at)
+VALUES
+  (lower('kim@example.com'), 2, '2026-11-22 23:59:59+09', now(), now()),
+  (lower('lee@example.com'), 2, '2026-11-22 23:59:59+09', now(), now())
+ON CONFLICT (email) DO NOTHING;
+```
+
+연장 (예: 11/30까지)
+
+```sql
+BEGIN;
+-- 초대 링크 마감 + 앞으로 받을 이용권 기한
+UPDATE invite_codes
+SET closes_at = '2026-11-30 23:59:59+09', credit_expires_at = '2026-11-30 23:59:59+09', updated_at = now()
+WHERE code = '여기에코드';
+-- 이미 초대로 받은 이용권 기한
+UPDATE story_credits SET expires_at = '2026-11-30 23:59:59+09', updated_at = now()
+WHERE invite_code_id = (SELECT id FROM invite_codes WHERE code = '여기에코드');
+-- 사전 연락: 앞으로 받을 것 + 이미 받은 것
+UPDATE pre_contacts SET credit_expires_at = '2026-11-30 23:59:59+09', updated_at = now();
+UPDATE story_credits SET expires_at = '2026-11-30 23:59:59+09', updated_at = now() WHERE source = 'PRE_CONTACT';
+COMMIT;
+```
+
+초대 링크 바로 닫기
+
+```sql
+UPDATE invite_codes SET closes_at = now(), updated_at = now() WHERE code = '여기에코드';
+```
+
+현황
+
+```sql
+-- 초대 코드: 몇 명 가입했는지
+SELECT code, used_count, max_uses, closes_at, credit_expires_at FROM invite_codes;
+
+-- 사전 연락: 누가 가입해서 받아 갔는지
+SELECT p.email, p.granted_at, u.created_at AS joined_at
+FROM pre_contacts p LEFT JOIN users u ON u.id = p.granted_user_id
+ORDER BY p.granted_at NULLS LAST;
+
+-- 가입 경로별 인원
+SELECT signup_source, count(*) FROM users WHERE deleted_at IS NULL GROUP BY signup_source;
+
+-- 회원별 남은 무료 횟수 (개발용 이메일은 무제한이라 이 값과 상관없다)
+SELECT u.email, u.signup_source, u.created_at,
+       (SELECT coalesce(sum(greatest(c.amount - (SELECT count(*) FROM story_credit_uses cu
+                                                 WHERE cu.credit_id = c.id), 0)), 0)
+        FROM story_credits c
+        WHERE c.user_id = u.id AND (c.expires_at IS NULL OR c.expires_at > now())) AS remaining
+FROM users u
+WHERE u.deleted_at IS NULL
+ORDER BY u.created_at;
+
+-- 초대 링크로 가입한 사람
+SELECT u.email, u.created_at
+FROM users u JOIN story_credits c ON c.user_id = u.id
+WHERE c.invite_code_id = (SELECT id FROM invite_codes WHERE code = '여기에코드')
+ORDER BY u.created_at;
+```
+
+초대 표시는 로그인 세션(`FSESSION`)에 남아서, 링크를 누른 브라우저에서 30분 넘게 아무 요청이 없으면 사라진다. 그때는 링크를 다시 누르면 된다.
+
+사전 연락 이메일로 이미 가입한 회원은 앱을 열 때(`GET /api/me`) 이용권을 받으므로, 그 전에는 위 SQL의 남은 횟수가 일반 1회로 보인다.
+
 ## 백업
 
 DB는 EC2 안 컨테이너라 인스턴스를 잃으면 같이 잃는다. 하루 한 번 덤프를 남긴다(`crontab -e`).

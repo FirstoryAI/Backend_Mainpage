@@ -76,6 +76,11 @@ firstory:
     from: ${MAIL_FROM:}                         # 보내는 주소. 비우면 username
     asset-base-url: ${MAIL_ASSET_BASE_URL:}     # 메일 그림 주소 앞부분 (예: https://api.도메인/mail). 비우면 HTML 없이 글자만
     app-url: ${APP_URL:}                        # 메일 버튼이 여는 프론트 주소 (예: https://www.도메인). 비우면 HTML 없이 글자만
+  beta:
+    credits-enabled: ${BETA_CREDITS_ENABLED:true}   # 동화 이용권 확인. test 프로필은 false
+    invite-only: ${BETA_INVITE_ONLY:false}          # true면 초대 링크·사전 연락·개발용 이메일만 가입 (베타 동안)
+    unlimited-emails: ${UNLIMITED_EMAILS:}          # 이용권 없이 무제한 + 베타 중에도 가입되는 개발용 이메일. 쉼표로 구분
+    invite-redirect: ${BETA_INVITE_REDIRECT:/auth}  # 초대 링크를 누른 뒤 보낼 프론트 경로
   kakao:
     mode: ${KAKAO_MODE:http}                    # http | fake. local, test 프로필은 fake (카카오 없이)
     rest-api-key: ${KAKAO_REST_API_KEY:}        # 카카오 디벨로퍼스 REST API 키. http면 필수
@@ -113,6 +118,8 @@ firstory:
     app-url: https://app.test
   kakao:
     mode: fake
+  beta:
+    credits-enabled: false   # 이용권 테스트(CreditIntegrationTest)만 켠다
   generation:
     poll-enabled: false
   storage:

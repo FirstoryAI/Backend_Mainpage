@@ -3,6 +3,8 @@ package com.firstory.domain.user.entity;
 import com.firstory.global.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -46,6 +48,10 @@ public class User extends BaseTimeEntity {
     // 카카오 회원번호. UNIQUE는 DB 부분 인덱스(ux_users_kakao_id_active)가 담당한다
     @Column(name = "kakao_id", length = 40)
     private String kakaoId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "signup_source", nullable = false, length = 20)
+    private SignupSource signupSource = SignupSource.GENERAL;
 
     @Column(name = "onboarding_seen_at")
     private Instant onboardingSeenAt;
@@ -93,6 +99,13 @@ public class User extends BaseTimeEntity {
 
     public boolean hasSeenOnboarding() {
         return onboardingSeenAt != null;
+    }
+
+    /**
+     * 가입할 때 한 번 정한다 (SignupGate).
+     */
+    public void markSignupSource(SignupSource source) {
+        this.signupSource = Objects.requireNonNull(source);
     }
 
     public boolean hasPassword() {

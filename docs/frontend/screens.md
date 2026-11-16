@@ -428,7 +428,7 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `GET /api/me`, `GET /api/children` | `email`, `emailNotify`, `kakaoLinked`, `hasPassword` / 아이 목록 |
+| 들어올 때 | `GET /api/me`, `GET /api/children` | `email`, `emailNotify`, `kakaoLinked`, `hasPassword`, `storiesRemaining`(남은 동화 수, 무제한이면 null) / 아이 목록 |
 | 이메일 알림 켜기·끄기 | `PUT /api/me/consents/email-notify` `{agreed: true}` | 204 |
 | 아이 추가 | `POST /api/children` (CRT-03의 `profile`과 같은 본문) | 201 |
 | 아이 정보 수정 | `PUT /api/children/{childId}` | 200 |

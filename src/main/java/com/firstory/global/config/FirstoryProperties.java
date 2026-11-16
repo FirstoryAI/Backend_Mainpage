@@ -4,10 +4,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 
 @ConfigurationProperties("firstory")
 public record FirstoryProperties(Story story, Policy policy, Ai ai, Web web, Auth auth,
-                                 Generation generation, Storage storage, Mail mail, Kakao kakao) {
+                                 Generation generation, Storage storage, Mail mail, Kakao kakao, Beta beta) {
 
     /**
      * @param pageCount 동화 쪽수. DB에 박지 않고 여기서만 정한다
@@ -97,6 +98,28 @@ public record FirstoryProperties(Story story, Policy policy, Ai ai, Web web, Aut
     }
 
     public record Auth(String rememberMeKey) {
+    }
+
+    /**
+     * 베타 무료 이용권과 초대 가입 (CreditService, SignupGate).
+     *
+     * @param creditsEnabled  false면 이용권을 확인하지 않는다 (test 프로필. 이용권 테스트만 켠다)
+     * @param inviteOnly      true면 초대 링크, 사전 연락 이메일, 무제한 이메일만 가입할 수 있다 (베타 동안)
+     * @param unlimitedEmails 이용권 없이 무제한으로 만드는 개발용 이메일. 베타 중에도 가입할 수 있다. 쉼표로 구분
+     * @param inviteRedirect  초대 링크(GET /api/invite/{code})를 누른 뒤 보낼 프론트 경로
+     */
+    public record Beta(boolean creditsEnabled, boolean inviteOnly, List<String> unlimitedEmails, String inviteRedirect) {
+
+        public Beta {
+            unlimitedEmails = unlimitedEmails == null ? List.of()
+                    : unlimitedEmails.stream().map(String::trim).filter(email -> !email.isEmpty())
+                            .map(email -> email.toLowerCase(Locale.ROOT)).toList();
+            inviteRedirect = blankToNull(inviteRedirect) == null ? "/" : inviteRedirect.trim();
+        }
+
+        public boolean isUnlimited(String email) {
+            return email != null && unlimitedEmails.contains(email.toLowerCase(Locale.ROOT));
+        }
     }
 
     /**

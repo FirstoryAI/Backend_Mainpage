@@ -5,6 +5,7 @@ import com.firstory.domain.auth.entity.EmailSendLog;
 import com.firstory.domain.auth.entity.EmailVerification;
 import com.firstory.domain.auth.entity.VerifiedEmail;
 import com.firstory.domain.auth.repository.EmailSendLogRepository;
+import com.firstory.domain.credit.service.SignupGate;
 import com.firstory.domain.user.entity.User;
 import com.firstory.domain.user.repository.UserRepository;
 import com.firstory.global.config.FirstoryProperties;
@@ -45,6 +46,7 @@ public class EmailVerificationService {
     private final EmailSendLogRepository emailSendLogRepository;
     private final UserRepository userRepository;
     private final EmailSender emailSender;
+    private final SignupGate signupGate;
     private final MailTemplates mailTemplates;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
@@ -62,6 +64,10 @@ public class EmailVerificationService {
             boolean exists = userRepository.existsByEmail(email);
             if (purpose == EmailPurpose.SIGNUP && exists) {
                 throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+            }
+            if (purpose == EmailPurpose.SIGNUP) {
+                // 베타 동안 가입할 수 없는 사람에게는 인증 메일부터 보내지 않는다
+                signupGate.checkCanSignUp(email, session);
             }
             String emailHash = EmailVerification.sha256(email);
             if (emailSendLogRepository.countByEmailHashAndCreatedAtAfter(emailHash, now.minus(Duration.ofHours(1)))

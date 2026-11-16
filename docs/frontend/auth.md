@@ -79,6 +79,17 @@ POST /api/auth/logout                                                           
 - 로그인 5번 연속 실패 시 15분 잠김(423 `ACCOUNT_LOCKED`).
 - local, dev 서버(메일을 보내지 않는 `MAIL_MODE=log`)는 인증번호가 항상 `000000`이다. 실제로 메일을 보내는 서버는 무작위 번호다.
 
+## 베타 초대와 동화 이용권
+
+- **초대 링크**는 `https://firstoryofficial.com/api/invite/{코드}`다. 백엔드가 이 브라우저 세션에 초대 표시를 남기고 `/auth`로 보낸다(302). 마감됐거나 없는 코드면 `/auth?invite=closed`로 보낸다. 프론트가 따로 할 일은 없고, `invite=closed`면 "초대가 마감됐어요" 안내를 보여 주면 좋다.
+- 초대 표시는 세션(`FSESSION`)에 있어서 **링크를 누른 브라우저에서 30분 안에** 가입해야 한다. 이메일 가입·카카오 가입 모두 적용된다.
+- **베타 동안**(서버 `BETA_INVITE_ONLY=true`)은 초대 링크로 들어온 사람, 사전 연락 이메일, 개발용 이메일만 가입할 수 있다. 그 밖은 `email/send-code`(SIGNUP)부터 403 `SIGNUP_INVITE_REQUIRED`, 가입하려는 사이 선착순이 찼으면 403 `INVITE_CLOSED`. 응답의 `message`를 그대로 보여 주면 된다.
+- **이용권**: 동화 한 편을 AI로 처음 만들 때(생성 확정) 1회를 쓴다. 다시 만들기·다시 시도는 쓰지 않는다.
+  - 초대 링크·사전 연락 가입은 무료 2회(기한 있음), 일반 가입·기존 회원은 무료 1회. 무료는 한 종류만 받는다.
+  - `GET /api/me`의 `storiesRemaining`(앞으로 만들 수 있는 동화 수, 무제한이면 null), `unlimitedStories`, `signupSource`(GENERAL / INVITE / PRE_CONTACT / DEV).
+  - 다 쓰면 `POST /api/stories`(동화 만들기 시작)가 403 `STORY_LIMIT_REACHED`. 그사이 다른 동화로 다 쓴 경우 `POST /confirm`도 같은 오류. 응답의 `message`를 보여 주면 된다. 결제(한달권)는 아직 없다.
+  - 동화를 지워도 쓴 횟수는 돌아오지 않는다. AI가 생성을 받지 못한 경우(`AI_UNAVAILABLE` 등)는 돌아온다.
+
 ## 카카오 로그인
 
 ```

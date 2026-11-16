@@ -82,7 +82,8 @@ com.firstory
     ├── guide             대화 가이드, 대화 질문
     ├── reading           읽기 세션, 대화 버튼 기록, 읽기 완료 피드백
     ├── safety            위기 신호
-    └── notification      이메일 알림
+    ├── notification      이메일 알림
+    └── credit            동화 이용권, 베타 초대 코드, 사전 연락 이메일
 ```
 
 각 도메인(`com.firstory.domain.{도메인}`) 안은 계층별로 나눈다.
@@ -207,6 +208,15 @@ com.firstory
 - 메일은 `EmailSender.send(to, MailContent(subject, text, html))`. HTML은 `MailTemplates`(`resources/mail/*.html`, 홈 화면 디자인, `{{assetBase}}`·`{{appUrl}}`·`{{code}}`를 채운다)이고 `SmtpEmailSender`가 글자와 HTML을 함께(multipart/alternative) 보낸다. `MAIL_ASSET_BASE_URL`이나 `APP_URL`이 비면 HTML 없이 글자만. 로고·캐릭터 그림은 `resources/static/mail/*.png`이고 로그인 없이 `GET /mail/*.png`(`SecurityConfig`). 인증번호 메일은 가입과 비밀번호 찾기 문구가 다르다. 템플릿을 고칠 때는 저장소 밖 `mail-preview/build.py`로 미리보기와 함께 다시 만든다.
 - 동의는 따로 기록하지 않는다(새 ERD, V15에서 `user_consents` 삭제). 가입 요청의 `consents`로 필수 동의(보호자·약관·개인정보)를 `ConsentPolicy`로 검사하고(가입 = 동의, 시각은 `users.created_at`), 알림 수신(선택)만 `users.email_notify`에 저장한다. `termsVersion`은 받지만 저장하지 않는다. 알림 설정 변경은 `User.changeEmailNotify`.
 
+## 동화 이용권과 베타 초대 (V18)
+
+- 동화 한 편을 AI로 처음 만들 때(`POST /confirm`) 이용권 1회를 쓴다(`story_credit_uses`, story_id UNIQUE). 다시 만들기·다시 시도는 쓰지 않는다. 동화를 지워도 남는다. 생성 확정 ①에서 `CreditService.reserve`(회원의 이용권 행을 잠가 동시 확정 대비, 곧 끝나는 것부터)로 쓰고, ② AI 호출이 실패하면 `release`로 되돌린다. 동화 만들기 시작(`POST /api/stories`)은 남은 횟수만 본다(`requireAvailable`). 없으면 403 `STORY_LIMIT_REACHED`.
+- 이용권(`story_credits`)은 경로(`CreditSource`)·횟수·기한(없으면 무기한)을 한 장씩 둔다. 남은 횟수 = 기한 안의 이용권마다 (횟수 - 쓴 수)의 합(`GET /api/me`의 `storiesRemaining`). 한달권(4회, 1개월)은 결제를 만들 때 이용권 한 장으로 넣는다(TODO(PM)).
+- 가입 경로와 무료 이용권은 `SignupGate` 하나로 정한다(이메일 가입·카카오 가입 공통, 회원 저장 전 `resolve`, 저장 후 `apply`). 무료는 한 종류만: 개발용 이메일(`firstory.beta.unlimited-emails`, DEV, 이용권 없이 무제한) → 사전 연락 이메일(`pre_contacts`, PRE_CONTACT) → 초대 링크(INVITE) → 일반(GENERAL, 1회 무기한). `users.signup_source`에 남긴다. 기존 회원은 V18이 일반 1회를 줬다. 사전 연락 이메일로 이미 가입한 회원은 `GET /api/me`에서 사전 연락 이용권을 받고 안 쓴 일반 1회는 없어진다(`CreditService.syncPreContact`).
+- 초대 링크는 공용 코드 하나(`invite_codes`: 선착순 `max_uses`, 링크 마감 `closes_at`, 줄 횟수와 기한). `GET /api/invite/{code}`(로그인 불필요)가 열려 있으면 세션에 `InviteTicket`을 남기고 `firstory.beta.invite-redirect`(`/auth`)로 302, 아니면 `?invite=closed`. 자리는 가입할 때 `InviteCodeRepository.claim`(조건부 UPDATE)으로 잡는다. 링크는 프론트 도메인(`/api`가 Vercel을 거쳐 백엔드로)으로 보내야 세션 쿠키가 프론트 도메인에 남는다.
+- `firstory.beta.invite-only`(`BETA_INVITE_ONLY`)가 true(베타 동안)면 개발용·사전 연락·초대 링크만 가입한다. 아니면 403 `SIGNUP_INVITE_REQUIRED`, 자리가 찼거나 마감이면 `INVITE_CLOSED`. 가입 인증번호(`email/send-code` SIGNUP)에서 먼저 막는다(`checkCanSignUp`).
+- 초대 코드·사전 연락 이메일은 비밀이라 마이그레이션에 넣지 않고 서버에서 SQL로 넣는다. 기한 연장도 SQL(`docs/deploy/ec2.md` "베타 초대와 무료 이용권"). test 프로필은 `firstory.beta.credits-enabled: false`(이용권 확인 안 함)이고 `CreditIntegrationTest`, `BetaInviteOnlyIntegrationTest`만 `@TestPropertySource`로 켠다.
+
 ## 서재와 함께 읽기 (HOME-01, LIB-01~02, GDE-01, RD-01~03)
 
 - 서재(`GET /api/stories`) filter: ALL(BLOCKED와 임시저장 뺀 전부), CREATING(REQUESTED~GENERATING_IMAGES), REVIEWING, UNREAD(COMPLETED + 함께 읽은 적 없음), READ(COMPLETED + 읽은 적 있음), FAILED, DRAFT(임시저장 DRAFT·INTERVIEWING·CONFIRMING, 홈 이어 만들기 목록용) (`LibraryFilter`). `category`(여러 개)로 상황 분류(`StoryInput.situationCategory`)도 함께 거른다(`exists` 하위 쿼리). 정렬은 `updated_at DESC, id DESC`, size 1~50(기본 20).
@@ -272,6 +282,9 @@ com.firstory
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | (비움) | 비밀값 (EC2는 IAM 역할이면 비움) | S3 접근 키. 그 버킷만 읽고 쓰는 IAM 사용자의 키 |
 | `SERVER_PORT` (없으면 `PORT`) | `8080` | 플랫폼이 넣는 값 | 서버 포트. Railway는 `PORT`를 넣어 준다 |
 | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | 로컬 docker compose | 비밀번호는 비밀값 | JDBC 주소, DB 계정. dev는 기본값 없음 |
+| `BETA_INVITE_ONLY` | `false` | 베타 동안 `true` | 초대 링크·사전 연락·개발용 이메일만 가입 |
+| `UNLIMITED_EMAILS` | (비움) | 개발용 이메일 | 이용권 없이 무제한, 베타 중에도 가입. 쉼표로 구분 |
+| `BETA_CREDITS_ENABLED`, `BETA_INVITE_REDIRECT` | `true`, `/auth` | 그대로 | 이용권 확인, 초대 링크 뒤 이동 경로 |
 | `FIRSTORY_AI_FAKE_STAGE_DURATION` | (local 40s) | 쓰지 않음 | 가짜 AI 생성 단계 시간. smoke 때 `5s`로 덮어쓴다 |
 
 고정 인증번호 `firstory.auth.local-fixed-code`는 `LocalFixedVerificationCode`(`@Profile({"local", "dev"})`)만 읽고, 메일을 실제로 보내지 않을 때(`MAIL_MODE=log`)만 쓴다(`smtp`면 무작위). 그 밖의 프로필(prod 등, 프로필 없음 포함)에 이 값이 있으면 `LocalFixedVerificationCode.Guard`가 기동을 막는다. 번호 생성만 바꾸고 해시 저장·만료·시도 횟수 규칙은 그대로다.

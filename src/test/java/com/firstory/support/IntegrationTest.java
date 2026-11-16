@@ -125,7 +125,13 @@ public abstract class IntegrationTest {
     }
 
     protected Browser signUp(String email, String consents) throws Exception {
-        Browser browser = browser();
+        return signUpIn(browser(), email, consents);
+    }
+
+    /**
+     * 이미 연 브라우저(초대 링크를 누른 세션 등)에서 이메일 인증부터 가입까지.
+     */
+    protected Browser signUpIn(Browser browser, String email, String consents) throws Exception {
         verifyEmail(browser, email, "SIGNUP");
         browser.post("/api/auth/signup", signupJson(email, consents))
                 .andExpect(status().isCreated());
