@@ -24,6 +24,7 @@ import com.firstory.domain.story.dto.StoryStepResponse;
 import com.firstory.domain.story.entity.Story;
 import com.firstory.domain.story.entity.StoryStatus;
 import com.firstory.domain.story.service.StoryLoader;
+import com.firstory.domain.story.service.BlockedTopics;
 import com.firstory.global.ai.AiClient;
 import com.firstory.global.config.FirstoryProperties;
 import com.firstory.global.entity.CustomText;
@@ -65,6 +66,7 @@ public class ReviewService {
     private final StoryFeedbackRepository feedbackRepository;
     private final GenerationService generationService;
     private final SafetyGuard safetyGuard;
+    private final BlockedTopics blockedTopics;
     private final AiClient aiClient;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
@@ -73,7 +75,8 @@ public class ReviewService {
 
     public ReviewService(StoryLoader loader, GenerationRunRepository runRepository,
                          StoryVersionRepository versionRepository, StoryPageRepository pageRepository,
-                         StoryFeedbackRepository feedbackRepository, GenerationService generationService, SafetyGuard safetyGuard, AiClient aiClient,
+                         StoryFeedbackRepository feedbackRepository, GenerationService generationService, SafetyGuard safetyGuard,
+                         BlockedTopics blockedTopics, AiClient aiClient,
                          TransactionTemplate transactionTemplate, Clock clock, FirstoryProperties properties) {
         this.loader = loader;
         this.runRepository = runRepository;
@@ -82,6 +85,7 @@ public class ReviewService {
         this.feedbackRepository = feedbackRepository;
         this.generationService = generationService;
         this.safetyGuard = safetyGuard;
+        this.blockedTopics = blockedTopics;
         this.aiClient = aiClient;
         this.transactionTemplate = transactionTemplate;
         this.clock = clock;
@@ -106,6 +110,7 @@ public class ReviewService {
         // ①
         Prepared prepared = transactionTemplate.execute(status -> {
             Story story = loader.findEditable(userId, storyId, REVIEWING);
+            blockedTopics.requireOpen(loader.input(story).getSituationCategory());   // 막기 전에 만든 동화
             if (story.getRegenerateCount() >= maxRegenerations) {
                 throw new BusinessException(ErrorCode.REGENERATION_LIMIT_REACHED);
             }
@@ -209,6 +214,7 @@ public class ReviewService {
         // ①
         RetryPlan plan = transactionTemplate.execute(status -> {
             Story story = loader.findEditable(userId, storyId, EnumSet.of(StoryStatus.FAILED));
+            blockedTopics.requireOpen(loader.input(story).getSituationCategory());   // 막기 전에 만든 동화
             GenerationRun last = runRepository.findTopByStoryIdOrderByRunNoDesc(story.getId())
                     .filter(run -> run.getStatus() == RunStatus.FAILED)
                     .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION));

@@ -240,7 +240,7 @@ com.firstory
 - `category`는 AI가 준 값(스펙 4장 목록: violence, harmful_discipline, discrimination, illegal, blame_child, self_harm, abuse_neglect, harm_intent, other)을 그대로 저장하고, 비어 있으면 `other`. 값 목록을 enum으로 묶지 않는다(AI 쪽에서 늘어날 수 있다).
 - 차단 응답에는 `helpKind`(CRISIS → `CHILD_SAFETY`, REVISE로 차단 → `PARENTING`)만 준다. **상담 기관 이름과 번호는 백엔드에 넣지 않는다**(프론트가 helpKind로 보여준다).
 - BLOCKED 동화의 모든 변경 요청은 `STORY_BLOCKED`. 나가기(DELETE)와 조회(draft)만 된다. 다시 만들기 메모로 REVIEWING에서도 차단될 수 있다.
-- **막은 주제**(`BlockedTopics`, 설정 `firstory.story.blocked-topics`·`BLOCKED_TOPICS`, 기본 `SEPARATION`, #79): 상황 칸이 막은 주제면 상황 저장·인터뷰 시작·만들기가 400 `CATEGORY_UNAVAILABLE`. AI 판단의 `topic`(소문자 `aiValue`)이 막은 주제면 CRISIS가 아닌 한 level과 상관없이 `ASK_REVISE`(고정 문구 `SafetyGuard.BLOCKED_TOPIC_REASON`)이고 `SafetyFlag`를 남기지 않는다(횟수 안 셈, 차단 안 됨). 인터뷰 답변은 `answerInterview`가 `blocked_topics`를 보내 AI가 답을 받기 전으로 되돌린다. 완성 본문의 topic이 막은 주제면 SafetyFlag 없이 `OUTPUT_UNSAFE`. 비우면 다시 열린다.
+- **막은 주제**(`BlockedTopics`, 설정 `firstory.story.blocked-topics`·`BLOCKED_TOPICS`, 기본 `SEPARATION`, #79): 상황 칸이 막은 주제면 상황 저장·인터뷰 시작·만들기·다시 만들기·다시 시도가 400 `CATEGORY_UNAVAILABLE`. AI 판단의 `topic`(소문자 `aiValue`)이 막은 주제면 CRISIS가 아닌 한 level과 상관없이 `ASK_REVISE`(고정 문구 `SafetyGuard.BLOCKED_TOPIC_REASON`)이고 `SafetyFlag`를 남기지 않는다(횟수 안 셈, 차단 안 됨). 인터뷰 답변은 `answerInterview`가 `blocked_topics`를 보내 AI가 답을 받기 전으로 되돌린다. 완성 본문의 topic이 막은 주제면 SafetyFlag 없이 `OUTPUT_UNSAFE`이고, 첫 생성(기준 버전 없음)이면 쓴 이용권을 되돌린다(입력이 그대로라 다시 시도해도 또 걸리기 쉽다). 비우면 다시 열린다.
 - **결과 위기 신호**(AI 결과의 `safety`가 REVISE, CRISIS): `SafetyFlag`(source OUTPUT)를 감사용으로 남기고 버전을 만들지 않고 실행·스토리 FAILED(`OUTPUT_UNSAFE`). 부모는 다시 시도할 수 있다. **부모의 REVISE 횟수에는 넣지 않는다**(`countByStoryIdAndLevelAndSourceNot(OUTPUT)`). 다만 `occurrenceNo`는 UNIQUE(story, level, occurrence_no)라 OUTPUT까지 포함한 개수로 정한다.
 
 ## 인증 규칙

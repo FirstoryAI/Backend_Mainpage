@@ -578,6 +578,19 @@ class GenerationIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void 이미_이별로_저장된_동화는_다시_만들기와_다시_시도를_막는다() throws Exception {
+        long id = reviewingStory();
+        jdbc.update("UPDATE story_inputs SET situation_category = 'SEPARATION' WHERE story_id = ?", id);
+
+        assertError(regenerate(id, """
+                {"scope": "TEXT"}"""), ErrorCode.CATEGORY_UNAVAILABLE);
+        assertThat(regenerateCount(id)).isZero();
+
+        jdbc.update("UPDATE stories SET status = 'FAILED' WHERE id = ?", id);
+        assertError(parent.post(storyUrl(id) + "/retry", null), ErrorCode.CATEGORY_UNAVAILABLE);
+    }
+
+    @Test
     void 메모가_이별_내용이면_다시_만들지_않고_횟수도_세지_않는다() throws Exception {
         long id = reviewingStory();
 
