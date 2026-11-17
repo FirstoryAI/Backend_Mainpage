@@ -131,6 +131,7 @@
 - `helpKind`: `CHILD_SAFETY`(아이 안전이 걱정됨) / `PARENTING`(양육 상담). **상담 기관 이름과 번호는 백엔드에 없다.** 프론트가 helpKind별로 정해서 보여 준다(문구 PM 확정 전).
 - 차단된 동화에 다시 요청하면 409 `STORY_BLOCKED`. 나가기(`DELETE /api/stories/{id}`)와 조회만 된다.
 - `ASK_REVISE`가 쌓이면(같은 동화에서 2번째) `BLOCK`이 된다.
+- 다른 주제를 골라도 글 내용이 이별·죽음이면(막아 둔 주제) `ASK_REVISE`와 고정 문구가 온다. 이건 쌓이지 않아 `BLOCK`이 되지 않는다. 완성된 본문이 이별·죽음 이야기면 생성이 `OUTPUT_UNSAFE`로 실패하고 다시 시도할 수 있다.
 - 로컬에서 흉내 내려면 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`를 넣는다 ([fake-ai.md](fake-ai.md)).
 
 ### CRT-01 · CRT-02 상황
@@ -147,6 +148,7 @@
 
 - `timing`: `PAST`(있었던 일) / `UPCOMING`(앞으로 겪을 일). **UPCOMING이면 `reactions`, `emotions`를 보내지 않는다**(400 `MOMENT_ONLY_FOR_PAST`).
 - `category`: `FRIEND_CONFLICT`, `NEW_ENVIRONMENT`, `SEPARATION`, `SAFETY`, `RULES`, `FAMILY_CHANGE`, `FEAR`, `OTHER`
+  - **`SEPARATION`(이별 · 죽음)은 지금 막아 두었다**(서버 설정 `BLOCKED_TOPICS`, #79). 보내면 400 `CATEGORY_UNAVAILABLE`. 이미 이 칸으로 저장된 만들던 동화도 인터뷰 시작·만들기에서 같은 오류다.
 - `reactions`: `CRIED`, `SILENT`, `ANGRY_OUTBURST`, `CLINGY`, `AVOIDED`, `ASKED_QUESTIONS`, `OTHER`
 - `emotions`: `SAD`, `ANGRY`, `SCARED`, `CONFUSED`, `ASHAMED`, `EXCITED`, `UNKNOWN`
 - `OTHER`를 고르면 `customCategory`/`customReaction` 필수(30자). `description`은 300자.

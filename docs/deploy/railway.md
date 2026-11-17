@@ -56,6 +56,7 @@ dev 프로필(`application-dev.yml`)이 하는 일:
 | `AWS_SECRET_ACCESS_KEY` | `s3`일 때 | **예** | 위 액세스 키의 비밀 키 | (`local`이면 비움) |
 | `SERVER_PORT` | 선택 | 아니오 | 서버 포트. 없으면 `PORT`, 둘 다 없으면 8080. Railway는 `PORT`를 넣어 주므로 비워 둔다 | (비움) |
 | `MAX_REGENERATIONS` | 선택 | 아니오 | 다시 만들기 최대 횟수. 기본 1 (기획 확정) | (비움) |
+| `BLOCKED_TOPICS` | 선택 | 아니오 | 지금 만들지 않는 주제(상황 칸과 AI가 판단한 글 내용 모두, #79). 쉼표로 구분. 없으면 `SEPARATION`(이별·죽음), 빈 값이면 다시 열림 | `SEPARATION` |
 | `FIRSTORY_AI_FAKE_STAGE_DURATION` | 선택 | 아니오 | 가짜 AI 생성 단계 시간. dev 기본 `40s`. 빠르게 보고 싶으면 줄인다 | `40s` |
 | `JAVA_TOOL_OPTIONS` | 선택 | 아니오 | JVM 옵션. 이미지 기본 `-XX:MaxRAMPercentage=75`. 넣으면 기본값을 덮어쓴다 | (비움) |
 
