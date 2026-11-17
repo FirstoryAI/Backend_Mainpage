@@ -62,6 +62,14 @@ public class PreContact extends BaseTimeEntity {
         return grantedAt != null;
     }
 
+    /**
+     * 아직 이용권을 받지 않았고 이용권 기한(credit_expires_at) 전이면 사전 연락으로 받을 수 있다.
+     * 기한이 지난 뒤에는 사전 연락이 아니라 일반 가입·일반 회원으로 본다 (받아도 바로 끝난 이용권이라).
+     */
+    public boolean isAvailable(Instant now) {
+        return !isGranted() && (creditExpiresAt == null || creditExpiresAt.isAfter(now));
+    }
+
     public void markGranted(User user, Instant now) {
         this.grantedUser = Objects.requireNonNull(user);
         this.grantedAt = Objects.requireNonNull(now);

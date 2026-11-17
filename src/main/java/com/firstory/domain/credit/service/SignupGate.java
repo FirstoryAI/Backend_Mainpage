@@ -27,7 +27,8 @@ import java.util.Optional;
  *
  * <ol>
  *   <li>개발용 이메일(firstory.beta.unlimited-emails): 언제든 가입, 이용권 없이 무제한 (DEV)</li>
- *   <li>사전 연락 이메일(pre_contacts): 초대 링크 없이 가입, 그 행의 무료 이용권 (PRE_CONTACT)</li>
+ *   <li>사전 연락 이메일(pre_contacts): 초대 링크 없이 가입, 그 행의 무료 이용권 (PRE_CONTACT).
+ *       이용권 기한이 지났으면 사전 연락으로 보지 않고 아래 일반 가입 규칙을 따른다</li>
  *   <li>초대 링크로 들어온 세션: 가입할 때 자리를 잡고 초대 코드의 무료 이용권 (INVITE)</li>
  *   <li>그 밖: 베타 동안(invite-only)은 가입 불가, 아니면 무료 1회 (GENERAL)</li>
  * </ol>
@@ -94,7 +95,7 @@ public class SignupGate {
             return SignupGrant.dev();
         }
         Optional<PreContact> preContact = preContactRepository.findByEmailForUpdate(email)
-                .filter(contact -> !contact.isGranted());
+                .filter(contact -> contact.isAvailable(clock.instant()));
         if (preContact.isPresent()) {
             return SignupGrant.preContact(preContact.get());
         }
@@ -143,7 +144,8 @@ public class SignupGate {
     }
 
     private Optional<PreContact> availablePreContact(String email) {
-        return preContactRepository.findByEmail(User.normalizeEmail(email)).filter(contact -> !contact.isGranted());
+        return preContactRepository.findByEmail(User.normalizeEmail(email))
+                .filter(contact -> contact.isAvailable(clock.instant()));
     }
 
     private static InviteTicket ticket(HttpSession session) {

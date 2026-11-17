@@ -217,7 +217,7 @@ Actions는 SSH를 쓰지 않는다. GitHub OIDC로 AWS 역할을 받아 **SSM Ru
 | 개발용 이메일 | 무제한 | `.env`의 `UNLIMITED_EMAILS` |
 | 일반 가입·기존 회원 | 1회, 기한 없음 | (자동) |
 
-무료는 한 종류만 받는다(초대·사전 연락 2회면 일반 1회는 없다). `.env`의 `BETA_INVITE_ONLY=true`면 초대 링크·사전 연락·개발용 이메일만 가입할 수 있다. 베타가 끝나면 `false`로 바꾸고 `docker compose up -d`.
+무료는 한 종류만 받는다(초대·사전 연락 2회면 일반 1회는 없다). 기한(`credit_expires_at`)이 지나면 받은 초대·사전 연락 이용권은 남아도 쓸 수 없고, 아직 받지 않은 사전 연락 이메일은 일반 가입(무료 1회)으로 본다. `.env`의 `BETA_INVITE_ONLY=true`면 초대 링크·사전 연락·개발용 이메일만 가입할 수 있다. 베타가 끝나면 `false`로 바꾸고 `docker compose up -d`.
 
 DB 작업은 compose 폴더에서 `docker compose exec postgres psql -U firstory firstory`로 들어가서 한다. 시각 뒤의 `+09`는 한국 시간이라는 뜻이라 꼭 붙인다.
 
