@@ -188,6 +188,7 @@ com.firstory
 - 확정 전 피드백(`story_feedbacks`, 동화마다 하나, 확정한 버전)과 읽기 완료 피드백(`reading_feedbacks`, 세션마다 하나, 세션의 동화)은 V17. 확정·다 읽음 요청 본문의 `feedback`으로 받고 **완료 처리와 같은 트랜잭션에 저장한다**(저장 실패면 완료도 실패). 본문이나 `feedback`이 없으면 완료만 한다(이전 호출 호환).
 - 선택 답 3개는 필수(`@NotNull`), `comment`는 선택·500자(`@Size`)이고 앞뒤 공백을 지워 비면 null로 저장한다. 부모 입력이라 요청 DTO `toString`에서 가린다.
 - 선택 답은 `FeedbackChoice` enum 코드로 저장하고 화면 문구는 enum에만 둔다. 요청은 코드와 화면 문구를 모두 받는다(`@JsonCreator` → `FeedbackChoice.of`. 프론트가 처음에 문구를 보내도록 만들어졌다). 둘 다 아니면 `RequestBodyErrors`가 `ValueInstantiationException`을 "고를 수 없는 값이에요."로 바꾼다. 문구를 바꾸면 `FeedbackChoiceTest`와 프론트 `FeedbackDialog.jsx`를 함께 본다.
+- 팝업은 계정마다 종류별로 한 번(#82): `GET /api/me`의 `feedbackSubmitted{preview, reading}`은 이 회원 동화에 저장된 피드백 행이 있는지로 센다(따로 저장하지 않는다, 지운 동화 것도 세려고 native 쿼리). 저장 실패면 행이 없어 false 그대로.
 - 다시 보내도 겹치지 않는다: 확정은 REVIEWING에서 한 번만 되고(두 번째는 INVALID_STATUS_TRANSITION), 다 읽음은 세션을 잠근 채 이미 피드백이 있으면 새로 받은 것을 버린다(처음 값 유지, 204). 두 테이블 모두 UNIQUE.
 
 ## 파일 저장소와 그림 API

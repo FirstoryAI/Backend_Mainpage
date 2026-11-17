@@ -2,6 +2,8 @@ package com.firstory.domain.user.service;
 
 import com.firstory.domain.auth.entity.PasswordPolicy;
 import com.firstory.domain.credit.service.CreditService;
+import com.firstory.domain.generation.repository.StoryFeedbackRepository;
+import com.firstory.domain.reading.repository.ReadingFeedbackRepository;
 import com.firstory.domain.user.dto.MeResponse;
 import com.firstory.domain.user.entity.User;
 import com.firstory.domain.user.repository.UserRepository;
@@ -23,6 +25,8 @@ public class MeService {
 
     private final UserRepository userRepository;
     private final CreditService creditService;
+    private final StoryFeedbackRepository storyFeedbackRepository;
+    private final ReadingFeedbackRepository readingFeedbackRepository;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
 
@@ -84,7 +88,9 @@ public class MeService {
         CreditService.CreditSummary credits = creditService.summary(user.getId());
         return new MeResponse(user.getId(), user.getEmail(), user.hasSeenOnboarding(), user.isEmailNotify(),
                 user.isKakaoLinked(), user.hasPassword(), user.getSignupSource(), credits.unlimited(),
-                credits.remaining());
+                credits.remaining(), new MeResponse.FeedbackSubmitted(
+                        storyFeedbackRepository.existsByUserId(user.getId()),
+                        readingFeedbackRepository.existsByUserId(user.getId())));
     }
 
 

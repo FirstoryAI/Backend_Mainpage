@@ -67,6 +67,8 @@ public class StoryStates {
                 return story.getId();
             }
             GenerationRun run = runRepository.save(Fixtures.run(story, 1));
+            // 결과까지 받은 실행이다. RUNNING으로 두면 뒤에 도는 테스트의 GenerationPoller가 이 실행부터 잡는다
+            run.succeed(0, 0, 0, now);
             StoryVersion version = versionRepository.save(StoryVersion.create(story, run, 1, null,
                     "동화 " + story.getId(), "cp-1", null, "stories/" + story.getId() + "/runs/1/images/sheet-main-1.png",
                     null, null, null));
