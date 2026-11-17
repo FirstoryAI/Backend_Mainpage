@@ -17,8 +17,8 @@ import java.util.List;
  *
  * @param characterSheetUrl   캐릭터 시트가 없으면 null
  * @param coverUrl            표지(제목이 들어간 정사각형). 표지가 없으면 캐릭터 시트, 둘 다 없으면 null
- * @param frontCoverUrl       책 맨 앞 앞표지(쪽과 같은 크기, 제목 포함). 없으면(이전 버전, 표지 실패) null
- * @param backCoverUrl        책 맨 뒤 뒤표지(쪽과 같은 크기, 글자 없음). 없으면 null
+ * @param frontCoverUrl       책 맨 앞 앞표지(정사각형 표지와 같은 그림, 옛 버전은 가로). 없으면(이전 버전, 표지 실패) null
+ * @param backCoverUrl        책 맨 뒤 뒤표지(정사각형, 글자 없음, 옛 버전은 가로). 없으면 null
  * @param regenerateRemaining 남은 다시 만들기 횟수
  */
 public record PreviewResponse(Long storyId, StoryStatus status, VersionSummary version, String characterSheetUrl,

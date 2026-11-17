@@ -20,8 +20,8 @@ import java.util.List;
  * 그림은 imageUrl(그림 API)로 받는다. 파일 key나 저장 경로는 넣지 않는다.
  *
  * @param coverUrl      캐릭터 시트가 없으면 null
- * @param frontCoverUrl 책 맨 앞 앞표지(쪽과 같은 크기, 제목 포함). 없으면(이전 버전, 표지 실패) null
- * @param backCoverUrl  책 맨 뒤 뒤표지(쪽과 같은 크기, 글자 없음). 없으면 null
+ * @param frontCoverUrl 책 맨 앞 앞표지(정사각형 표지와 같은 그림, 옛 버전은 가로). 없으면(이전 버전, 표지 실패) null
+ * @param backCoverUrl  책 맨 뒤 뒤표지(정사각형, 글자 없음, 옛 버전은 가로). 없으면 null
  * @param prompts       afterPage 쪽을 읽은 뒤에 보여준다 (RD-02)
  */
 public record BookResponse(Long storyId, Long versionId, String title, String coverUrl, String frontCoverUrl,

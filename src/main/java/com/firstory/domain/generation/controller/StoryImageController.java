@@ -71,7 +71,7 @@ public class StoryImageController {
         return image(storyImageService.cover(principal.getUserId(), id, versionId));
     }
 
-    @Operation(summary = "앞표지", description = "책 맨 앞 그림. 쪽과 같은 1920×1088이고 제목이 그림 안에 있다. "
+    @Operation(summary = "앞표지", description = "책 맨 앞 그림. 정사각형 표지(/cover)와 같은 그림이다(AI_worker#125, 그 전 버전은 1920×1088 가로 그림). "
             + "앞표지가 없는 버전(이전 버전, 표지 실패)이면 IMAGE_NOT_FOUND")
     @ApiResponse(responseCode = "200", description = "PNG 또는 WebP 그림 (진짜 AI는 WebP, 가짜 AI는 PNG)",
             content = {@Content(mediaType = MediaType.IMAGE_PNG_VALUE, schema = @Schema(type = "string", format = "binary")),
@@ -82,7 +82,7 @@ public class StoryImageController {
         return image(storyImageService.frontCover(principal.getUserId(), id, versionId));
     }
 
-    @Operation(summary = "뒤표지", description = "책 맨 뒤 그림. 쪽과 같은 1920×1088이고 글자가 없다. "
+    @Operation(summary = "뒤표지", description = "책 맨 뒤 그림. 1024×1024 정사각형이고 글자가 없다(AI_worker#125, 그 전 버전은 1920×1088). "
             + "뒤표지가 없는 버전이면 IMAGE_NOT_FOUND")
     @ApiResponse(responseCode = "200", description = "PNG 또는 WebP 그림 (진짜 AI는 WebP, 가짜 AI는 PNG)",
             content = {@Content(mediaType = MediaType.IMAGE_PNG_VALUE, schema = @Schema(type = "string", format = "binary")),
