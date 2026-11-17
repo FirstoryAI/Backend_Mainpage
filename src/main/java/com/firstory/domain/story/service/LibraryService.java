@@ -1,5 +1,6 @@
 package com.firstory.domain.story.service;
 
+import com.firstory.domain.credit.service.CreditService;
 import com.firstory.domain.guide.entity.ReadingGuide;
 import com.firstory.domain.guide.repository.ReadingGuideRepository;
 import com.firstory.domain.reading.entity.ReadingSession;
@@ -54,6 +55,7 @@ public class LibraryService {
             StoryStatus.REVIEWING, StoryStatus.FAILED);
 
     private final StoryRepository storyRepository;
+    private final CreditService creditService;
     private final StoryInputRepository storyInputRepository;
     private final ReadingSessionRepository readingSessionRepository;
     private final ReadingGuideRepository guideRepository;
@@ -84,7 +86,8 @@ public class LibraryService {
                 true, EnumSet.allOf(SituationCategory.class), PageRequest.of(0, HOME_SIZE, RECENTLY_UPDATED))
                 .getContent());
         List<StoryCardResponse> recent = cards(storyRepository.findRecentCompleted(userId, PageRequest.of(0, HOME_SIZE)));
-        return new HomeResponse(user.hasSeenOnboarding(), inProgress, recent, counts(userId));
+        return new HomeResponse(user.hasSeenOnboarding(), inProgress, recent, counts(userId),
+                HomeResponse.Credits.of(creditService.homeCredits(userId)));
     }
 
     /**

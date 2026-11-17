@@ -101,10 +101,22 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `GET /api/home` | `inProgress`(만드는 중·확인 대기·실패 최근 3개, 임시저장도 들어감), `recent`(최근 완성 3개), `counts{creating, reviewing, unread, read, failed, byCategory}`(서재 탭 숫자, 임시저장은 세지 않음. `byCategory`는 아래 LIB-01 주제 칩 숫자), `onboardingSeen` |
+| 들어올 때 | `GET /api/home` | `inProgress`(만드는 중·확인 대기·실패 최근 3개, 임시저장도 들어감), `recent`(최근 완성 3개), `counts{creating, reviewing, unread, read, failed, byCategory}`(서재 탭 숫자, 임시저장은 세지 않음. `byCategory`는 아래 LIB-01 주제 칩 숫자), `onboardingSeen`, `credits{beta, unlimited, remaining, total}`(아래 "베타 홈") |
 | 이어 만들기 목록 | `GET /api/stories?filter=DRAFT&size=50` | 만들다 멈춘 임시저장 동화(`DRAFT`, `INTERVIEWING`, `CONFIRMING`)만, 최근 수정 순 |
 | 카드 누름 | 카드 `status`로 화면을 고른다(위 표). 완성된 동화는 LIB-02 | |
 | 새 동화 만들기 | CRT-01로 | |
+
+**베타 홈 (동화 만들기 횟수)**: `credits.beta`가 `true`면 횟수가 보이는 베타 홈, `false`면 원래 홈. 베타 기간은 서버가 정한다(`BETA_INVITE_ONLY`). 날짜는 프론트에서 따지지 않는다.
+
+```json
+"credits": { "beta": true, "unlimited": false, "remaining": 1, "total": 2 }
+```
+
+- 버튼 `동화 만들기 ({remaining}/{total})`, 말풍선 `무료로 동화를 만들어볼 수 있는 횟수가 {remaining}회 남았어요`.
+- `unlimited: true`(개발용 계정)는 `remaining`, `total`이 `null`이다. 숫자 없이 보여 준다.
+- `total`은 지금 쓰는 무료 이용권의 전체 횟수(초대·사전 연락 2, 일반 1). 쓸 수 있는 이용권이 없으면(기한 지남) `0`.
+- 숫자는 프론트에서 빼지 않는다. 새 동화의 생성을 시작할 때(`POST /confirm`) 서버가 1 줄인다. 홈에 들어올 때마다 다시 불러 서버 값을 쓴다.
+- `unlimited`가 `false`이고 `remaining`이 0이면 새 동화 만들기 전에 안내한다. 서버도 `POST /api/stories`를 403 `STORY_LIMIT_REACHED`로 막는다.
 
 카드(`StoryCardResponse`): `id, title, status, label, category, categoryLabel, coverUrl, childDisplayName, createdAt, updatedAt`. `category`는 상황 분류 코드(`SituationCategory`, 서재 주제 칩은 이 코드로 나눈다), `categoryLabel`은 상황 분류 문구("기타"를 골랐으면 직접 입력한 분류)이고, 상황을 아직 입력하지 않았으면 둘 다 null. `title`, `coverUrl`은 그림이 나오기 전엔 null. `coverUrl`은 **제목이 그림 안에 들어간 정사각형(1:1) 표지**다. 표지가 없는 예전 동화는 캐릭터 시트(16:9) 주소라, 칸은 `object-fit: cover`로 채운다. **차단된 동화(BLOCKED)는 홈과 서재에 나오지 않는다.**
 

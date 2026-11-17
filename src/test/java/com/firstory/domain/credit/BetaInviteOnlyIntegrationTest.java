@@ -45,6 +45,10 @@ class BetaInviteOnlyIntegrationTest extends IntegrationTest {
         parent.get("/api/me")
                 .andExpect(jsonPath("$.signupSource").value("INVITE"))
                 .andExpect(jsonPath("$.storiesRemaining").value(2));
+        parent.get("/api/home")
+                .andExpect(jsonPath("$.credits.beta").value(true))
+                .andExpect(jsonPath("$.credits.remaining").value(2))
+                .andExpect(jsonPath("$.credits.total").value(2));
     }
 
     @Test
