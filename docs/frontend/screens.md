@@ -342,6 +342,7 @@
 - 선택 답은 코드로 보내는 것을 권한다. 지금처럼 화면 문구를 그대로 보내도 받는다(문구가 한 글자라도 다르면 400 `고를 수 없는 값이에요.`).
 - 선택 답이 빠지면 400 `VALIDATION_FAILED`, `fields[0].field`가 `feedback.storySatisfaction`처럼 그 항목이다. 500자를 넘으면 `feedback.comment`.
 - 본문 없이(또는 `feedback` 없이) 보내도 예전처럼 확정만 한다.
+- **팝업은 계정마다 한 번.** `GET /api/me`의 `feedbackSubmitted.preview`가 true면(이 회원이 확정 전 피드백을 한 번이라도 저장했으면) 팝업 없이 `feedback` 없이 확정한다. 저장에 실패하면(400) false 그대로라 다음에 다시 띄운다.
 
 ---
 
@@ -422,6 +423,8 @@
 끝난 세션에 쪽 넘김을 보내면 409 `INVALID_STATUS_TRANSITION`. 다른 회원의 세션은 404 `READING_SESSION_NOT_FOUND`.
 
 읽기 완료 피드백 팝업의 답은 `feedback`에 담아 보낸다. 끝내면서 그 세션과 동화에 저장하고, 저장하지 못하면(400) 끝내지도 않는다. 세션마다 처음 받은 피드백 하나만 남는다. 응답이 끊겨 다시 보내도 204이고 처음 값을 바꾸지 않는다.
+
+**팝업은 계정마다 한 번.** `GET /api/me`의 `feedbackSubmitted.reading`이 true면(이 회원이 읽기 완료 피드백을 한 번이라도 저장했으면) 팝업 없이 `feedback` 없이 끝낸다. 저장에 실패하면 false 그대로다.
 
 ```json
 {"feedback": {"childInterest": "HIGH", "conversationFlow": "NATURAL", "conversationHelpfulness": "VERY", "comment": ""}}
