@@ -244,6 +244,18 @@ VALUES
 ON CONFLICT (email) DO NOTHING;
 ```
 
+사전 연락 안내 메일 (한 번만, `pre_contacts`를 넣은 뒤)
+
+`deploy/ec2/pre-contact-mail/send.py`가 `pre_contacts` 중 받을 수 있는 마감(`closes_at`) 전인 이메일에 안내 메일을 보낸다. 아직 회원이 아니면 가입 안내(`signup.html`), 회원이면 로그인 안내(`login.html`). 보내는 계정은 `.env`의 `MAIL_USERNAME`·`MAIL_PASSWORD`(인증번호 메일과 같은 팀 Gmail), 그림은 `https://{API_DOMAIN}/mail`, 버튼은 `{APP_URL}/auth`. compose 폴더(`deploy/ec2`)에서 실행한다(python3만 필요).
+
+```bash
+python3 pre-contact-mail/send.py preview              # /tmp/firstory-mail-preview/에 HTML만 만든다
+python3 pre-contact-mail/send.py test 내메일@gmail.com  # 두 종류를 내 메일로만 한 통씩 ([테스트] 제목)
+python3 pre-contact-mail/send.py send                 # 받는 사람(가린 이메일)과 수를 보여 주고 y면 보낸다
+```
+
+보낸 주소는 `pre-contact-mail/sent.log`에 이메일의 SHA-256만 남겨, 다시 실행해도 같은 사람에게 두 번 보내지 않는다(실패한 주소만 다시 보낸다). `sent.log`는 커밋하지 않는다. 문구를 바꾸면 템플릿 HTML과 `send.py`의 글자 메일(`TEXT`)을 함께 고친다.
+
 날짜 바꾸기. 받을 수 있는 마감(`closes_at`)과 쓸 수 있는 기한(`credit_expires_at`)은 따로 바꾼다. 쓸 수 있는 기한은 이미 받은 이용권(`story_credits.expires_at`)도 함께 바꾼다.
 
 ```sql

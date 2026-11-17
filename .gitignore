@@ -48,3 +48,6 @@ data/
 
 ### Archives ###
 *.zip
+
+# 사전 연락 안내 메일 발송 기록 (EC2에서만)
+deploy/ec2/pre-contact-mail/sent.log
