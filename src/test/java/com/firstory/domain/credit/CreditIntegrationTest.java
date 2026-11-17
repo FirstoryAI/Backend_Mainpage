@@ -25,10 +25,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 동화 이용권 (베타 가입은 열어 둔 상태). 이용권은 생성 확정에서 1회를 쓴다.
  */
 @TestPropertySource(properties = {"firstory.beta.credits-enabled=true",
-        "firstory.beta.unlimited-emails=" + CreditIntegrationTest.DEV_EMAIL})
+        "firstory.beta.unlimited-emails=" + CreditIntegrationTest.DEV_EMAIL + "," + CreditIntegrationTest.DEV_HOME_EMAIL})
 class CreditIntegrationTest extends IntegrationTest {
 
     static final String DEV_EMAIL = "Dev-Unlimited@Example.com";
+    static final String DEV_HOME_EMAIL = "dev-home@example.com";
 
     @Autowired
     GenerationPoller poller;
@@ -271,6 +272,60 @@ class CreditIntegrationTest extends IntegrationTest {
         parent.post("/api/stories", null).andExpect(status().isCreated());
         assertThat(jdbc.queryForObject("SELECT granted_at FROM pre_contacts WHERE email = ?", Object.class, email))
                 .isNull();
+    }
+
+    @Test
+    void 홈_credits는_일반_가입이면_1분의_1이고_생성하면_줄어든다() throws Exception {
+        Browser parent = signUp(newEmail());
+        parent.get("/api/home")
+                .andExpect(jsonPath("$.credits.beta").value(false))
+                .andExpect(jsonPath("$.credits.unlimited").value(false))
+                .andExpect(jsonPath("$.credits.remaining").value(1))
+                .andExpect(jsonPath("$.credits.total").value(1));
+
+        StoryFlow.reviewing(parent, poller);
+
+        parent.get("/api/home")
+                .andExpect(jsonPath("$.credits.remaining").value(0))
+                .andExpect(jsonPath("$.credits.total").value(1));
+    }
+
+    @Test
+    void 홈_credits는_일반_1회를_쓴_뒤_사전_연락을_받으면_2분의_2다() throws Exception {
+        String email = newEmail();
+        Browser parent = signUp(email);
+        StoryFlow.reviewing(parent, poller);
+        preContact(email, Duration.ofDays(1));
+
+        // 홈을 여는 것만으로 사전 연락 이용권을 받는다
+        parent.get("/api/home")
+                .andExpect(jsonPath("$.credits.remaining").value(2))
+                .andExpect(jsonPath("$.credits.total").value(2));
+    }
+
+    @Test
+    void 홈_credits는_초대_이용권_기한이_지나면_0분의_0이다() throws Exception {
+        String code = inviteCode(100, Duration.ofDays(10), Duration.ofDays(1));
+        Browser parent = browser();
+        parent.get("/api/invite/" + code);
+        signUpIn(parent, newEmail(), allConsents());
+        parent.get("/api/home")
+                .andExpect(jsonPath("$.credits.remaining").value(2))
+                .andExpect(jsonPath("$.credits.total").value(2));
+
+        advance(Duration.ofDays(1));
+
+        parent.get("/api/home")
+                .andExpect(jsonPath("$.credits.remaining").value(0))
+                .andExpect(jsonPath("$.credits.total").value(0));
+    }
+
+    @Test
+    void 홈_credits는_개발용_이메일이면_무제한이고_횟수가_없다() throws Exception {
+        signUp(DEV_HOME_EMAIL).get("/api/home")
+                .andExpect(jsonPath("$.credits.unlimited").value(true))
+                .andExpect(jsonPath("$.credits.remaining").doesNotExist())
+                .andExpect(jsonPath("$.credits.total").doesNotExist());
     }
 
     private String inviteCode(int maxUses, Duration closesIn, Duration creditsFor) {

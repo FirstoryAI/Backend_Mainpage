@@ -57,6 +57,33 @@ public class CreditService {
     }
 
     /**
+     * 홈 동화 만들기 버튼의 횟수 (remaining/total). beta는 베타 기간(firstory.beta.invite-only)인지.
+     * 무제한이면 remaining, total은 null.
+     */
+    public record HomeCredits(boolean beta, boolean unlimited, Integer remaining, Integer total) {
+    }
+
+    /**
+     * total은 지금 쓰는 무료 이용권의 전체 횟수다. 무료는 한 종류만이라 기한 안의 초대·사전 연락 이용권이 있으면 그것만 세고
+     * (사전 연락 전에 쓴 일반 1회는 넣지 않는다), 없으면 일반 이용권을 센다. 쓸 수 있는 이용권이 없으면 0.
+     */
+    @Transactional(readOnly = true)
+    public HomeCredits homeCredits(Long userId) {
+        boolean beta = properties.beta().inviteOnly();
+        User user = findUser(userId);
+        if (isUnlimited(user)) {
+            return new HomeCredits(beta, true, null, null);
+        }
+        Instant now = clock.instant();
+        List<StoryCredit> active = creditRepository.findByUserIdOrderByIdAsc(userId).stream()
+                .filter(c -> c.isActive(now)).toList();
+        List<StoryCredit> granted = active.stream().filter(c -> c.getSource() != CreditSource.SIGNUP_FREE).toList();
+        List<StoryCredit> counted = granted.isEmpty() ? active : granted;
+        int total = counted.stream().mapToInt(StoryCredit::getAmount).sum();
+        return new HomeCredits(beta, false, Math.min(remaining(active), total), total);
+    }
+
+    /**
      * 동화 만들기를 시작하기 전에 본다 (POST /api/stories). 남은 횟수가 없으면 STORY_LIMIT_REACHED.
      * 쓰지는 않는다. 쓰는 것은 생성 확정(reserve).
      */

@@ -1,5 +1,6 @@
 package com.firstory.domain.story.controller;
 
+import com.firstory.domain.credit.service.CreditService;
 import com.firstory.domain.story.dto.HomeResponse;
 import com.firstory.domain.story.dto.LibraryResponse;
 import com.firstory.domain.story.dto.StoryDetailResponse;
@@ -30,12 +31,16 @@ import java.util.Set;
 public class LibraryController {
 
     private final LibraryService libraryService;
+    private final CreditService creditService;
 
     @Operation(summary = "홈 (HOME-01)",
             description = "만드는 중(임시저장 포함)·확인을 기다리는·만들지 못한 동화 최근 3개, 최근 완성 3개, 서재 탭별 개수와 "
-                    + "상황 분류별 개수 counts.byCategory(임시저장은 세지 않는다). 회원 정보는 /api/me")
+                    + "상황 분류별 개수 counts.byCategory(임시저장은 세지 않는다), 동화 만들기 버튼의 횟수 credits"
+                    + "(beta가 true면 횟수가 보이는 베타 홈, unlimited면 개발용 계정이라 횟수 없음). 회원 정보는 /api/me")
     @GetMapping("/api/home")
     public HomeResponse home(@AuthenticationPrincipal UserPrincipal principal) {
+        // 사전 연락 이메일로 이미 가입한 회원은 홈을 열 때도 이용권을 받는다 (/api/me와 같다)
+        creditService.syncPreContact(principal.getUserId());
         return libraryService.home(principal.getUserId());
     }
 

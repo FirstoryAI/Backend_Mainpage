@@ -1,5 +1,6 @@
 package com.firstory.domain.story.dto;
 
+import com.firstory.domain.credit.service.CreditService;
 import com.firstory.domain.story.entity.SituationCategory;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -13,7 +14,25 @@ import java.util.Map;
  * @param recent     완성된 동화, 최근 확정 순 3개
  */
 public record HomeResponse(boolean onboardingSeen, List<StoryCardResponse> inProgress,
-                           List<StoryCardResponse> recent, Counts counts) {
+                           List<StoryCardResponse> recent, Counts counts, Credits credits) {
+
+    /**
+     * 동화 만들기 버튼의 횟수. 베타 기간(beta)에는 횟수가 보이는 베타 홈, 아니면 원래 홈.
+     */
+    public record Credits(
+            @Schema(description = "베타 기간인지 (서버 BETA_INVITE_ONLY). true면 횟수가 보이는 베타 홈, false면 원래 홈")
+            boolean beta,
+            @Schema(description = "이용권 없이 무제한인 개발용 계정. true면 remaining, total은 null") boolean unlimited,
+            @Schema(description = "남은 횟수. 새 동화의 생성을 시작할 때(POST /confirm) 1 준다", example = "1")
+            Integer remaining,
+            @Schema(description = "지금 쓰는 무료 이용권의 전체 횟수 (초대·사전 연락 2, 일반 1). "
+                    + "쓸 수 있는 이용권이 없으면 0", example = "2")
+            Integer total) {
+
+        public static Credits of(CreditService.HomeCredits credits) {
+            return new Credits(credits.beta(), credits.unlimited(), credits.remaining(), credits.total());
+        }
+    }
 
     /**
      * 서재 탭별 개수 (LibraryFilter 기준). BLOCKED와 임시저장(DRAFT, INTERVIEWING, CONFIRMING)은 세지 않는다.
