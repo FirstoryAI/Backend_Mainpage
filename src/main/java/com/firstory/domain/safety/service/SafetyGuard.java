@@ -12,6 +12,7 @@ import com.firstory.domain.story.entity.Story;
 import com.firstory.domain.story.entity.StoryInput;
 import com.firstory.domain.story.repository.StoryInputRepository;
 import com.firstory.domain.story.repository.StoryRepository;
+import com.firstory.domain.story.service.BlockedTopics;
 import com.firstory.global.ai.AiClient;
 import com.firstory.global.ai.SafetyResult;
 import com.firstory.global.error.BusinessException;
@@ -33,6 +34,8 @@ import java.util.List;
  * REVISE     SafetyFlag                                 SafetyPolicy.decide → ASK_REVISE 또는 BLOCK
  * CRISIS     SafetyFlag                                 BLOCK
  * </pre>
+ * topic이 막은 주제(BlockedTopics, 이별·죽음)면 CRISIS가 아닌 한 level과 상관없이 ASK_REVISE(고정 문구)다.
+ * 부모 잘못이 아니라서 SafetyFlag를 남기지 않고 REVISE 횟수에도 넣지 않는다(몇 번이어도 차단하지 않는다).
  * BLOCK이면 story.block(). helpKind는 CRISIS면 CHILD_SAFETY, REVISE로 차단이면 PARENTING.
  * 차단 판단의 REVISE 횟수에는 AI가 만든 결과(OUTPUT)의 위기 신호를 넣지 않는다 (부모 책임이 아니다).
  * <p>
@@ -49,8 +52,13 @@ public class SafetyGuard {
     // AI가 category를 비워 보내도 기록할 수 있게 한다 (safety_flags.category NOT NULL)
     static final String UNKNOWN_CATEGORY = "other";
 
+    // TODO(PM): 문구 확정 (#79)
+    public static final String BLOCKED_TOPIC_REASON =
+            "지금은 이별이나 죽음을 다루는 이야기는 만들 수 없어요. 다른 이야기로 바꿔 써 주세요.";
+
     private final AiClient aiClient;
     private final SafetyPolicy safetyPolicy;
+    private final BlockedTopics blockedTopics;
     private final SafetyFlagRepository safetyFlagRepository;
     private final StoryRepository storyRepository;
     private final StoryInputRepository storyInputRepository;
@@ -78,6 +86,9 @@ public class SafetyGuard {
      * @param turnOrNull 인터뷰 답변이면 그 차례
      */
     public SafetyOutcome apply(Story story, SafetySource source, SafetyResult result, InterviewTurn turnOrNull) {
+        if (result.level() != SafetyLevel.CRISIS && blockedTopics.blocksAi(result.topic())) {
+            return new SafetyOutcome(SafetyAction.ASK_REVISE, result.level(), result.topic(), BLOCKED_TOPIC_REASON, null);
+        }
         if (result.level() == SafetyLevel.OK) {
             return SafetyOutcome.proceed();
         }

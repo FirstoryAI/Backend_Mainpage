@@ -1,5 +1,6 @@
 package com.firstory.domain.story.controller;
 
+import com.firstory.domain.safety.service.SafetyGuard;
 import com.firstory.global.ai.FakeAiClient;
 import com.firstory.global.error.ErrorCode;
 import com.firstory.support.Browser;
@@ -155,6 +156,44 @@ class StoryCreationIntegrationTest extends IntegrationTest {
         assertError(parent.post(storyUrl(id) + "/confirm", null), ErrorCode.CATEGORY_UNAVAILABLE);
         assertThat(storyStatus(id)).isEqualTo("CONFIRMING");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM story_credit_uses WHERE story_id = ?", Integer.class, id)).isZero();
+    }
+
+    @Test
+    void 다른_주제를_골라도_이별_내용이면_다시_쓰기_안내하고_몇_번이어도_차단하지_않는다() throws Exception {
+        long id = create();
+
+        for (int i = 0; i < 3; i++) {
+            writeSituation(id, "강아지가 떠났어요 " + FakeAiClient.SEPARATION_MARKER)
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.saved").value(false))
+                    .andExpect(jsonPath("$.status").value("DRAFT"))
+                    .andExpect(jsonPath("$.safety.action").value("ASK_REVISE"))
+                    .andExpect(jsonPath("$.safety.reason").value(SafetyGuard.BLOCKED_TOPIC_REASON))
+                    .andExpect(jsonPath("$.safety.helpKind").value(nullValue()));
+        }
+
+        parent.get(draftUrl(id)).andExpect(jsonPath("$.situation").value(nullValue()));
+        assertThat(storyStatus(id)).isEqualTo("DRAFT");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM safety_flags WHERE story_id = ?", Integer.class, id)).isZero();
+        writeSituation(id, "친구가 밀쳤어요").andExpect(jsonPath("$.saved").value(true));
+    }
+
+    @Test
+    void 인터뷰_답이_이별_내용이면_저장하지_않고_같은_질문() throws Exception {
+        long id = readyToInterview();
+        start(id);
+
+        answer(id, "강아지가 떠났어요 " + FakeAiClient.SEPARATION_MARKER)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.turn").value(1))
+                .andExpect(jsonPath("$.question").value(FakeAiClient.FIRST_QUESTION))
+                .andExpect(jsonPath("$.safety.action").value("ASK_REVISE"))
+                .andExpect(jsonPath("$.safety.reason").value(SafetyGuard.BLOCKED_TOPIC_REASON));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM interview_turns WHERE story_id = ? AND answer IS NOT NULL",
+                Integer.class, id)).isZero();
+
+        answer(id, "울었어요").andExpect(jsonPath("$.turn").value(2));
+        assertThat(storyStatus(id)).isEqualTo("INTERVIEWING");
     }
 
     @Test
