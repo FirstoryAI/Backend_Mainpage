@@ -12,6 +12,7 @@ import com.firstory.domain.story.entity.StoryInput;
 import com.firstory.domain.story.entity.StoryStatus;
 import com.firstory.domain.story.entity.Tone;
 import com.firstory.domain.story.service.AiContextMapper;
+import com.firstory.domain.story.service.BlockedTopics;
 import com.firstory.domain.story.service.StoryLoader;
 import com.firstory.global.ai.AiClient;
 import com.firstory.global.error.BusinessException;
@@ -40,6 +41,7 @@ public class GenerationService {
     private final GenerationRunRepository runRepository;
     private final AiClient aiClient;
     private final CreditService creditService;
+    private final BlockedTopics blockedTopics;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
@@ -56,6 +58,7 @@ public class GenerationService {
             if (input.isToneRequired() && input.getTone() == null) {
                 throw new BusinessException(ErrorCode.TONE_REQUIRED);
             }
+            blockedTopics.requireOpen(input.getSituationCategory());   // 막기 전에 저장된 만들던 동화
             // 이용권 1회를 쓴다. AI가 받지 못하면 아래에서 되돌린다
             creditService.reserve(story);
             return new Prepared(story, nextRunNo(story), input.getTone(), AiContextMapper.toContext(input),

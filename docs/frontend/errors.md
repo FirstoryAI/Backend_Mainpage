@@ -74,6 +74,7 @@
 | `PAGE_OUT_OF_RANGE` | 400 | 없는 쪽이에요. | `PUT /api/reading-sessions/{sessionId}/progress` (1~10 밖) |
 | `STORY_BLOCKED` | 409 | 이 내용으로는 동화를 만들 수 없어요. | 차단된 동화의 변경 요청 전부(입력, 인터뷰, 확인, 다시 만들기, 확정 등) → ST-05 |
 | `STORY_INPUT_INCOMPLETE` | 400 | 상황과 아이 정보를 먼저 입력해 주세요. | `POST /api/stories/{id}/interview/start` (상황이나 아이 정보 없음) |
+| `CATEGORY_UNAVAILABLE` | 400 | 지금은 이 주제로 만들 수 없어요. 다른 주제를 골라 주세요. | `PUT /api/stories/{id}/situation`, `interview/start`, `confirm` (막아 둔 주제 `SEPARATION`. 서버 설정 `BLOCKED_TOPICS`) |
 | `AI_UNAVAILABLE` | 503 | 동화 도우미가 잠시 응답하지 않아요. 잠시 후 다시 시도해 주세요. | AI를 부르는 요청: 상황·아이·전하고 싶은 말 입력, 인터뷰 시작·답변, 확인, 다시 만들기, 다시 시도. 아무것도 저장되지 않았으니 같은 요청을 다시 보내게 안내 |
 | `AI_BUSY` | 409 | 이전 요청을 처리하고 있어요. 잠시 후 다시 시도해 주세요. | 인터뷰 시작·답변, 확인, 다시 만들기, 다시 시도 (같은 동화에 요청이 겹침). 중복 클릭 방지 |
 | `AI_STATE_MISMATCH` | 409 | 진행 상태가 맞지 않아요. 화면을 새로고침해 주세요. | 인터뷰 시작·답변, 확인, 다시 만들기, 다시 시도 (AI 쪽 진행 상태가 다름) → 상세·draft를 다시 불러 화면을 맞춘다 |

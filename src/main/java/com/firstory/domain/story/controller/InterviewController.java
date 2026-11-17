@@ -33,7 +33,7 @@ public class InterviewController {
 
     @Operation(summary = "인터뷰 시작 (CRT-05)",
             description = "DRAFT에서만. 상황과 아이 정보가 있어야 한다. 첫 질문을 받고 INTERVIEWING이 된다")
-    @ApiErrorCodes(ErrorCode.STORY_INPUT_INCOMPLETE)
+    @ApiErrorCodes({ErrorCode.STORY_INPUT_INCOMPLETE, ErrorCode.CATEGORY_UNAVAILABLE})
     @PostMapping("/start")
     public InterviewResponse start(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id) {
         return interviewService.start(principal.getUserId(), id);

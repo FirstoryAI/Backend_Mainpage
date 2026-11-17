@@ -129,6 +129,35 @@ class StoryCreationIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void 이별_칸은_저장하지_않는다() throws Exception {
+        long id = create();
+
+        assertError(parent.put(storyUrl(id) + "/situation", SITUATION.replace("FRIEND_CONFLICT", "SEPARATION")
+                .formatted("강아지가 아파요")), ErrorCode.CATEGORY_UNAVAILABLE);
+
+        parent.get(draftUrl(id)).andExpect(jsonPath("$.situation").value(nullValue()));
+    }
+
+    @Test
+    void 이미_이별로_저장된_만들던_동화는_인터뷰를_시작하지_않는다() throws Exception {
+        long id = readyToInterview();
+        jdbc.update("UPDATE story_inputs SET situation_category = 'SEPARATION' WHERE story_id = ?", id);
+
+        assertError(start(id), ErrorCode.CATEGORY_UNAVAILABLE);
+        assertThat(storyStatus(id)).isEqualTo("DRAFT");
+    }
+
+    @Test
+    void 이미_이별로_저장된_확인_중인_동화는_만들지_않고_이용권도_쓰지_않는다() throws Exception {
+        long id = confirming();
+        jdbc.update("UPDATE story_inputs SET situation_category = 'SEPARATION' WHERE story_id = ?", id);
+
+        assertError(parent.post(storyUrl(id) + "/confirm", null), ErrorCode.CATEGORY_UNAVAILABLE);
+        assertThat(storyStatus(id)).isEqualTo("CONFIRMING");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM story_credit_uses WHERE story_id = ?", Integer.class, id)).isZero();
+    }
+
+    @Test
     void 폼에서_REVISE_1번째는_저장하지_않고_다시_쓰기_안내() throws Exception {
         long id = create();
 
