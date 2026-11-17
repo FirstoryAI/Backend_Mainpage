@@ -101,8 +101,9 @@ class BetaInviteOnlyIntegrationTest extends IntegrationTest {
     void 기한이_지난_사전_연락_이메일은_베타_중에_가입하지_못한다() throws Exception {
         String email = newEmail();
         jdbc.update("""
-                INSERT INTO pre_contacts (email, credit_amount, credit_expires_at, created_at, updated_at)
-                VALUES (?, 2, ?, now(), now())""", email, Timestamp.from(clock.instant().minus(Duration.ofMinutes(1))));
+                INSERT INTO pre_contacts (email, credit_amount, closes_at, credit_expires_at, created_at, updated_at)
+                VALUES (?, 2, ?, ?, now(), now())""", email, Timestamp.from(clock.instant().minus(Duration.ofMinutes(1))),
+                Timestamp.from(clock.instant().plus(Duration.ofDays(30))));
 
         browser().post("/api/auth/email/send-code", """
                 {"email": "%s", "purpose": "SIGNUP"}""".formatted(email))

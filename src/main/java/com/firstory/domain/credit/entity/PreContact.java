@@ -41,6 +41,10 @@ public class PreContact extends BaseTimeEntity {
     @Column(name = "credit_expires_at")
     private Instant creditExpiresAt;
 
+    // 이용권을 받을 수 있는 마감. 지나면 사전 연락이 아니라 일반 가입·일반 회원으로 본다. NULL이면 마감 없음
+    @Column(name = "closes_at")
+    private Instant closesAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "granted_user_id")
     private User grantedUser;
@@ -48,14 +52,15 @@ public class PreContact extends BaseTimeEntity {
     @Column(name = "granted_at")
     private Instant grantedAt;
 
-    private PreContact(String email, int creditAmount, Instant creditExpiresAt) {
+    private PreContact(String email, int creditAmount, Instant closesAt, Instant creditExpiresAt) {
         this.email = User.normalizeEmail(email);
         this.creditAmount = creditAmount;
+        this.closesAt = closesAt;
         this.creditExpiresAt = creditExpiresAt;
     }
 
-    public static PreContact register(String email, int creditAmount, Instant creditExpiresAt) {
-        return new PreContact(email, creditAmount, creditExpiresAt);
+    public static PreContact register(String email, int creditAmount, Instant closesAt, Instant creditExpiresAt) {
+        return new PreContact(email, creditAmount, closesAt, creditExpiresAt);
     }
 
     public boolean isGranted() {
@@ -63,11 +68,15 @@ public class PreContact extends BaseTimeEntity {
     }
 
     /**
-     * 아직 이용권을 받지 않았고 이용권 기한(credit_expires_at) 전이면 사전 연락으로 받을 수 있다.
-     * 기한이 지난 뒤에는 사전 연락이 아니라 일반 가입·일반 회원으로 본다 (받아도 바로 끝난 이용권이라).
+     * 아직 이용권을 받지 않았고 받을 수 있는 마감(closes_at)과 이용권 기한(credit_expires_at) 전이면 사전 연락으로 받는다.
+     * 마감이 지난 뒤에는 사전 연락이 아니라 일반 가입·일반 회원으로 본다. 이미 받은 이용권은 credit_expires_at까지 쓴다.
      */
     public boolean isAvailable(Instant now) {
-        return !isGranted() && (creditExpiresAt == null || creditExpiresAt.isAfter(now));
+        return !isGranted() && before(closesAt, now) && before(creditExpiresAt, now);
+    }
+
+    private static boolean before(Instant deadline, Instant now) {
+        return deadline == null || deadline.isAfter(now);
     }
 
     public void markGranted(User user, Instant now) {
