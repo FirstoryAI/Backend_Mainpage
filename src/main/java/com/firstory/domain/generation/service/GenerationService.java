@@ -1,5 +1,6 @@
 package com.firstory.domain.generation.service;
 
+import com.firstory.domain.credit.service.CreditService;
 import com.firstory.domain.generation.dto.GenerationStatusResponse;
 import com.firstory.domain.generation.entity.GenerationRun;
 import com.firstory.domain.generation.entity.RegenerateScope;
@@ -38,6 +39,7 @@ public class GenerationService {
     private final StoryLoader loader;
     private final GenerationRunRepository runRepository;
     private final AiClient aiClient;
+    private final CreditService creditService;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
@@ -54,15 +56,22 @@ public class GenerationService {
             if (input.isToneRequired() && input.getTone() == null) {
                 throw new BusinessException(ErrorCode.TONE_REQUIRED);
             }
+            // 이용권 1회를 쓴다. AI가 받지 못하면 아래에서 되돌린다
+            creditService.reserve(story);
             return new Prepared(story, nextRunNo(story), input.getTone(), AiContextMapper.toContext(input),
                     input.getInterviewSummary());
         });
         Story story = prepared.story();
         UUID runId = UUID.randomUUID();
         // ②
-        aiClient.generate(story.getThreadId(), runId, prepared.runNo(),
-                StoryFiles.runPrefix(story.getId(), prepared.runNo()), prepared.tone(), prepared.context(),
-                prepared.summary());
+        try {
+            aiClient.generate(story.getThreadId(), runId, prepared.runNo(),
+                    StoryFiles.runPrefix(story.getId(), prepared.runNo()), prepared.tone(), prepared.context(),
+                    prepared.summary());
+        } catch (RuntimeException e) {
+            transactionTemplate.executeWithoutResult(status -> creditService.release(story.getId()));
+            throw e;
+        }
         // ③
         return transactionTemplate.execute(status -> {
             Story locked = loader.lockUnchanged(story);

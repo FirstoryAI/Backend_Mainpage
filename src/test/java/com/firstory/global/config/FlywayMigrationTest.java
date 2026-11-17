@@ -20,11 +20,11 @@ class FlywayMigrationTest extends IntegrationTest {
     DataSource dataSource;
 
     @Test
-    void V1부터_V17까지_순서로_모두_성공한다() {
+    void V1부터_V18까지_순서로_모두_성공한다() {
         assertThat(jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE version IS NOT NULL ORDER BY installed_rank",
                 String.class)).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
-                "17");
+                "17", "18");
         assertThat(jdbc.queryForObject("SELECT bool_and(success) FROM flyway_schema_history", Boolean.class))
                 .isTrue();
     }
@@ -196,6 +196,16 @@ class FlywayMigrationTest extends IntegrationTest {
         jdbc.update("INSERT INTO " + schema + ".user_consents (user_id, consent_type, agreed, terms_version, agreed_at, "
                 + "withdrawn_at, created_at, updated_at) VALUES (?, ?, ?, '2026-10-01', now(), "
                 + (withdrawn ? "now()" : "NULL") + ", now(), now())", userId, type, agreed);
+    }
+
+    @Test
+    void V18_이용권_초대_코드_사전_연락_테이블과_가입_경로가_있다() {
+        assertThat(columns("story_credits")).contains("user_id", "source", "amount", "expires_at", "invite_code_id");
+        assertThat(columns("story_credit_uses")).contains("credit_id", "story_id");
+        assertThat(columns("invite_codes")).contains("code", "max_uses", "used_count", "closes_at", "credit_amount",
+                "credit_expires_at");
+        assertThat(columns("pre_contacts")).contains("email", "credit_amount", "credit_expires_at", "granted_user_id");
+        assertThat(columns("users")).contains("signup_source");
     }
 
     private List<String> columns(String table) {

@@ -75,7 +75,8 @@ public class AuthController {
             description = "6자리 인증번호를 메일로 보낸다. 5분 유효. 같은 이메일은 60초 뒤에 다시 받을 수 있고 1시간에 5번까지. "
                     + "purpose가 SIGNUP이면 이미 가입된 이메일인지 확인한다. "
                     + "PASSWORD_RESET은 가입 여부와 상관없이 같은 응답이다 (가입되지 않은 이메일이면 메일만 가지 않는다)")
-    @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.DUPLICATE_EMAIL, ErrorCode.VERIFICATION_RESEND_TOO_SOON,
+    @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.DUPLICATE_EMAIL, ErrorCode.SIGNUP_INVITE_REQUIRED,
+            ErrorCode.INVITE_CLOSED, ErrorCode.VERIFICATION_RESEND_TOO_SOON,
             ErrorCode.VERIFICATION_RATE_LIMITED, ErrorCode.EMAIL_SEND_FAILED})
     @PostMapping("/email/send-code")
     public SendCodeResponse sendCode(@Valid @RequestBody SendCodeRequest request, HttpSession session) {
@@ -106,7 +107,8 @@ public class AuthController {
    
     @Operation(summary = "회원가입",
             description = "같은 세션에서 purpose SIGNUP으로 이메일 인증을 마친 뒤 부른다. 가입하면 바로 로그인된다 (로그인 상태 유지는 하지 않음). 비밀번호는 8~20자, 영문·숫자·특수문자 각각 1개 이상. 특수문자는 !@#$%^&*()_+-=[]{}:;,.?/\\ 만, 한글·공백 불가. 응답 201")
-    @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.INVALID_PASSWORD_FORMAT, ErrorCode.REQUIRED_CONSENT_MISSING,
+    @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.SIGNUP_INVITE_REQUIRED, ErrorCode.INVITE_CLOSED,
+            ErrorCode.INVALID_PASSWORD_FORMAT, ErrorCode.REQUIRED_CONSENT_MISSING,
             ErrorCode.EMAIL_NOT_VERIFIED, ErrorCode.DUPLICATE_EMAIL})
     @PostMapping("/signup")
     @ResponseStatus(HttpStatus.CREATED)
@@ -171,7 +173,8 @@ public class AuthController {
                     + "emailVerified가 true면 카카오 이메일로 바로 가입하고, false거나 이메일이 없으면 먼저 "
                     + "email/send-code(SIGNUP) → email/verify를 마치고 그 email을 보낸다. 비밀번호는 없다. "
                     + "가입하면 바로 로그인된다 (로그인 상태 유지는 하지 않음). 응답 201")
-    @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.KAKAO_SIGNUP_EXPIRED, ErrorCode.REQUIRED_CONSENT_MISSING,
+    @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.KAKAO_SIGNUP_EXPIRED, ErrorCode.SIGNUP_INVITE_REQUIRED,
+            ErrorCode.INVITE_CLOSED, ErrorCode.REQUIRED_CONSENT_MISSING,
             ErrorCode.EMAIL_NOT_VERIFIED, ErrorCode.KAKAO_EMAIL_REGISTERED, ErrorCode.KAKAO_ACCOUNT_REGISTERED})
     @PostMapping("/kakao/signup")
     @ResponseStatus(HttpStatus.CREATED)

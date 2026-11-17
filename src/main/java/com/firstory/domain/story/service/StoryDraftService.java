@@ -6,6 +6,7 @@ import com.firstory.domain.child.dto.ResolvedChild;
 import com.firstory.domain.child.entity.BirthYmPolicy;
 import com.firstory.domain.child.repository.ChildRepository;
 import com.firstory.domain.child.service.ChildProfileResolver;
+import com.firstory.domain.credit.service.CreditService;
 import com.firstory.domain.safety.entity.SafetyOutcome;
 import com.firstory.domain.safety.entity.SafetySource;
 import com.firstory.domain.safety.service.SafetyGuard;
@@ -64,6 +65,7 @@ public class StoryDraftService {
             StoryStatus.FAILED);
 
     private final StoryLoader loader;
+    private final CreditService creditService;
     private final StoryRepository storyRepository;
     private final StoryInputRepository storyInputRepository;
     private final InterviewTurnRepository interviewTurnRepository;
@@ -76,6 +78,8 @@ public class StoryDraftService {
 
     @Transactional
     public StoryCreatedResponse create(Long userId) {
+        // 남은 이용권이 없으면 입력을 시작하기 전에 막는다 (쓰는 것은 생성 확정)
+        creditService.requireAvailable(userId);
         Story story = storyRepository.save(Story.start(userRepository.getReferenceById(userId), null,
                 UUID.randomUUID().toString()));
         storyInputRepository.save(StoryInput.begin(story));

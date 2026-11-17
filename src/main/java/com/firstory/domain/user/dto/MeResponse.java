@@ -1,5 +1,6 @@
 package com.firstory.domain.user.dto;
 
+import com.firstory.domain.user.entity.SignupSource;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 public record MeResponse(
@@ -9,5 +10,10 @@ public record MeResponse(
         @Schema(description = "동화 제작 소식을 이메일로 받기 (EMAIL_NOTIFY 동의)") boolean emailNotify,
         @Schema(description = "카카오로 가입한 회원") boolean kakaoLinked,
         @Schema(description = "비밀번호가 있는지. 카카오로만 가입했으면 false (비밀번호 변경 대신 비밀번호 찾기로 만든다)")
-        boolean hasPassword) {
+        boolean hasPassword,
+        @Schema(description = "가입 경로. GENERAL(일반·기존 회원), INVITE(초대 링크), PRE_CONTACT(사전 연락), DEV(개발용)")
+        SignupSource signupSource,
+        @Schema(description = "동화를 이용권 없이 만들 수 있는지 (개발용 이메일)") boolean unlimitedStories,
+        @Schema(description = "앞으로 AI로 만들 수 있는 동화 수 (만료되지 않은 이용권의 남은 횟수 합). 무제한이면 null. "
+                + "0이면 동화 만들기 시작(POST /api/stories)이 STORY_LIMIT_REACHED") Integer storiesRemaining) {
 }

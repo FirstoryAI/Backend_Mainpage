@@ -43,6 +43,12 @@ firstory:
     # rest-api-key: 카카오_REST_API_키
     # redirect-uris: http://localhost:5173/oauth/kakao
 
+  # 베타 이용권과 초대 가입. 로컬은 이용권을 확인하지 않는다 (켜서 확인하려면 true)
+  beta:
+    credits-enabled: false
+    # invite-only: true
+    # unlimited-emails: me@example.com
+
   # 쿠키와 출처
   web:
     # 프론트 개발 서버. 권장은 Vite 프록시(같은 출처)라 CORS가 필요 없다 (docs/frontend/README.md)

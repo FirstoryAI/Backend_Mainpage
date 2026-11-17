@@ -3,6 +3,8 @@ package com.firstory.domain.auth.service;
 import com.firstory.domain.auth.dto.KakaoSignupRequest;
 import com.firstory.domain.auth.entity.EmailPurpose;
 import com.firstory.domain.auth.entity.PendingKakaoSignup;
+import com.firstory.domain.credit.entity.SignupGrant;
+import com.firstory.domain.credit.service.SignupGate;
 import com.firstory.domain.user.entity.ConsentPolicy;
 import com.firstory.domain.user.entity.User;
 import com.firstory.domain.user.repository.UserRepository;
@@ -40,6 +42,7 @@ public class KakaoLoginService {
     private final KakaoClient kakaoClient;
     private final UserRepository userRepository;
     private final SignupService signupService;
+    private final SignupGate signupGate;
     private final EmailVerificationService emailVerificationService;
     private final FirstoryProperties properties;
     private final TransactionTemplate transactionTemplate;
@@ -101,8 +104,10 @@ public class KakaoLoginService {
             if (userRepository.existsByEmail(email)) {
                 throw new BusinessException(ErrorCode.KAKAO_EMAIL_REGISTERED);
             }
+            SignupGrant grant = signupGate.resolve(email, session);
             User created = User.signUpWithKakao(email, pending.kakaoId(), ConsentPolicy.emailNotify(request.consents()));
             signupService.saveUnique(created);
+            signupGate.apply(created, grant, session);
             return created;
         });
 

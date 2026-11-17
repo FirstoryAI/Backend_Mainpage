@@ -2,6 +2,8 @@ package com.firstory.domain.auth.service;
 import com.firstory.domain.auth.dto.SignupRequest;
 import com.firstory.domain.auth.entity.EmailPurpose;
 import com.firstory.domain.auth.entity.PasswordPolicy;
+import com.firstory.domain.credit.entity.SignupGrant;
+import com.firstory.domain.credit.service.SignupGate;
 import com.firstory.domain.user.entity.ConsentPolicy;
 import com.firstory.domain.user.entity.User;
 import com.firstory.domain.user.repository.UserRepository;
@@ -25,6 +27,7 @@ public class SignupService {
     private final UserRepository userRepository;
     private final EmailVerificationService emailVerificationService;
     private final PasswordEncoder passwordEncoder;
+    private final SignupGate signupGate;
     @Transactional
     public User signup(SignupRequest request, HttpSession session) {
         PasswordPolicy.validate(request.password());
@@ -35,9 +38,12 @@ public class SignupService {
         if (userRepository.existsByEmail(email)) {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
+        // 베타 동안은 초대 링크·사전 연락·개발용 이메일만. 초대 링크면 여기서 자리를 잡는다
+        SignupGrant grant = signupGate.resolve(email, session);
         User user = User.signUp(email, passwordEncoder.encode(request.password()),
                 ConsentPolicy.emailNotify(request.consents()));
         saveUnique(user);
+        signupGate.apply(user, grant, session);
         return user;
     }
 

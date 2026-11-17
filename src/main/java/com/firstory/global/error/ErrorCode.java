@@ -33,6 +33,8 @@ public enum ErrorCode {
     KAKAO_SIGNUP_EXPIRED(HttpStatus.BAD_REQUEST, "카카오 가입 시간이 지났어요. 카카오 로그인을 다시 해 주세요."),
     KAKAO_EMAIL_REGISTERED(HttpStatus.CONFLICT, "이미 이메일로 가입한 계정이 있어요. 이메일과 비밀번호로 로그인해 주세요."),
     KAKAO_ACCOUNT_REGISTERED(HttpStatus.CONFLICT, "이미 가입한 카카오 계정이에요. 카카오 로그인을 다시 해 주세요."),
+    SIGNUP_INVITE_REQUIRED(HttpStatus.FORBIDDEN, "지금은 초대받은 분만 가입할 수 있어요. 받은 초대 링크로 들어와 주세요."),
+    INVITE_CLOSED(HttpStatus.FORBIDDEN, "초대가 마감됐어요. 지금은 초대받은 분만 가입할 수 있어요."),
     INTERESTS_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "좋아하는 것은 고른 것과 직접 입력을 합쳐 5개까지예요."),
     CUSTOM_VALUE_REQUIRED(HttpStatus.BAD_REQUEST, "기타를 고르면 내용을 직접 입력해 주세요."),
     // {n}은 항목별 최대 글자 수로 채운다 (BusinessException(ErrorCode, int))
@@ -47,6 +49,7 @@ public enum ErrorCode {
     MOMENT_ONLY_FOR_PAST(HttpStatus.BAD_REQUEST, "아이의 반응과 감정은 있었던 일에서만 고를 수 있어요."),
     VERSION_NOT_IN_STORY(HttpStatus.BAD_REQUEST, "이 동화의 버전이 아니에요."),
     REGENERATION_LIMIT_REACHED(HttpStatus.CONFLICT, "다시 만들기 횟수를 모두 썼어요."),
+    STORY_LIMIT_REACHED(HttpStatus.FORBIDDEN, "무료로 만들 수 있는 동화를 모두 만들었어요."),
     PAGE_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "없는 쪽이에요."),
     STORY_BLOCKED(HttpStatus.CONFLICT, "이 내용으로는 동화를 만들 수 없어요."),
     STORY_INPUT_INCOMPLETE(HttpStatus.BAD_REQUEST, "상황과 아이 정보를 먼저 입력해 주세요."),

@@ -1,5 +1,6 @@
 package com.firstory.domain.user.controller;
 
+import com.firstory.domain.credit.service.CreditService;
 import com.firstory.domain.user.dto.ChangePasswordRequest;
 import com.firstory.domain.user.dto.EmailNotifyRequest;
 import com.firstory.domain.user.dto.MeResponse;
@@ -40,13 +41,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class MeController {
 
     private final MeService meService;
+    private final CreditService creditService;
     private final SessionRevoker sessionRevoker;
     private final LoginSuccessHandler loginSuccessHandler;
     private final JsonRememberMeServices rememberMeServices;
 
-    @Operation(summary = "내 정보", description = "kakaoLinked는 카카오 가입 회원, hasPassword가 false면 비밀번호 변경 대신 비밀번호 찾기로 만든다")
+    @Operation(summary = "내 정보", description = "kakaoLinked는 카카오 가입 회원, hasPassword가 false면 비밀번호 변경 대신 비밀번호 찾기로 만든다. "
+            + "storiesRemaining은 앞으로 만들 수 있는 동화 수(무제한이면 null, unlimitedStories true). "
+            + "사전 연락 이메일로 이미 가입한 회원이면 이때 사전 연락 이용권을 받는다")
     @GetMapping
     public MeResponse me(@AuthenticationPrincipal UserPrincipal principal) {
+        creditService.syncPreContact(principal.getUserId());
         return meService.getMe(principal.getUserId());
     }
 

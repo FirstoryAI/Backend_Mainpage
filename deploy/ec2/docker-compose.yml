@@ -69,6 +69,9 @@ services:
       KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
       KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
       KAKAO_REDIRECT_URIS: ${KAKAO_REDIRECT_URIS:-}
+      # 베타: true면 초대 링크·사전 연락·개발용 이메일만 가입. 개발용 이메일은 이용권 없이 무제한 (docs/deploy/ec2.md "베타 초대")
+      BETA_INVITE_ONLY: ${BETA_INVITE_ONLY:-false}
+      UNLIMITED_EMAILS: ${UNLIMITED_EMAILS:-}
       COOKIE_SECURE: "true"
       ALLOWED_ORIGINS: ""   # 프론트(Vercel)가 /api를 프록시해서 같은 출처. 비워야 CORS 403이 안 난다
       AI_MODE: http

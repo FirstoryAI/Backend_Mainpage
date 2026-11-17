@@ -46,7 +46,7 @@ class MailConfigTest {
     }
 
     private static FirstoryProperties properties(Mail mail) {
-        return new FirstoryProperties(null, null, null, null, null, null, null, mail, null);
+        return new FirstoryProperties(null, null, null, null, null, null, null, mail, null, null);
     }
 
     private static MockEnvironment profile(String profile) {

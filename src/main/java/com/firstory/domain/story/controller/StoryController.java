@@ -44,7 +44,9 @@ public class StoryController {
 
     private final StoryDraftService storyDraftService;
 
-    @Operation(summary = "새 동화 만들기", description = "DRAFT 상태의 빈 동화를 만든다. 응답 201")
+    @Operation(summary = "새 동화 만들기",
+            description = "DRAFT 상태의 빈 동화를 만든다. 남은 이용권이 없으면 STORY_LIMIT_REACHED(이용권은 생성 확정에서 쓴다). 응답 201")
+    @ApiErrorCodes(ErrorCode.STORY_LIMIT_REACHED)
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public StoryCreatedResponse create(@AuthenticationPrincipal UserPrincipal principal) {
