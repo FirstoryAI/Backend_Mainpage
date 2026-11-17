@@ -15,6 +15,7 @@ import com.firstory.domain.safety.entity.SafetyFlag;
 import com.firstory.domain.safety.entity.SafetySource;
 import com.firstory.domain.safety.repository.SafetyFlagRepository;
 import com.firstory.domain.story.entity.Story;
+import com.firstory.domain.story.service.BlockedTopics;
 import com.firstory.domain.story.entity.StoryStatus;
 import com.firstory.global.ai.AiGenerationResult;
 import com.firstory.global.ai.SafetyResult;
@@ -37,6 +38,7 @@ import java.util.stream.IntStream;
  *   <li>쪽 수가 page-count와 같은지. 아니면 FAILED(INVALID_PAGE_COUNT)</li>
  *   <li>결과 위기 신호가 REVISE, CRISIS면 SafetyFlag(OUTPUT)를 남기고 FAILED(OUTPUT_UNSAFE). 버전은 만들지 않는다.
  *       부모의 REVISE 횟수에는 넣지 않는다. 부모는 다시 시도할 수 있다</li>
+ *   <li>본문의 topic이 막은 주제(BlockedTopics, 이별·죽음)면 SafetyFlag 없이 FAILED(OUTPUT_UNSAFE). 다시 시도할 수 있다</li>
  *   <li>버전(parent = 실행의 기준 버전), 페이지, 가이드를 만들고 실행 SUCCEEDED, 스토리 REVIEWING, 새 버전을 보여준다</li>
  * </ol>
  * 실행을 잠그고 RUNNING일 때만 저장한다. 다른 쪽이 먼저 처리했으면 SKIPPED.
@@ -65,19 +67,21 @@ public class GenerationResultRecorder {
     private final ReadingGuideRepository guideRepository;
     private final GuidePromptRepository promptRepository;
     private final SafetyFlagRepository safetyFlagRepository;
+    private final BlockedTopics blockedTopics;
     private final Clock clock;
     private final int pageCount;
 
     public GenerationResultRecorder(GenerationRunRepository runRepository, StoryVersionRepository versionRepository,
                                     StoryPageRepository pageRepository, ReadingGuideRepository guideRepository,
                                     GuidePromptRepository promptRepository, SafetyFlagRepository safetyFlagRepository,
-                                    Clock clock, FirstoryProperties properties) {
+                                    BlockedTopics blockedTopics, Clock clock, FirstoryProperties properties) {
         this.runRepository = runRepository;
         this.versionRepository = versionRepository;
         this.pageRepository = pageRepository;
         this.guideRepository = guideRepository;
         this.promptRepository = promptRepository;
         this.safetyFlagRepository = safetyFlagRepository;
+        this.blockedTopics = blockedTopics;
         this.clock = clock;
         this.pageCount = properties.story().pageCount();
     }
@@ -104,6 +108,10 @@ public class GenerationResultRecorder {
         if (safety.level().isRecorded()) {
             recordUnsafeOutput(story, safety);
             log.info("완성 본문에 위기 신호가 있어 보여 주지 않아요: run_id={}, level={}", runId, safety.level());
+            return fail(run, story, OUTPUT_UNSAFE);
+        }
+        if (blockedTopics.blocksAi(safety.topic())) {
+            log.info("완성 본문이 막은 주제라 보여 주지 않아요: run_id={}, topic={}", runId, safety.topic());
             return fail(run, story, OUTPUT_UNSAFE);
         }
 

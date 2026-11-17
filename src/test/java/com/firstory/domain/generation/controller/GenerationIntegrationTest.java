@@ -578,6 +578,41 @@ class GenerationIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void 메모가_이별_내용이면_다시_만들지_않고_횟수도_세지_않는다() throws Exception {
+        long id = reviewingStory();
+
+        for (int i = 0; i < 2; i++) {
+            regenerate(id, """
+                    {"scope": "TEXT", "feedback": "강아지가 떠나는 장면을 넣어 주세요 [[SEPARATION]]"}""")
+                    .andExpect(jsonPath("$.saved").value(false))
+                    .andExpect(jsonPath("$.status").value("REVIEWING"))
+                    .andExpect(jsonPath("$.safety.action").value("ASK_REVISE"));
+        }
+        assertThat(regenerateCount(id)).isZero();
+        assertThat(runs(id)).isOne();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM safety_flags WHERE story_id = ?", Integer.class, id)).isZero();
+    }
+
+    @Test
+    void 완성_본문이_이별_이야기면_OUTPUT_UNSAFE로_실패하고_다시_시도할_수_있다() throws Exception {
+        long id = confirmingStory("이야기 " + FakeAiClient.OUTPUT_SEPARATION_MARKER);
+        confirm(id);
+
+        pollTimes(POLLS_TO_REVIEW);
+
+        assertThat(storyStatus(id)).isEqualTo("FAILED");
+        generation(id).andExpect(jsonPath("$.error").value("OUTPUT_UNSAFE"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM story_versions WHERE story_id = ?", Integer.class, id))
+                .isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM safety_flags WHERE story_id = ?", Integer.class, id)).isZero();
+
+        parent.post(storyUrl(id) + "/retry", null).andExpect(status().isAccepted());
+        assertThat(ai.regenerateCalls(threadId(id))).isOne();
+        pollTimes(POLLS_TO_REVIEW);
+        assertThat(storyStatus(id)).isEqualTo("REVIEWING");
+    }
+
+    @Test
     void 결과에_위기_신호가_있으면_실패하고_부모_REVISE_횟수에_넣지_않는다() throws Exception {
         long id = confirmingStory("이야기 " + FakeAiClient.OUTPUT_REVISE_MARKER);
         confirm(id);
