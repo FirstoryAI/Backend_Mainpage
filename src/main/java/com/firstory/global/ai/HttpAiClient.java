@@ -91,7 +91,7 @@ public class HttpAiClient implements AiClient {
     private static SafetyResult toSafety(String threadId, SafetyBody safety) {
         try {
             return new SafetyResult(SafetyLevel.valueOf(safety.level().toUpperCase(Locale.ROOT)), safety.category(),
-                    safety.reason());
+                    safety.reason(), safety.topic());
         } catch (IllegalArgumentException e) {
             throw invalidResponse(threadId, "safety.level");
         }
@@ -110,9 +110,12 @@ public class HttpAiClient implements AiClient {
     }
 
     @Override
-    public InterviewReply answerInterview(String threadId, String answer) {
+    public InterviewReply answerInterview(String threadId, String answer, List<String> blockedTopics) {
         TransactionGuard.requireNoTransaction();
-        Map<String, Object> request = answer == null ? Map.of("skip", true) : Map.of("answer", answer);
+        // 막은 주제(blocked_topics)에 걸리면 AI가 답을 받기 전으로 되돌린다 (#79). 건너뛰기는 검사하지 않아 보내지 않는다
+        Map<String, Object> request = answer == null ? Map.of("skip", true)
+                : blockedTopics.isEmpty() ? Map.of("answer", answer)
+                : Map.of("answer", answer, "blocked_topics", blockedTopics);
         InterviewBody body = call(threadId, () -> restClient.post()
                 .uri("/v1/threads/{threadId}/interview/answer", threadId)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -325,7 +328,7 @@ public class HttpAiClient implements AiClient {
     record SafetyCheckResponse(SafetyBody safety) {
     }
 
-    record SafetyBody(String level, String category, String reason) {
+    record SafetyBody(String level, String category, String reason, String topic) {
     }
 
     record InterviewBody(String type, Integer turn, String question, List<String> choices,
@@ -391,7 +394,7 @@ public class HttpAiClient implements AiClient {
                             cost.imageCount()),
                     safety == null || safety.level() == null ? null : new SafetyResult(
                             SafetyLevel.valueOf(safety.level().toUpperCase(Locale.ROOT)), safety.category(),
-                            safety.reason()));
+                            safety.reason(), safety.topic()));
         }
 
         // 없거나(옛 AI, 그림이 실패한 쪽) 형식이 어긋나면 그 쪽만 null. 생성은 실패시키지 않는다.

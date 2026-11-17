@@ -29,8 +29,10 @@ local 프로필은 AI 서버 없이 **가짜 AI**(`FakeAiClient`)로 돈다. 흐
 | `[[SENSITIVE]]` | 글을 받는 곳 어디든 (상황 설명, 직접 입력, 전하고 싶은 말, 인터뷰 답변, 다시 만들기 메모) | `safety.action: CHOOSE_TONE` → ST-04 (분위기를 이미 골랐으면 PROCEED) |
 | `[[REVISE]]` | 같은 곳 | 첫 번째는 `ASK_REVISE`(저장 안 함), 같은 동화에서 두 번째는 `BLOCK`(helpKind `PARENTING`) |
 | `[[CRISIS]]` | 같은 곳 | 바로 `BLOCK`(helpKind `CHILD_SAFETY`) → ST-05 |
+| `[[SEPARATION]]` | 같은 곳 | 이별·죽음 이야기로 판단 → `ASK_REVISE`(저장 안 함, 고정 문구 "지금은 이별이나 죽음을 다루는 이야기는 만들 수 없어요..."). 몇 번이어도 `BLOCK`이 되지 않는다. 인터뷰면 같은 질문이 다시 온다 |
 | `[[FAIL]]` | 전하고 싶은 말이나 인터뷰 답변 | 첫 생성이 "글 쓰기" 단계에서 실패 → ST-03. 다시 시도하면 성공 |
 | `[[OUTPUT_REVISE]]` | 전하고 싶은 말이나 인터뷰 답변 | 첫 생성 결과에 위기 신호 → 실패(ST-03). 다시 시도하면 성공 |
+| `[[OUTPUT_SEPARATION]]` | 전하고 싶은 말이나 인터뷰 답변 | 첫 생성 결과가 이별·죽음 이야기 → 실패(ST-03, `OUTPUT_UNSAFE`). 다시 시도하면 성공 |
 | `[[PAGE_FAIL]]` | 전하고 싶은 말이나 인터뷰 답변 | 첫 생성 결과에서 **5쪽 그림만** 실패 (`imageStatus: FAILED`, `imageUrl: null`, `textBlocks: null`, `soundWord: null`). 그림만 다시(5쪽)로 고칠 수 있다 |
 | `[[AI_DOWN]]` | 글을 받는 곳 어디든 | 그 글을 처음 보낸 뒤 **다음 AI 호출 한 번**이 503 `AI_UNAVAILABLE`. 같은 글로 다시 보내면 성공 |
 

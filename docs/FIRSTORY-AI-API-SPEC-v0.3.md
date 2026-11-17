@@ -121,13 +121,21 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 | `other` | 그 밖 |
 
 - 완성 본문 판단(`result.safety`)에는 SENSITIVE가 없다. 무거운 주제를 따뜻하게 다룬 본문은 OK다. 그림만 다시 그린 실행은 글이 그대로라 지난 판단을 그대로 준다.
+- **[확정, 11/17 #79·AI#115]** `topic`: level과 따로 매긴 주제. 이별·죽음 이야기면 `"separation"`, 아니면 null. OK·완성 본문에도 붙는다. 없는 옛 응답은 null로 읽는다.
+  - separation: 사람·동물의 죽음(곧 떠날 것 포함), 이혼·별거, 석 달 넘게 또는 언제 다시 만날지 모르게 떨어져 지냄
+  - null: 이사·전학으로 친구와 헤어짐, 출장·한 달 입원처럼 다시 만날 날이 있는 떨어짐, "배고파 죽겠어" 같은 말버릇
+  - 막을지는 Spring이 정한다(`firstory.story.blocked-topics`). 막은 주제면 부모 글은 `ASK_REVISE`(고정 문구, 횟수 안 셈), 완성 본문은 `OUTPUT_UNSAFE`.
+
+```json
+{ "safety": { "level": "SENSITIVE", "category": null, "reason": "...", "topic": "separation" } }
+```
 
 ### 검사 위치 (네 곳)
 
 | 위치 | 방법 | 비고 |
 |---|---|---|
 | 폼 제출 | `POST /v1/safety/check` | 그래프 밖 |
-| 인터뷰 답변 | `interview/answer` 응답의 `safety` | AI가 **다음 질문 만들기와 동시에** 판단한다(기다림이 둘 중 긴 쪽만큼). REVISE·CRISIS면 답을 받기 전으로 되돌린다 (7-3). skip은 글이 없어 검사하지 않음 |
+| 인터뷰 답변 | `interview/answer` 응답의 `safety` | AI가 **다음 질문 만들기와 동시에** 판단한다(기다림이 둘 중 긴 쪽만큼). REVISE·CRISIS이거나 topic이 요청의 `blocked_topics`에 있으면 답을 받기 전으로 되돌린다 (7-3). skip은 글이 없어 검사하지 않음 |
 | 다시 만들기 메모 | `POST /v1/safety/check` | Spring이 review 전에 호출 |
 | 완성 본문 | `result` 응답에 `safety` 포함 | 부모에게 보여주기 전 확인 |
 
@@ -216,10 +224,12 @@ AI 저장소 코드를 직접 확인한 결과(2026-10)를 반영했어요.
 ### 7-3. POST /v1/threads/{thread_id}/interview/answer
 
 ```json
-{ "answer": "같이 놀자고 했는데 대답을 안 해줬대요." }
+{ "answer": "같이 놀자고 했는데 대답을 안 해줬대요.", "blocked_topics": ["separation"] }
 ```
 
 또는 `{ "skip": true }` (내부적으로 `Command(resume="skip")`)
+
+- `blocked_topics`(선택, 기본 `[]`): 판단한 `safety.topic`이 이 안에 있으면 REVISE·CRISIS처럼 답을 받기 전으로 되돌리고 같은 질문을 준다(#79). Spring은 막은 주제가 있을 때만 보낸다.
 
 응답, 다음 질문이 있을 때:
 

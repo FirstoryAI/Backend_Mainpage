@@ -8,12 +8,14 @@ import com.firstory.domain.safety.entity.SafetyOutcome;
 import com.firstory.domain.safety.entity.SafetySource;
 import com.firstory.domain.safety.repository.SafetyFlagRepository;
 import com.firstory.domain.story.entity.InterviewTurn;
+import com.firstory.domain.story.entity.SituationCategory;
 import com.firstory.domain.story.entity.Story;
 import com.firstory.domain.story.entity.StoryInput;
 import com.firstory.domain.story.entity.StoryStatus;
 import com.firstory.domain.story.entity.Tone;
 import com.firstory.domain.story.repository.StoryInputRepository;
 import com.firstory.domain.story.repository.StoryRepository;
+import com.firstory.domain.story.service.BlockedTopics;
 import com.firstory.domain.generation.entity.RegenerateScope;
 import com.firstory.global.ai.AiClient;
 import com.firstory.global.ai.AiGenerationResult;
@@ -37,6 +39,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static com.firstory.support.Fixtures.NOW;
@@ -71,7 +74,7 @@ class SafetyGuardTest {
     void setUp() {
         SafetyPolicy policy = new SafetyPolicy(new FirstoryProperties(null,
                 new FirstoryProperties.Policy(3, REVISE_LIMIT), null, null, null, null, null, null, null, null));
-        guard = new SafetyGuard(ai, policy, flags, stories, inputs,
+        guard = new SafetyGuard(ai, policy, BlockedTopics.of(Set.of(SituationCategory.SEPARATION)), flags, stories, inputs,
                 TransactionOperations.withoutTransaction(),
                 Clock.fixed(NOW, ZoneOffset.UTC));
         story = story(user());
@@ -89,6 +92,64 @@ class SafetyGuardTest {
         assertThat(outcome).isEqualTo(SafetyOutcome.proceed());
         assertThat(input.isToneRequired()).isFalse();
         verify(flags, never()).save(any());
+    }
+
+    @Test
+    void OK인데_막힌_topic이면_다시_쓰기_안내() {
+        ai.next = new SafetyResult(SafetyLevel.OK, null, null, "separation");
+
+        SafetyOutcome outcome = check("놀다가 강아지 이야기를 했어요");
+
+        assertThat(outcome).isEqualTo(new SafetyOutcome(SafetyAction.ASK_REVISE, SafetyLevel.OK, "separation",
+                SafetyGuard.BLOCKED_TOPIC_REASON, null));
+        verify(flags, never()).save(any());
+    }
+
+    @Test
+    void SENSITIVE인데_막힌_topic이면_분위기_선택이_아니라_다시_쓰기_안내() {
+        ai.next = new SafetyResult(SafetyLevel.SENSITIVE, null, "무거운 주제예요", "separation");
+
+        SafetyOutcome outcome = check("할머니가 돌아가셨어요");
+
+        assertThat(outcome.action()).isEqualTo(SafetyAction.ASK_REVISE);
+        assertThat(outcome.reason()).isEqualTo(SafetyGuard.BLOCKED_TOPIC_REASON);
+        assertThat(input.isToneRequired()).isFalse();
+        verify(flags, never()).save(any());
+    }
+
+    @Test
+    void REVISE인데_막힌_topic이면_횟수를_세지_않는다() {
+        reviseCountBefore(1);
+        ai.next = new SafetyResult(SafetyLevel.REVISE, "blame_child", "다시 써 주세요", "separation");
+
+        SafetyOutcome outcome = check("할머니가 돌아가신 건 네 탓이야");
+
+        assertThat(outcome.action()).isEqualTo(SafetyAction.ASK_REVISE);
+        assertThat(story.getStatus()).isEqualTo(StoryStatus.DRAFT);
+        verify(flags, never()).save(any());
+    }
+
+    @Test
+    void CRISIS면_topic보다_차단이_먼저() {
+        ai.next = new SafetyResult(SafetyLevel.CRISIS, "abuse_neglect", "걱정돼요", "separation");
+
+        SafetyOutcome outcome = check("글");
+
+        assertThat(outcome.action()).isEqualTo(SafetyAction.BLOCK);
+        assertThat(outcome.helpKind()).isEqualTo(HelpKind.CHILD_SAFETY);
+        assertThat(story.getStatus()).isEqualTo(StoryStatus.BLOCKED);
+    }
+
+    @Test
+    void 막은_주제가_없으면_topic이_있어도_그대로() {
+        SafetyGuard open = new SafetyGuard(ai, new SafetyPolicy(new FirstoryProperties(null,
+                new FirstoryProperties.Policy(3, REVISE_LIMIT), null, null, null, null, null, null, null, null)),
+                BlockedTopics.of(Set.of()), flags, stories, inputs, TransactionOperations.withoutTransaction(),
+                Clock.fixed(NOW, ZoneOffset.UTC));
+        ai.next = new SafetyResult(SafetyLevel.OK, null, null, "separation");
+
+        assertThat(open.check(story, SafetySource.FORM, List.of("글"), null, null).action())
+                .isEqualTo(SafetyAction.PROCEED);
     }
 
     @Test
@@ -289,7 +350,7 @@ class SafetyGuardTest {
         }
 
         @Override
-        public InterviewReply answerInterview(String threadId, String answer) {
+        public InterviewReply answerInterview(String threadId, String answer, List<String> blockedTopics) {
             throw new UnsupportedOperationException();
         }
 

@@ -205,6 +205,62 @@ class HttpAiClientTest {
     }
 
     @Test
+    void 위기_신호의_topic을_읽는다() {
+        server.expect(requestTo(BASE_URL + "/v1/safety/check"))
+                .andRespond(withSuccess("""
+                        {"safety": {"level": "OK", "category": null, "reason": null, "topic": "separation"}}""",
+                        MediaType.APPLICATION_JSON));
+
+        SafetyResult result = client.checkSafety(SafetySource.FORM, List.of("강아지가 떠났어요"), null);
+
+        assertThat(result).isEqualTo(new SafetyResult(SafetyLevel.OK, null, null, "separation"));
+        server.verify();
+    }
+
+    @Test
+    void topic이_없는_옛_응답과_모르는_키가_있는_응답도_읽는다() {
+        server.expect(requestTo(BASE_URL + "/v1/safety/check"))
+                .andRespond(withSuccess("""
+                        {"safety": {"level": "SENSITIVE", "category": null, "reason": "r", "extra": 1}, "more": true}""",
+                        MediaType.APPLICATION_JSON));
+
+        SafetyResult result = client.checkSafety(SafetySource.FORM, List.of("글"), null);
+
+        assertThat(result).isEqualTo(new SafetyResult(SafetyLevel.SENSITIVE, null, "r", null));
+        server.verify();
+    }
+
+    @Test
+    void 인터뷰_답변에_막은_주제를_보내고_topic을_읽는다() {
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/answer"))
+                .andExpect(content().json("""
+                        {"answer": "강아지가 떠났어요", "blocked_topics": ["separation"]}""", JsonCompareMode.STRICT))
+                .andRespond(withSuccess("""
+                        {"type": "question", "turn": 1, "question": "당시에 어떻게 반응해주셨어요?", "choices": [],
+                         "context_update": null,
+                         "safety": {"level": "SENSITIVE", "category": null, "reason": "r", "topic": "separation"}}""",
+                        MediaType.APPLICATION_JSON));
+
+        InterviewReply reply = client.answerInterview(THREAD_ID, "강아지가 떠났어요", List.of("separation"));
+
+        assertThat(reply.safety()).isEqualTo(new SafetyResult(SafetyLevel.SENSITIVE, null, "r", "separation"));
+        server.verify();
+    }
+
+    @Test
+    void 건너뛰기에는_막은_주제를_보내지_않는다() {
+        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/answer"))
+                .andExpect(content().json("""
+                        {"skip": true}""", JsonCompareMode.STRICT))
+                .andRespond(withSuccess("""
+                        {"type": "confirm", "summary": "요약", "end_reason": "user_skip", "context": {}, "safety": null}""",
+                        MediaType.APPLICATION_JSON));
+
+        client.answerInterview(THREAD_ID, null, List.of("separation"));
+        server.verify();
+    }
+
+    @Test
     void 답변인데_위기_신호_판단이_없으면_AI_UNAVAILABLE() {
         server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/answer"))
                 .andRespond(withSuccess("""
@@ -352,7 +408,8 @@ class HttpAiClientTest {
                                                 "scene_note": "장면"}],
                                    "after_reading": {"bridge_question": "다리", "if_undecided": "괜찮아요"}},
                          "cost": {"input_tokens": 41230, "output_tokens": 8120, "image_count": 9},
-                         "safety": {"level": "OK", "category": null, "reason": null}}""", MediaType.APPLICATION_JSON));
+                         "safety": {"level": "OK", "category": null, "reason": null, "topic": "separation"}}""",
+                        MediaType.APPLICATION_JSON));
 
         AiGenerationResult result = client.result(THREAD_ID);
 
@@ -367,7 +424,7 @@ class HttpAiClientTest {
         assertThat(result.guide()).isEqualTo(new AiGenerationResult.Guide("줄거리", "의도", List.of("팁"), "다리", "괜찮아요",
                 List.of(new AiGenerationResult.Prompt(3, "질문", "emotion", "힌트", "장면"))));
         assertThat(result.cost()).isEqualTo(new AiGenerationResult.Cost(41230, 8120, 9));
-        assertThat(result.safety()).isEqualTo(SafetyResult.ok());
+        assertThat(result.safety()).isEqualTo(new SafetyResult(SafetyLevel.OK, null, null, "separation"));
     }
 
     @Test

@@ -32,7 +32,7 @@ public class GenerationController {
     @Operation(summary = "동화 만들기 시작 (CRT-06)",
             description = "CONFIRMING에서만. 민감 주제가 감지됐는데(toneRequired) 분위기를 고르지 않았으면 TONE_REQUIRED. "
                     + "AI가 바로 받아들이고 뒤에서 만든다. 진행은 GET /generation으로 본다. 응답 202")
-    @ApiErrorCodes({ErrorCode.TONE_REQUIRED, ErrorCode.STORY_LIMIT_REACHED, ErrorCode.STORY_BLOCKED, ErrorCode.INVALID_STATUS_TRANSITION,
+    @ApiErrorCodes({ErrorCode.TONE_REQUIRED, ErrorCode.CATEGORY_UNAVAILABLE, ErrorCode.STORY_LIMIT_REACHED, ErrorCode.STORY_BLOCKED, ErrorCode.INVALID_STATUS_TRANSITION,
             ErrorCode.AI_UNAVAILABLE, ErrorCode.AI_BUSY, ErrorCode.AI_STATE_MISMATCH})
     @PostMapping("/confirm")
     @ResponseStatus(HttpStatus.ACCEPTED)

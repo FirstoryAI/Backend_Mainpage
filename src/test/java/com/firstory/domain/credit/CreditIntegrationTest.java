@@ -89,6 +89,21 @@ class CreditIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void 첫_생성의_완성_본문이_막은_주제라_실패하면_이용권을_되돌린다() throws Exception {
+        Browser parent = signUp(newEmail());
+        long id = StoryFlow.confirming(parent, "이야기 " + FakeAiClient.OUTPUT_SEPARATION_MARKER);
+        parent.post(StoryFlow.url(id) + "/confirm", null).andExpect(status().isAccepted());
+        parent.get("/api/me").andExpect(jsonPath("$.storiesRemaining").value(0));
+
+        for (int i = 0; i < 5; i++) {
+            poller.pollOnce();
+        }
+
+        parent.get(StoryFlow.url(id) + "/generation").andExpect(jsonPath("$.error").value("OUTPUT_UNSAFE"));
+        parent.get("/api/me").andExpect(jsonPath("$.storiesRemaining").value(1));
+    }
+
+    @Test
     void 동화를_지워도_쓴_횟수는_돌아오지_않는다() throws Exception {
         Browser parent = signUp(newEmail());
         long id = StoryFlow.reviewing(parent, poller);

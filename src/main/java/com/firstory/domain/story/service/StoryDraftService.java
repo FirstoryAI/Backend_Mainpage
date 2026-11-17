@@ -73,6 +73,7 @@ public class StoryDraftService {
     private final ChildRepository childRepository;
     private final ChildProfileResolver childProfileResolver;
     private final SafetyGuard safetyGuard;
+    private final BlockedTopics blockedTopics;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
@@ -92,6 +93,7 @@ public class StoryDraftService {
     public StoryStepResponse writeSituation(Long userId, Long storyId, SituationRequest request) {
         StoryInput.validateSituation(request.timing(), request.category(), request.customCategory(),
                 request.description(), request.reactions(), request.customReaction(), request.emotions());
+        blockedTopics.requireOpen(request.category());
         return checkThenSave(userId, storyId, request.textsToCheck(), input -> input.writeSituation(
                 request.timing(), request.category(), request.customCategory(), request.description(),
                 request.reactions(), request.customReaction(), request.emotions()));

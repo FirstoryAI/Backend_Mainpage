@@ -59,7 +59,7 @@ docker compose up -d                                                        # .e
 2. POST/PUT/PATCH/DELETE는 Swagger UI가 이 쿠키 값을 `X-XSRF-TOKEN` 헤더로 자동으로 붙인다(`springdoc.swagger-ui.csrf.enabled=true`). 따로 입력할 것은 없다.
 3. 가입하려면 `email/send-code` → `email/verify`(local은 고정 인증번호 `000000`. 설정을 지우면 서버 로그의 `[MAIL] p*****@example.com ← [FIRSTORY] 회원가입 인증번호예요 / ... 123456 ...`에서 확인) → `signup` 순서로 같은 브라우저에서 실행한다. 가입하면 바로 로그인된다. 카카오는 `kakao/login`(local은 아무 code) → `SIGNUP_REQUIRED`면 `kakao/signup`.
 4. 로그인하면 `FSESSION` 쿠키로 인증된다. 이후 `/api/me`, `/api/children` 등을 바로 실행할 수 있다.
-5. 동화 만들기(CRT-01~05)는 `POST /api/stories` → `situation` → `child` → `message` → `interview/start` → `interview/answer` 순서다. local은 FakeAiClient라 동화마다 정해진 1~15번째 답변이나 `{"skip": true}`에서 인터뷰가 끝난다(CONFIRMING). 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`를 넣으면 그 위기 신호로 판단한다.
+5. 동화 만들기(CRT-01~05)는 `POST /api/stories` → `situation` → `child` → `message` → `interview/start` → `interview/answer` 순서다. local은 FakeAiClient라 동화마다 정해진 1~15번째 답변이나 `{"skip": true}`에서 인터뷰가 끝난다(CONFIRMING). 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`를 넣으면 그 위기 신호로, `[[SEPARATION]]`은 이별·죽음 이야기로 판단한다.
    이어서 `confirm` → `generation`(local 예시값은 단계당 40초라 약 2분 40초면 REVIEWING. `FIRSTORY_AI_FAKE_STAGE_DURATION=5s`로 띄우면 약 25초) → `preview` → 그림 API(`imageUrl`을 브라우저에서 연다) → `regenerate` → `current-version` → `approve` 순서로 확정까지 해 볼 수 있다. 전하고 싶은 말이나 답변에 `[[FAIL]]`을 넣으면 첫 생성이 실패하고(`retry`로 다시 시도), `[[OUTPUT_REVISE]]`는 결과 위기 신호로 실패, `[[PAGE_FAIL]]`은 5쪽 그림만 실패, `[[AI_DOWN]]`은 다음 AI 호출 한 번이 `AI_UNAVAILABLE`이다(`docs/frontend/fake-ai.md`).
 6. 로그아웃하면 `XSRF-TOKEN`도 지워진다. 다시 쓰려면 1번부터 한다. 403 `FORBIDDEN`이 나오면 대부분 1번을 빠뜨린 것이다.
 
@@ -153,12 +153,12 @@ com.firstory
 - AI 서비스(FastAPI) 스펙은 `docs/FIRSTORY-AI-API-SPEC-v0.3.md`. 호출은 `global.ai.AiClient` 하나로 한다.
 - `firstory.ai.mode`로 구현을 고른다(`AiClientConfig`). `http`(기본)는 `HttpAiClient`(RestClient, `X-Internal-Token`, 연결 3초·응답 35초), `fake`는 `FakeAiClient`. local, test 프로필은 `fake`. `http`인데 `AI_INTERNAL_TOKEN`이 비어 있으면 기동하지 않는다.
 - `FakeAiClient`는 고정 동작이고 속도와 질문 수만 `firstory.ai.fake.*`(`FirstoryProperties.Ai.Fake`)로 바꾼다. **test 프로필은 기본값(지연 0, `stage-duration` 0, `turns` 2)이라 아래 동작 그대로다. 테스트가 기대는 동작을 바꾸지 않는다.**
-  - 위기 신호는 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`가 있으면 그 level, 없으면 OK.
+  - 위기 신호는 글에 `[[SENSITIVE]]`, `[[REVISE]]`, `[[CRISIS]]`가 있으면 그 level, 없으면 OK. `[[SEPARATION]]`은 level을 두고 topic `separation`만 붙인다(막은 주제면 인터뷰 답은 차례를 넘기지 않는다).
   - 인터뷰 차례는 1~`InterviewTurn.MAX_TURNS`(15, DB CHECK V9). AI가 그보다 더 물으면 `AI_STATE_MISMATCH`. 가짜 AI의 `Fake.MAX_QUESTIONS`도 같은 15로 맞춘다.
   - 인터뷰는 질문 1 → 답변 `turns`번까지 다음 질문 → 그다음 답변이나 skip이면 CONFIRM (`turns` 2면 3번째 답변). `turns` 0이면 thread_id 해시로 질문 1~15개. 질문 문장은 `fake-ai/sample-story.json` 순서대로, 답변 카드는 같은 파일의 `questionChoices`(5번째 질문은 카드 없음).
   - 생성은 design_story → write_story → illustrate → render → REVIEWING (글 다시는 write_story부터, 그림만 다시는 illustrate_only → render). `stage-duration` 0이면 `status`를 부를 때마다 한 단계씩, 0보다 크면 시작 후 지난 시간(`Clock`) / `stage-duration`으로 단계를 정한다. REVIEWING이 될 때 `fake-ai/sample-story.json`(제목, 10쪽 글, 가이드)으로 결과를 만들고 실제 PNG(쪽 1920×1088, 표지 1024×1024, 진짜 AI와 같은 크기)를 `FileStorage`에 쓴다. 그림만 다시(일부 쪽)는 이전 표지 key. 글 자리(`textPosition`)는 3의 배수 쪽만 TOP(AI `mock.py`와 같다). 다시 만들기면 제목 뒤에 `(다시 n)`.
   - 인터뷰 답변(`answerInterview`)은 진짜 AI처럼 `checkSafety`와 같은 기준의 `safety`를 함께 준다. REVISE·CRISIS면 차례를 넘기지 않고 같은 질문을 준다(진짜 AI가 답을 받기 전으로 되돌린 것과 같다).
-  - 전하고 싶은 말이나 인터뷰 답변의 표시: `[[FAIL]]` 첫 생성 실패, `[[OUTPUT_REVISE]]` 첫 생성 결과의 safety가 REVISE, `[[PAGE_FAIL]]` 첫 생성 결과의 5쪽 그림만 failed, `[[AI_DOWN]]` 위기 신호 검사에서 처음 본 글이면 다음 AI 호출 한 번이 `AI_UNAVAILABLE`(생성 진행 확인 `status`, `result`는 세지 않는다. 인터뷰 답변은 처음 본 그 답변 호출이 바로 실패).
+  - 전하고 싶은 말이나 인터뷰 답변의 표시: `[[FAIL]]` 첫 생성 실패, `[[OUTPUT_REVISE]]` 첫 생성 결과의 safety가 REVISE, `[[OUTPUT_SEPARATION]]` 첫 생성 결과가 OK + topic separation, `[[PAGE_FAIL]]` 첫 생성 결과의 5쪽 그림만 failed, `[[AI_DOWN]]` 위기 신호 검사에서 처음 본 글이면 다음 AI 호출 한 번이 `AI_UNAVAILABLE`(생성 진행 확인 `status`, `result`는 세지 않는다. 인터뷰 답변은 처음 본 그 답변 호출이 바로 실패).
   - 지연(`interview-delay`, `safety-delay`)은 `Thread.sleep`이다. local 전용이라 허용한다. thread 상태는 메모리에만 있어 서버를 다시 띄우면 진행 중인 인터뷰와 생성은 이어갈 수 없다. 테스트에서는 `failWith(ErrorCode)`로 장애를, `misdirectOutput()`으로 다른 동화 경로를 흉내 내고(`clearFailure()`로 둘 다 되돌린다), `answerCalls`, `statusCalls`, `lastBaseCheckpointId`로 호출을 본다.
 - **DB 트랜잭션 안에서 AI를 부르지 않는다**(응답이 35초까지 걸려 커넥션을 붙잡는다). ① 트랜잭션으로 조회·검증 → ② 트랜잭션 밖에서 AI 호출 → ③ 새 트랜잭션으로 저장. ③에서 동화를 `StoryRepository.findByIdForUpdate`로 다시 읽어 상태가 바뀌었으면 `INVALID_STATUS_TRANSITION`. AI를 부르는 서비스 메서드에는 `@Transactional`을 달지 않고 `TransactionTemplate`을 쓴다. `AiClient` 구현은 트랜잭션 안에서 불리면 `IllegalStateException`을 던진다(`TransactionGuard`).
 - 메일 발송(`EmailSender.send`)과 카카오 호출(`KakaoClient`)도 같은 이유로 트랜잭션 밖에서 한다.
@@ -240,6 +240,7 @@ com.firstory
 - `category`는 AI가 준 값(스펙 4장 목록: violence, harmful_discipline, discrimination, illegal, blame_child, self_harm, abuse_neglect, harm_intent, other)을 그대로 저장하고, 비어 있으면 `other`. 값 목록을 enum으로 묶지 않는다(AI 쪽에서 늘어날 수 있다).
 - 차단 응답에는 `helpKind`(CRISIS → `CHILD_SAFETY`, REVISE로 차단 → `PARENTING`)만 준다. **상담 기관 이름과 번호는 백엔드에 넣지 않는다**(프론트가 helpKind로 보여준다).
 - BLOCKED 동화의 모든 변경 요청은 `STORY_BLOCKED`. 나가기(DELETE)와 조회(draft)만 된다. 다시 만들기 메모로 REVIEWING에서도 차단될 수 있다.
+- **막은 주제**(`BlockedTopics`, 설정 `firstory.story.blocked-topics`·`BLOCKED_TOPICS`, 기본 `SEPARATION`, #79): 상황 칸이 막은 주제면 상황 저장·인터뷰 시작·만들기·다시 만들기·다시 시도가 400 `CATEGORY_UNAVAILABLE`. AI 판단의 `topic`(소문자 `aiValue`)이 막은 주제면 CRISIS가 아닌 한 level과 상관없이 `ASK_REVISE`(고정 문구 `SafetyGuard.BLOCKED_TOPIC_REASON`)이고 `SafetyFlag`를 남기지 않는다(횟수 안 셈, 차단 안 됨). 인터뷰 답변은 `answerInterview`가 `blocked_topics`를 보내 AI가 답을 받기 전으로 되돌린다. 완성 본문의 topic이 막은 주제면 SafetyFlag 없이 `OUTPUT_UNSAFE`이고, 첫 생성(기준 버전 없음)이면 쓴 이용권을 되돌린다(입력이 그대로라 다시 시도해도 또 걸리기 쉽다). 비우면 다시 열린다.
 - **결과 위기 신호**(AI 결과의 `safety`가 REVISE, CRISIS): `SafetyFlag`(source OUTPUT)를 감사용으로 남기고 버전을 만들지 않고 실행·스토리 FAILED(`OUTPUT_UNSAFE`). 부모는 다시 시도할 수 있다. **부모의 REVISE 횟수에는 넣지 않는다**(`countByStoryIdAndLevelAndSourceNot(OUTPUT)`). 다만 `occurrenceNo`는 UNIQUE(story, level, occurrence_no)라 OUTPUT까지 포함한 개수로 정한다.
 
 ## 인증 규칙
@@ -284,6 +285,7 @@ com.firstory
 | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | 로컬 docker compose | 비밀번호는 비밀값 | JDBC 주소, DB 계정. dev는 기본값 없음 |
 | `BETA_INVITE_ONLY` | `false` | 베타 동안 `true` | 초대 링크·사전 연락·개발용 이메일만 가입 |
 | `UNLIMITED_EMAILS` | (비움) | 개발용 이메일 | 이용권 없이 무제한, 베타 중에도 가입. 쉼표로 구분 |
+| `BLOCKED_TOPICS` | `SEPARATION` | 그대로 (빈 값이면 다시 열림) | 지금 만들지 않는 주제. 상황 칸과 AI가 판단한 글 내용 모두 (#79) |
 | `BETA_CREDITS_ENABLED`, `BETA_INVITE_REDIRECT` | `true`, `/auth` | 그대로 | 이용권 확인, 초대 링크 뒤 이동 경로 |
 | `FIRSTORY_AI_FAKE_STAGE_DURATION` | (local 40s) | 쓰지 않음 | 가짜 AI 생성 단계 시간. smoke 때 `5s`로 덮어쓴다 |
 

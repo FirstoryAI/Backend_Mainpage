@@ -12,8 +12,10 @@ public record FirstoryProperties(Story story, Policy policy, Ai ai, Web web, Aut
 
     /**
      * @param pageCount 동화 쪽수. DB에 박지 않고 여기서만 정한다
+     * @param blockedTopics 지금 만들지 않는 주제 (SituationCategory 이름, 예: SEPARATION). 상황 칸과 AI가 판단한 글 내용
+     *                      모두 막는다(BlockedTopics). 비우면 다시 열린다
      */
-    public record Story(int pageCount) {
+    public record Story(int pageCount, List<String> blockedTopics) {
     }
 
     /**

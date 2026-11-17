@@ -52,6 +52,7 @@ public class InterviewService {
     private final InterviewTurnRepository interviewTurnRepository;
     private final AiClient aiClient;
     private final SafetyGuard safetyGuard;
+    private final BlockedTopics blockedTopics;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
@@ -66,6 +67,7 @@ public class InterviewService {
             if (!input.hasSituation() || input.getChildSnapshot() == null) {
                 throw new BusinessException(ErrorCode.STORY_INPUT_INCOMPLETE);
             }
+            blockedTopics.requireOpen(input.getSituationCategory());   // 막기 전에 저장된 만들던 동화
             return new StartContext(story, AiContextMapper.toContext(input), input.getTone());
         });
         // ②
@@ -94,7 +96,7 @@ public class InterviewService {
         InterviewTurn turn = current.turn();
 
         // ② AI가 위기 신호 판단과 다음 질문을 함께 준다. 판단을 먼저 적용한다
-        InterviewReply reply = aiClient.answerInterview(story.getThreadId(), answer);
+        InterviewReply reply = aiClient.answerInterview(story.getThreadId(), answer, blockedTopics.aiValues());
         SafetyOutcome outcome = null;
         if (answer != null) {
             outcome = safetyGuard.apply(story, SafetySource.INTERVIEW, reply.safety(), turn);

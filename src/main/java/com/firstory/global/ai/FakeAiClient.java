@@ -49,7 +49,8 @@ import java.util.regex.Pattern;
  * checkSafety      글에 [[CRISIS]], [[REVISE]], [[SENSITIVE]]가 있으면 그 level (여럿이면 이 순서로 우선), 없으면 OK
  * startInterview   질문 1
  * answerInterview  답변 turns번까지는 다음 질문, 그다음 답변이나 skip이면 CONFIRM (turns 2면 3번째 답변에서)
- *                  답변이면 checkSafety와 같은 기준의 safety를 함께 준다. REVISE·CRISIS면 차례를 넘기지 않고 같은 질문
+ *                  답변이면 checkSafety와 같은 기준의 safety를 함께 준다. REVISE·CRISIS이거나 topic이 막은 주제면
+ *                  차례를 넘기지 않고 같은 질문
  *                  질문마다 sample-story.json의 답변 카드(questionChoices). 5번째 질문은 카드가 없다
  *                  turns가 0이면 thread_id로 질문 수 1~15개를 정한다 (같은 동화는 항상 같은 수)
  *                  finalContext는 받은 context에 parent.message_direction만 채운 것
@@ -65,6 +66,8 @@ import java.util.regex.Pattern;
  * [[FAIL]]           첫 생성은 write_story에서 FAILED, 다시 시도는 성공한다
  * [[OUTPUT_REVISE]]  첫 생성 결과의 safety가 REVISE (다시 시도는 OK)
  * [[PAGE_FAIL]]      첫 생성(과 그 다시 시도) 결과에서 5쪽 그림만 failed
+ * [[OUTPUT_SEPARATION]] 첫 생성 결과의 safety가 OK + topic separation (이별·죽음 본문)
+ * [[SEPARATION]]     위기 신호 판단에 topic separation (level은 다른 표시대로). 막은 주제면 인터뷰 답은 차례를 넘기지 않는다
  * [[AI_DOWN]]        위기 신호 검사에서 처음 본 글이면, 그다음 AI 호출 한 번이 AI_UNAVAILABLE
  *                    (인터뷰 답변은 그 답변 호출이 바로 AI_UNAVAILABLE)
  *                    (생성 진행 확인 status, result는 세지 않는다. 같은 글로 다시 보내면 성공한다)
@@ -80,6 +83,10 @@ public class FakeAiClient implements AiClient {
     public static final MessageDirection DIRECTION = MessageDirection.COMFORT_FIRST;
     public static final String FAIL_MARKER = "[[FAIL]]";
     public static final String OUTPUT_REVISE_MARKER = "[[OUTPUT_REVISE]]";
+    // 이별·죽음 (#79). 위기 신호 level은 그대로 두고 topic만 separation (AI mock과 같은 규칙)
+    public static final String SEPARATION_MARKER = "[[SEPARATION]]";
+    public static final String OUTPUT_SEPARATION_MARKER = "[[OUTPUT_SEPARATION]]";
+    static final String SEPARATION_TOPIC = "separation";
     public static final String PAGE_FAIL_MARKER = "[[PAGE_FAIL]]";
     public static final String AI_DOWN_MARKER = "[[AI_DOWN]]";
     // [[PAGE_FAIL]]이면 이 쪽 그림만 실패한다
@@ -139,6 +146,12 @@ public class FakeAiClient implements AiClient {
     }
 
     private static SafetyResult judge(String joined) {
+        SafetyResult level = judgeLevel(joined);
+        return joined.contains(SEPARATION_MARKER)
+                ? new SafetyResult(level.level(), level.category(), level.reason(), SEPARATION_TOPIC) : level;
+    }
+
+    private static SafetyResult judgeLevel(String joined) {
         if (joined.contains(marker(SafetyLevel.CRISIS))) {
             return new SafetyResult(SafetyLevel.CRISIS, "abuse_neglect", "아이의 안전이 걱정되는 내용이 있어요.");
         }
@@ -162,7 +175,7 @@ public class FakeAiClient implements AiClient {
     }
 
     @Override
-    public InterviewReply answerInterview(String threadId, String answer) {
+    public InterviewReply answerInterview(String threadId, String answer, List<String> blockedTopics) {
         TransactionGuard.requireNoTransaction();
         answerCalls.computeIfAbsent(threadId, id -> new AtomicInteger()).incrementAndGet();
         throwIfFailing();
@@ -180,7 +193,8 @@ public class FakeAiClient implements AiClient {
         }
         SafetyResult safety = judge(answer);
         int current = state.answered.get();
-        if (safety.level() == SafetyLevel.REVISE || safety.level() == SafetyLevel.CRISIS) {
+        if (safety.level() == SafetyLevel.REVISE || safety.level() == SafetyLevel.CRISIS
+                || (safety.topic() != null && blockedTopics.contains(safety.topic()))) {
             // 답을 받기 전으로 되돌린 것처럼 차례를 넘기지 않고 같은 질문을 준다
             return InterviewReply.question(current + 1, SAMPLE.questions().get(current),
                     SAMPLE.questionChoices().get(current), null).withSafety(safety);
@@ -207,7 +221,7 @@ public class FakeAiClient implements AiClient {
             String input = state.parentInput();
             state.start(runNo, outputPrefix, FULL_NODES, RegenerateScope.ALL, List.of(), null, 0,
                     new Mishaps(input.contains(FAIL_MARKER), input.contains(OUTPUT_REVISE_MARKER),
-                            input.contains(PAGE_FAIL_MARKER)), clock.instant());
+                            input.contains(PAGE_FAIL_MARKER), input.contains(OUTPUT_SEPARATION_MARKER)), clock.instant());
         }
     }
 
@@ -288,7 +302,7 @@ public class FakeAiClient implements AiClient {
             }
             // 같은 범위를 처음부터 다시. 실패 흉내는 그림 실패만 이어 간다
             state.start(runNo, outputPrefix, state.nodes, state.scope, state.pages, state.base, state.titleNo,
-                    new Mishaps(false, false, state.mishaps.pageFail()), clock.instant());
+                    new Mishaps(false, false, state.mishaps.pageFail(), false), clock.instant());
         }
     }
 
@@ -507,6 +521,7 @@ public class FakeAiClient implements AiClient {
 
         SafetyResult safety = state.mishaps.unsafeOutput()
                 ? new SafetyResult(SafetyLevel.REVISE, "harmful_discipline", "완성된 이야기에 아이에게 맞지 않는 표현이 있어요.")
+                : state.mishaps.separationOutput() ? new SafetyResult(SafetyLevel.OK, null, null, SEPARATION_TOPIC)
                 : SafetyResult.ok();
         return new AiGenerationResult(runNo, checkpointId(runNo), SAMPLE.title(state.titleNo),
                 Map.of("hero", "아로", "run_no", runNo), coverKey, frontCoverKey, backCoverKey, sheets, pages,
@@ -646,10 +661,12 @@ public class FakeAiClient implements AiClient {
      * @param failAtWriteStory [[FAIL]]: write_story에서 FAILED
      * @param unsafeOutput     [[OUTPUT_REVISE]]: 결과 safety가 REVISE
      * @param pageFail         [[PAGE_FAIL]]: FAILED_PAGE쪽 그림만 failed
+     * @param separationOutput [[OUTPUT_SEPARATION]]: 결과 safety가 OK + topic separation
      */
-    private record Mishaps(boolean failAtWriteStory, boolean unsafeOutput, boolean pageFail) {
+    private record Mishaps(boolean failAtWriteStory, boolean unsafeOutput, boolean pageFail,
+                           boolean separationOutput) {
 
-        private static final Mishaps NONE = new Mishaps(false, false, false);
+        private static final Mishaps NONE = new Mishaps(false, false, false, false);
     }
 
     private static final class ThreadState {

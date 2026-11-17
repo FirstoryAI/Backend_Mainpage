@@ -57,8 +57,8 @@ public class StoryController {
             description = "DRAFT, CONFIRMING(생성 전 확인에서 고치기)에서. 형식 오류는 위기 신호 검사 전에 400. 검사 대상: description, customCategory, customReaction."
                     + STEP_RESPONSE)
     @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.DESCRIPTION_TOO_LONG, ErrorCode.CUSTOM_VALUE_REQUIRED,
-            ErrorCode.CUSTOM_VALUE_TOO_LONG, ErrorCode.MOMENT_ONLY_FOR_PAST, ErrorCode.STORY_NOT_FOUND,
-            ErrorCode.STORY_BLOCKED, ErrorCode.INVALID_STATUS_TRANSITION, ErrorCode.AI_UNAVAILABLE})
+            ErrorCode.CUSTOM_VALUE_TOO_LONG, ErrorCode.MOMENT_ONLY_FOR_PAST, ErrorCode.CATEGORY_UNAVAILABLE,
+            ErrorCode.STORY_NOT_FOUND, ErrorCode.STORY_BLOCKED, ErrorCode.INVALID_STATUS_TRANSITION, ErrorCode.AI_UNAVAILABLE})
     @PutMapping("/{id:\\d+}/situation")
     public StoryStepResponse writeSituation(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id,
                                             @Valid @RequestBody SituationRequest request) {
