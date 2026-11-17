@@ -66,6 +66,30 @@ class FakeAiClientTest {
     }
 
     @Test
+    void SEPARATION_표시는_level을_두고_topic만_붙인다() {
+        assertThat(client.checkSafety(SafetySource.FORM, List.of("강아지가 떠났어요 " + FakeAiClient.SEPARATION_MARKER), null))
+                .isEqualTo(new SafetyResult(SafetyLevel.OK, null, null, "separation"));
+        SafetyResult revise = client.checkSafety(SafetySource.FORM, List.of("[[REVISE]] [[SEPARATION]]"), null);
+        assertThat(revise.level()).isEqualTo(SafetyLevel.REVISE);
+        assertThat(revise.topic()).isEqualTo("separation");
+        assertThat(client.checkSafety(SafetySource.FORM, List.of("[[SENSITIVE]]"), null).topic()).isNull();
+    }
+
+    @Test
+    void 막은_주제의_인터뷰_답은_차례를_넘기지_않는다() {
+        client.startInterview(THREAD_ID, UUID.randomUUID(), context(), null);
+
+        InterviewReply held = client.answerInterview(THREAD_ID, "강아지가 떠났어요 [[SEPARATION]]", List.of("separation"));
+        assertThat(held.turn()).isOne();
+        assertThat(held.question()).isEqualTo(FakeAiClient.FIRST_QUESTION);
+        assertThat(held.safety().topic()).isEqualTo("separation");
+
+        InterviewReply opened = client.answerInterview(THREAD_ID, "강아지가 떠났어요 [[SEPARATION]]", List.of());
+        assertThat(opened.turn()).isEqualTo(2);
+        assertThat(opened.safety().topic()).isEqualTo("separation");
+    }
+
+    @Test
     void 마커가_여럿이면_CRISIS_REVISE_SENSITIVE_순서() {
         assertThat(client.checkSafety(SafetySource.FORM, List.of("[[SENSITIVE]] [[CRISIS]] [[REVISE]]"), null)
                 .level()).isEqualTo(SafetyLevel.CRISIS);
@@ -260,6 +284,16 @@ class FakeAiClientTest {
         }
         assertThat(last.state()).isEqualTo(AiRunState.REVIEWING);
         assertThat(client.result(THREAD_ID).runNo()).isEqualTo(2);
+    }
+
+    @Test
+    void OUTPUT_SEPARATION_마커가_있으면_첫_결과에_topic() {
+        startGeneration(contextWithMessage(FakeAiClient.OUTPUT_SEPARATION_MARKER));
+        for (int i = 0; i < 5; i++) {
+            client.status(THREAD_ID);
+        }
+
+        assertThat(client.result(THREAD_ID).safety()).isEqualTo(new SafetyResult(SafetyLevel.OK, null, null, "separation"));
     }
 
     @Test

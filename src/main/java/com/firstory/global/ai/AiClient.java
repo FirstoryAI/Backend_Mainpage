@@ -29,7 +29,14 @@ public interface AiClient {
     /**
      * @param answer null이면 건너뛰기(skip)
      */
-    InterviewReply answerInterview(String threadId, String answer);
+    InterviewReply answerInterview(String threadId, String answer, List<String> blockedTopics);
+
+    /**
+     * 막은 주제 없이 답한다 (테스트용).
+     */
+    default InterviewReply answerInterview(String threadId, String answer) {
+        return answerInterview(threadId, answer, List.of());
+    }
 
     /**
      * 생성 전 확인(CRT-06) 뒤 생성을 시작한다. AI는 바로 받아들이고(202) 백그라운드에서 만든다.

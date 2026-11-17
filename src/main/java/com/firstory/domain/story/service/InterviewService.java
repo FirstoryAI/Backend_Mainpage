@@ -96,7 +96,7 @@ public class InterviewService {
         InterviewTurn turn = current.turn();
 
         // ② AI가 위기 신호 판단과 다음 질문을 함께 준다. 판단을 먼저 적용한다
-        InterviewReply reply = aiClient.answerInterview(story.getThreadId(), answer);
+        InterviewReply reply = aiClient.answerInterview(story.getThreadId(), answer, blockedTopics.aiValues());
         SafetyOutcome outcome = null;
         if (answer != null) {
             outcome = safetyGuard.apply(story, SafetySource.INTERVIEW, reply.safety(), turn);

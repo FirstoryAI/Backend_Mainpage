@@ -289,7 +289,7 @@ class SafetyGuardTest {
         }
 
         @Override
-        public InterviewReply answerInterview(String threadId, String answer) {
+        public InterviewReply answerInterview(String threadId, String answer, List<String> blockedTopics) {
             throw new UnsupportedOperationException();
         }
 
