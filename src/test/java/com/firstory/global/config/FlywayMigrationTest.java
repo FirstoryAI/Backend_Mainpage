@@ -24,7 +24,7 @@ class FlywayMigrationTest extends IntegrationTest {
         assertThat(jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE version IS NOT NULL ORDER BY installed_rank",
                 String.class)).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
-                "17", "18");
+                "17", "18", "19");
         assertThat(jdbc.queryForObject("SELECT bool_and(success) FROM flyway_schema_history", Boolean.class))
                 .isTrue();
     }
@@ -206,6 +206,11 @@ class FlywayMigrationTest extends IntegrationTest {
                 "credit_expires_at");
         assertThat(columns("pre_contacts")).contains("email", "credit_amount", "credit_expires_at", "granted_user_id");
         assertThat(columns("users")).contains("signup_source");
+    }
+
+    @Test
+    void V19_사전_연락에_받을_수_있는_마감이_있다() {
+        assertThat(columns("pre_contacts")).contains("closes_at", "credit_expires_at");
     }
 
     private List<String> columns(String table) {

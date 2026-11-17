@@ -212,12 +212,12 @@ Actions는 SSH를 쓰지 않는다. GitHub OIDC로 AWS 역할을 받아 **SSM Ru
 
 | 가입 경로 | 무료 | 설정 |
 |---|---|---|
-| 초대 링크 (공용 코드, 선착순) | 코드의 `credit_amount`회, `credit_expires_at`까지 | `invite_codes` 행 |
-| 사전 연락 이메일 | 행의 `credit_amount`회, `credit_expires_at`까지 | `pre_contacts` 행 |
+| 초대 링크 (공용 코드, 선착순) | `closes_at` 전에 가입하면 `credit_amount`회, `credit_expires_at`까지 | `invite_codes` 행 |
+| 사전 연락 이메일 | `closes_at` 전에 가입·로그인하면 `credit_amount`회, `credit_expires_at`까지 | `pre_contacts` 행 |
 | 개발용 이메일 | 무제한 | `.env`의 `UNLIMITED_EMAILS` |
 | 일반 가입·기존 회원 | 1회, 기한 없음 | (자동) |
 
-무료는 한 종류만 받는다(초대·사전 연락 2회면 일반 1회는 없다). `.env`의 `BETA_INVITE_ONLY=true`면 초대 링크·사전 연락·개발용 이메일만 가입할 수 있다. 베타가 끝나면 `false`로 바꾸고 `docker compose up -d`.
+무료는 한 종류만 받는다(초대·사전 연락 2회면 일반 1회는 없다). `closes_at`(받을 수 있는 마감)이 지나면 초대 링크는 닫히고, 아직 받지 않은 사전 연락 이메일은 일반 가입·일반 회원(무료 1회)으로 본다. `credit_expires_at`(쓸 수 있는 기한)이 지나면 받은 이용권은 남아도 쓸 수 없다. `.env`의 `BETA_INVITE_ONLY=true`면 초대 링크·사전 연락·개발용 이메일만 가입할 수 있다. 베타가 끝나면 `false`로 바꾸고 `docker compose up -d`.
 
 DB 작업은 compose 폴더에서 `docker compose exec postgres psql -U firstory firstory`로 들어가서 한다. 시각 뒤의 `+09`는 한국 시간이라는 뜻이라 꼭 붙인다.
 
@@ -227,37 +227,39 @@ DB 작업은 compose 폴더에서 `docker compose exec postgres psql -U firstory
 -- 1) 추측하기 어려운 코드를 하나 만든다 (결과를 복사해 아래에 넣는다)
 SELECT substr(md5(random()::text || clock_timestamp()::text), 1, 12) AS code;
 
--- 2) 선착순 100명, 링크 마감과 무료 2회 기한 모두 11/22 23:59
+-- 2) 선착순 100명, 링크 마감 11/22 23:59, 받은 무료 2회는 11/30 23:59까지
 INSERT INTO invite_codes (code, max_uses, closes_at, credit_amount, credit_expires_at, created_at, updated_at)
-VALUES ('여기에코드', 100, '2026-11-22 23:59:59+09', 2, '2026-11-22 23:59:59+09', now(), now());
+VALUES ('여기에코드', 100, '2026-11-22 23:59:59+09', 2, '2026-11-30 23:59:59+09', now(), now());
 
 -- 보낼 링크: https://firstoryofficial.com/api/invite/여기에코드
 ```
 
-사전 연락 이메일 등록 (이미 회원이면 다음에 앱을 열 때 받는다)
+사전 연락 이메일 등록 (이미 회원이면 다음에 앱을 열 때 받는다). 11/22 23:59까지 가입·로그인하면 2회, 12/31 23:59까지 쓴다.
 
 ```sql
-INSERT INTO pre_contacts (email, credit_amount, credit_expires_at, created_at, updated_at)
+INSERT INTO pre_contacts (email, credit_amount, closes_at, credit_expires_at, created_at, updated_at)
 VALUES
-  (lower('kim@example.com'), 2, '2026-11-22 23:59:59+09', now(), now()),
-  (lower('lee@example.com'), 2, '2026-11-22 23:59:59+09', now(), now())
+  (lower('kim@example.com'), 2, '2026-11-22 23:59:59+09', '2026-12-31 23:59:59+09', now(), now()),
+  (lower('lee@example.com'), 2, '2026-11-22 23:59:59+09', '2026-12-31 23:59:59+09', now(), now())
 ON CONFLICT (email) DO NOTHING;
 ```
 
-연장 (예: 11/30까지)
+날짜 바꾸기. 받을 수 있는 마감(`closes_at`)과 쓸 수 있는 기한(`credit_expires_at`)은 따로 바꾼다. 쓸 수 있는 기한은 이미 받은 이용권(`story_credits.expires_at`)도 함께 바꾼다.
 
 ```sql
 BEGIN;
--- 초대 링크 마감 + 앞으로 받을 이용권 기한
+-- 초대: 링크 마감 / 앞으로 받을 이용권 기한
 UPDATE invite_codes
-SET closes_at = '2026-11-30 23:59:59+09', credit_expires_at = '2026-11-30 23:59:59+09', updated_at = now()
+SET closes_at = '2026-11-22 23:59:59+09', credit_expires_at = '2026-11-30 23:59:59+09', updated_at = now()
 WHERE code = '여기에코드';
--- 이미 초대로 받은 이용권 기한
+-- 초대: 이미 받은 이용권 기한
 UPDATE story_credits SET expires_at = '2026-11-30 23:59:59+09', updated_at = now()
 WHERE invite_code_id = (SELECT id FROM invite_codes WHERE code = '여기에코드');
--- 사전 연락: 앞으로 받을 것 + 이미 받은 것
-UPDATE pre_contacts SET credit_expires_at = '2026-11-30 23:59:59+09', updated_at = now();
-UPDATE story_credits SET expires_at = '2026-11-30 23:59:59+09', updated_at = now() WHERE source = 'PRE_CONTACT';
+-- 사전 연락: 받을 수 있는 마감 / 앞으로 받을 이용권 기한
+UPDATE pre_contacts
+SET closes_at = '2026-11-22 23:59:59+09', credit_expires_at = '2026-12-31 23:59:59+09', updated_at = now();
+-- 사전 연락: 이미 받은 이용권 기한
+UPDATE story_credits SET expires_at = '2026-12-31 23:59:59+09', updated_at = now() WHERE source = 'PRE_CONTACT';
 COMMIT;
 ```
 

@@ -105,6 +105,7 @@ public class CreditService {
     /**
      * 사전 연락 이메일로 이미 가입한 회원에게 사전 연락 이용권을 준다 (한 번만).
      * 무료 이용권은 한 종류만이라, 아직 안 쓴 일반 무료 1회는 없앤다.
+     * 이용권 기한이 지난 뒤에 처음 오면 아무것도 바꾸지 않는다 (일반 무료 1회 그대로).
      */
     @Transactional
     public void syncPreContact(Long userId) {
@@ -113,7 +114,7 @@ public class CreditService {
 
     private void syncPreContact(User user) {
         Optional<PreContact> contact = preContactRepository.findByEmailForUpdate(user.getEmail())
-                .filter(found -> !found.isGranted());
+                .filter(found -> found.isAvailable(clock.instant()));
         if (contact.isEmpty()) {
             return;
         }

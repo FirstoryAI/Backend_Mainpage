@@ -207,6 +207,72 @@ class CreditIntegrationTest extends IntegrationTest {
                 .isEqualTo(userId);
     }
 
+    @Test
+    void 사전_연락_이용권은_기한이_지나면_남아도_쓸_수_없다() throws Exception {
+        String email = newEmail();
+        preContact(email, Duration.ofDays(1));
+        Browser parent = signUp(email);
+
+        advance(Duration.ofDays(1));
+
+        // 무료는 한 종류만이라 일반 1회도 없다
+        parent.get("/api/me").andExpect(jsonPath("$.storiesRemaining").value(0));
+        parent.post("/api/stories", null).andExpect(jsonPath("$.code").value("STORY_LIMIT_REACHED"));
+    }
+
+    @Test
+    void 마감_전에_받은_사전_연락_이용권은_마감_뒤에도_기한까지_쓴다() throws Exception {
+        String email = newEmail();
+        preContact(email, Duration.ofDays(5), Duration.ofDays(40));
+        Browser parent = signUp(email);
+
+        advance(Duration.ofDays(6));
+        parent.get("/api/me").andExpect(jsonPath("$.storiesRemaining").value(2));
+        parent.post("/api/stories", null).andExpect(status().isCreated());
+
+        advance(Duration.ofDays(34));
+        parent.get("/api/me").andExpect(jsonPath("$.storiesRemaining").value(0));
+    }
+
+    @Test
+    void 받을_수_있는_마감이_지나면_이용권_기한이_남아도_일반_가입이다() throws Exception {
+        String email = newEmail();
+        preContact(email, Duration.ofDays(5), Duration.ofDays(40));
+        advance(Duration.ofDays(5));
+
+        signUp(email).get("/api/me")
+                .andExpect(jsonPath("$.signupSource").value("GENERAL"))
+                .andExpect(jsonPath("$.storiesRemaining").value(1));
+    }
+
+    @Test
+    void 기한이_지난_뒤_사전_연락_이메일로_가입하면_일반_가입이다() throws Exception {
+        String email = newEmail();
+        preContact(email, Duration.ofDays(1));
+        advance(Duration.ofDays(1));
+
+        Browser parent = signUp(email);
+
+        parent.get("/api/me")
+                .andExpect(jsonPath("$.signupSource").value("GENERAL"))
+                .andExpect(jsonPath("$.storiesRemaining").value(1));
+        assertThat(jdbc.queryForObject("SELECT granted_at FROM pre_contacts WHERE email = ?", Object.class, email))
+                .isNull();
+    }
+
+    @Test
+    void 기한이_지난_뒤_처음_로그인한_사전_연락_회원은_일반_1회가_그대로다() throws Exception {
+        String email = newEmail();
+        Browser parent = signUp(email);
+        preContact(email, Duration.ofDays(1));
+        advance(Duration.ofDays(1));
+
+        parent.get("/api/me").andExpect(jsonPath("$.storiesRemaining").value(1));
+        parent.post("/api/stories", null).andExpect(status().isCreated());
+        assertThat(jdbc.queryForObject("SELECT granted_at FROM pre_contacts WHERE email = ?", Object.class, email))
+                .isNull();
+    }
+
     private String inviteCode(int maxUses, Duration closesIn, Duration creditsFor) {
         String code = "c" + UUID.randomUUID().toString().replace("-", "").substring(0, 11);
         Instant now = clock.instant();
@@ -219,8 +285,14 @@ class CreditIntegrationTest extends IntegrationTest {
     }
 
     private void preContact(String email, Duration creditsFor) {
+        preContact(email, creditsFor, creditsFor);
+    }
+
+    private void preContact(String email, Duration closesIn, Duration creditsFor) {
+        Instant now = clock.instant();
         jdbc.update("""
-                INSERT INTO pre_contacts (email, credit_amount, credit_expires_at, created_at, updated_at)
-                VALUES (?, 2, ?, now(), now())""", email, Timestamp.from(clock.instant().plus(creditsFor)));
+                INSERT INTO pre_contacts (email, credit_amount, closes_at, credit_expires_at, created_at, updated_at)
+                VALUES (?, 2, ?, ?, now(), now())""",
+                email, Timestamp.from(now.plus(closesIn)), Timestamp.from(now.plus(creditsFor)));
     }
 }
