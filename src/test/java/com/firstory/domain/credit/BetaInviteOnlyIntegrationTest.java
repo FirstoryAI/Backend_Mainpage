@@ -130,16 +130,19 @@ class BetaInviteOnlyIntegrationTest extends IntegrationTest {
         parent.post("/api/auth/kakao/login", """
                 {"code": "%s", "redirectUri": "http://localhost:5173/oauth/kakao"}""".formatted(code))
                 .andExpect(jsonPath("$.status").value("SIGNUP_REQUIRED"));
-        parent.post("/api/auth/kakao/signup", """
-                {"consents": %s, "termsVersion": "2026-10-01"}""".formatted(allConsents()))
+        parent.post("/api/auth/kakao/signup", kakaoSignupJson())
                 .andExpect(jsonPath("$.code").value("SIGNUP_INVITE_REQUIRED"));
 
         parent.get("/api/invite/" + inviteCode(100));
-        parent.post("/api/auth/kakao/signup", """
-                {"consents": %s, "termsVersion": "2026-10-01"}""".formatted(allConsents()))
+        parent.post("/api/auth/kakao/signup", kakaoSignupJson())
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.signupSource").value("INVITE"))
                 .andExpect(jsonPath("$.storiesRemaining").value(2));
+    }
+
+    private String kakaoSignupJson() {
+        return """
+                {"consents": %s, "termsVersion": "2026-10-01"}""".formatted(allConsents());
     }
 
     private String inviteCode(int maxUses) {

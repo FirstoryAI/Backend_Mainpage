@@ -11,6 +11,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.web.servlet.ResultMatcher;
 
 import java.sql.Timestamp;
 import java.time.Duration;
@@ -134,7 +135,7 @@ class CreditIntegrationTest extends IntegrationTest {
         Browser parent = browser();
         parent.get("/api/invite/" + code)
                 .andExpect(status().isFound())
-                .andExpect(result -> assertThat(result.getResponse().getHeader("Location")).isEqualTo("/auth"));
+                .andExpect(redirectsTo("/auth"));
 
         String email = newEmail();
         signUpIn(parent, email, allConsents());
@@ -166,12 +167,8 @@ class CreditIntegrationTest extends IntegrationTest {
     void 마감된_초대_링크는_표시를_남기지_않고_일반_가입이_된다() throws Exception {
         String full = inviteCode(0, Duration.ofDays(1), Duration.ofDays(1));
         Browser parent = browser();
-        parent.get("/api/invite/" + full)
-                .andExpect(result -> assertThat(result.getResponse().getHeader("Location"))
-                        .isEqualTo("/auth?invite=closed"));
-        parent.get("/api/invite/none-such-code")
-                .andExpect(result -> assertThat(result.getResponse().getHeader("Location"))
-                        .isEqualTo("/auth?invite=closed"));
+        parent.get("/api/invite/" + full).andExpect(redirectsTo("/auth?invite=closed"));
+        parent.get("/api/invite/none-such-code").andExpect(redirectsTo("/auth?invite=closed"));
 
         signUpIn(parent, newEmail(), allConsents());
 
@@ -188,8 +185,7 @@ class CreditIntegrationTest extends IntegrationTest {
 
         parent.get("/api/me").andExpect(jsonPath("$.storiesRemaining").value(2));
         parent.get("/api/me").andExpect(jsonPath("$.storiesRemaining").value(2));
-        assertThat(jdbc.queryForObject("SELECT granted_at FROM pre_contacts WHERE email = ?", Object.class, email))
-                .isNotNull();
+        assertThat(preContactGrantedAt(email)).isNotNull();
     }
 
     @Test
@@ -257,8 +253,7 @@ class CreditIntegrationTest extends IntegrationTest {
         parent.get("/api/me")
                 .andExpect(jsonPath("$.signupSource").value("GENERAL"))
                 .andExpect(jsonPath("$.storiesRemaining").value(1));
-        assertThat(jdbc.queryForObject("SELECT granted_at FROM pre_contacts WHERE email = ?", Object.class, email))
-                .isNull();
+        assertThat(preContactGrantedAt(email)).isNull();
     }
 
     @Test
@@ -270,8 +265,7 @@ class CreditIntegrationTest extends IntegrationTest {
 
         parent.get("/api/me").andExpect(jsonPath("$.storiesRemaining").value(1));
         parent.post("/api/stories", null).andExpect(status().isCreated());
-        assertThat(jdbc.queryForObject("SELECT granted_at FROM pre_contacts WHERE email = ?", Object.class, email))
-                .isNull();
+        assertThat(preContactGrantedAt(email)).isNull();
     }
 
     @Test
@@ -326,6 +320,14 @@ class CreditIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.credits.unlimited").value(true))
                 .andExpect(jsonPath("$.credits.remaining").doesNotExist())
                 .andExpect(jsonPath("$.credits.total").doesNotExist());
+    }
+
+    private static ResultMatcher redirectsTo(String location) {
+        return result -> assertThat(result.getResponse().getHeader("Location")).isEqualTo(location);
+    }
+
+    private Object preContactGrantedAt(String email) {
+        return jdbc.queryForObject("SELECT granted_at FROM pre_contacts WHERE email = ?", Object.class, email);
     }
 
     private String inviteCode(int maxUses, Duration closesIn, Duration creditsFor) {

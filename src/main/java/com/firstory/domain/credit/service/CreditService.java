@@ -23,7 +23,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * 동화 이용권. 동화 한 편을 AI로 처음 만들 때(생성 확정) 1회를 쓴다. 다시 만들기·다시 시도는 쓰지 않는다.
@@ -33,6 +32,11 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class CreditService {
+
+    // 곧 끝나는 이용권부터 (기한 없는 것은 맨 뒤), 같으면 먼저 받은 것부터
+    private static final Comparator<StoryCredit> EXPIRING_FIRST = Comparator
+            .comparing(StoryCredit::getExpiresAt, Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(StoryCredit::getId);
 
     private final StoryCreditRepository creditRepository;
     private final StoryCreditUseRepository useRepository;
@@ -114,9 +118,8 @@ public class CreditService {
         List<StoryCredit> credits = creditRepository.findByUserIdForUpdate(user.getId());
         Map<Long, Long> used = usedCounts(credits);
         StoryCredit credit = credits.stream()
-                .filter(c -> c.isActive(now) && c.getAmount() > used.getOrDefault(c.getId(), 0L))
-                .min(Comparator.comparing((StoryCredit c) -> c.getExpiresAt() == null ? Instant.MAX : c.getExpiresAt())
-                        .thenComparing(StoryCredit::getId))
+                .filter(c -> c.isActive(now) && unused(c, used) > 0)
+                .min(EXPIRING_FIRST)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_LIMIT_REACHED));
         useRepository.save(StoryCreditUse.of(credit, story));
     }
@@ -140,18 +143,19 @@ public class CreditService {
     }
 
     private void syncPreContact(User user) {
-        Optional<PreContact> contact = preContactRepository.findByEmailForUpdate(user.getEmail())
-                .filter(found -> found.isAvailable(clock.instant()));
-        if (contact.isEmpty()) {
+        PreContact contact = preContactRepository.findByEmailForUpdate(user.getEmail())
+                .filter(found -> found.isAvailable(clock.instant()))
+                .orElse(null);
+        if (contact == null) {
             return;
         }
         List<StoryCredit> credits = creditRepository.findByUserIdForUpdate(user.getId());
         Map<Long, Long> used = usedCounts(credits);
         credits.stream().filter(c -> c.getSource() == CreditSource.SIGNUP_FREE)
-                .forEach(c -> c.closeAt(used.getOrDefault(c.getId(), 0L)));
-        creditRepository.save(StoryCredit.grant(user, CreditSource.PRE_CONTACT, contact.get().getCreditAmount(),
-                contact.get().getCreditExpiresAt(), null));
-        contact.get().markGranted(user, clock.instant());
+                .forEach(c -> c.closeAt(usedOf(c, used)));
+        creditRepository.save(StoryCredit.grant(user, CreditSource.PRE_CONTACT, contact.getCreditAmount(),
+                contact.getCreditExpiresAt(), null));
+        contact.markGranted(user, clock.instant());
     }
 
     private boolean isUnlimited(User user) {
@@ -162,8 +166,16 @@ public class CreditService {
         Instant now = clock.instant();
         Map<Long, Long> used = usedCounts(credits);
         return (int) credits.stream().filter(c -> c.isActive(now))
-                .mapToLong(c -> Math.max(0, c.getAmount() - used.getOrDefault(c.getId(), 0L)))
+                .mapToLong(c -> Math.max(0, unused(c, used)))
                 .sum();
+    }
+
+    private static long unused(StoryCredit credit, Map<Long, Long> used) {
+        return credit.getAmount() - usedOf(credit, used);
+    }
+
+    private static long usedOf(StoryCredit credit, Map<Long, Long> used) {
+        return used.getOrDefault(credit.getId(), 0L);
     }
 
     private Map<Long, Long> usedCounts(List<StoryCredit> credits) {

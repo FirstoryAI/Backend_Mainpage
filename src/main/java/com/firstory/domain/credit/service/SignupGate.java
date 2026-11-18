@@ -54,8 +54,10 @@ public class SignupGate {
      */
     @Transactional(readOnly = true)
     public boolean acceptInvite(String code, HttpSession session) {
-        Optional<InviteCode> invite = code == null ? Optional.empty() : inviteCodeRepository.findByCode(code.trim());
-        if (invite.isEmpty() || !invite.get().isOpen(clock.instant())) {
+        Optional<InviteCode> invite = Optional.ofNullable(code)
+                .flatMap(value -> inviteCodeRepository.findByCode(value.trim()))
+                .filter(found -> found.isOpen(clock.instant()));
+        if (invite.isEmpty()) {
             return false;
         }
         session.setAttribute(TICKET_ATTRIBUTE, new InviteTicket(invite.get().getId(), clock.instant()));
@@ -67,10 +69,9 @@ public class SignupGate {
      */
     @Transactional(readOnly = true)
     public void checkCanSignUp(String email, HttpSession session) {
-        if (!properties.beta().inviteOnly()) {
-            return;
-        }
-        if (properties.beta().isUnlimited(email) || availablePreContact(email).isPresent()) {
+        if (!properties.beta().inviteOnly()
+                || properties.beta().isUnlimited(email)
+                || availablePreContact(email).isPresent()) {
             return;
         }
         InviteTicket ticket = ticket(session);
@@ -101,8 +102,7 @@ public class SignupGate {
         }
         InviteTicket ticket = ticket(session);
         if (ticket != null) {
-            Instant now = clock.instant();
-            if (inviteCodeRepository.claim(ticket.inviteCodeId(), now) == 1) {
+            if (inviteCodeRepository.claim(ticket.inviteCodeId(), clock.instant()) == 1) {
                 return SignupGrant.invite(inviteCodeRepository.findById(ticket.inviteCodeId()).orElseThrow());
             }
             if (properties.beta().inviteOnly()) {

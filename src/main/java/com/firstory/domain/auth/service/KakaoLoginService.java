@@ -88,16 +88,7 @@ public class KakaoLoginService {
         ConsentPolicy.validateRequired(request.consents());
 
         User user = transactionTemplate.execute(status -> {
-            String email;
-            if (pending.emailVerified()) {
-                email = pending.email();
-            } else {
-                if (request.email() == null || request.email().isBlank()) {
-                    throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
-                }
-                email = User.normalizeEmail(request.email());
-                emailVerificationService.requireVerified(session, email, EmailPurpose.SIGNUP);
-            }
+            String email = signupEmail(pending, request, session);
             if (userRepository.existsByKakaoId(pending.kakaoId())) {
                 throw new BusinessException(ErrorCode.KAKAO_ACCOUNT_REGISTERED);
             }
@@ -114,6 +105,21 @@ public class KakaoLoginService {
         session.removeAttribute(PENDING_ATTRIBUTE);
         emailVerificationService.clearVerified(session);
         return user;
+    }
+
+    /**
+     * 카카오가 인증한 이메일이면 그대로, 아니면 같은 세션에서 우리 이메일 인증(SIGNUP)을 마친 요청의 이메일.
+     */
+    private String signupEmail(PendingKakaoSignup pending, KakaoSignupRequest request, HttpSession session) {
+        if (pending.emailVerified()) {
+            return pending.email();
+        }
+        if (request.email() == null || request.email().isBlank()) {
+            throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
+        }
+        String email = User.normalizeEmail(request.email());
+        emailVerificationService.requireVerified(session, email, EmailPurpose.SIGNUP);
+        return email;
     }
 
     private void checkRedirectUri(String redirectUri) {

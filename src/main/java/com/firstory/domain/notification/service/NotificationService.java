@@ -6,7 +6,6 @@ import com.firstory.domain.notification.entity.Notification;
 import com.firstory.domain.notification.entity.NotificationTemplate;
 import com.firstory.domain.notification.entity.NotificationType;
 import com.firstory.domain.notification.repository.NotificationRepository;
-import com.firstory.domain.story.entity.Story;
 import com.firstory.domain.user.entity.User;
 import com.firstory.global.mail.EmailSender;
 import com.firstory.global.mail.MailContent;
@@ -18,13 +17,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.Map;
-
+import java.util.function.Consumer;
 
 /**
  * 생성 실행의 이메일 알림.
  *
  * <ol>
- *   <li>회원의 최신 EMAIL_NOTIFY 동의가 활성이 아니면 보내지 않는다</li>
+ *   <li>회원이 탈퇴했거나 알림 수신(users.email_notify)에 동의하지 않았으면 보내지 않는다</li>
  *   <li>같은 (실행, 종류)가 이미 있으면 보내지 않는다 (UNIQUE)</li>
  *   <li>PENDING으로 저장 → 트랜잭션 밖에서 메일 발송 → SENT / FAILED 저장</li>
  * </ol>
@@ -70,13 +69,11 @@ public class NotificationService {
             emailSender.send(pending.email(), new MailContent(template.getSubject(),
                     MailTemplates.withContact(template.getText()),
                     mailTemplates.html(template.getHtmlTemplate(), Map.of())));
-            transactionTemplate.executeWithoutResult(status -> notificationRepository.findById(pending.notificationId())
-                    .ifPresent(Notification::sent));
+            update(pending.notificationId(), Notification::sent);
         } catch (RuntimeException e) {
             log.warn("알림 메일을 보내지 못했어요: notification_id={}, cause={}", pending.notificationId(),
                     e.getClass().getSimpleName());
-            transactionTemplate.executeWithoutResult(status -> notificationRepository.findById(pending.notificationId())
-                    .ifPresent(notification -> notification.failed(e.getClass().getSimpleName())));
+            update(pending.notificationId(), notification -> notification.failed(e.getClass().getSimpleName()));
         }
     }
 
@@ -85,8 +82,7 @@ public class NotificationService {
         if (run == null) {
             return null;
         }
-        Story story = run.getStory();
-        User user = story.getUser();
+        User user = run.getStory().getUser();
         if (user.isWithdrawn() || !user.isEmailNotify()) {
             return null;
         }
@@ -95,6 +91,11 @@ public class NotificationService {
         }
         Notification notification = notificationRepository.saveAndFlush(Notification.pending(run, type));
         return new Pending(notification.getId(), user.getEmail());
+    }
+
+    private void update(Long notificationId, Consumer<Notification> change) {
+        transactionTemplate.executeWithoutResult(status -> notificationRepository.findById(notificationId)
+                .ifPresent(change));
     }
 
     private record Pending(Long notificationId, String email) {
