@@ -4,7 +4,8 @@ import java.util.Optional;
 
 /**
  * 그림 같은 결과물 파일 저장소. key는 `stories/{storyId}/runs/{runNo}/images/page-01.webp` 형식이다.
- * 지금은 로컬 폴더(LocalFileStorage)만 있다. S3로 바꿔도 이 인터페이스와 그림 API는 그대로 둔다.
+ * 구현은 로컬 폴더(LocalFileStorage)와 S3 버킷(S3FileStorage)이고 firstory.storage.type으로 고른다 (StorageConfig).
+ * 어느 쪽이든 이 인터페이스와 그림 API는 같다.
  * <p>
  * key는 DB에 저장된 값으로만 만든다. 요청 값으로 key를 만들지 않는다.
  */
