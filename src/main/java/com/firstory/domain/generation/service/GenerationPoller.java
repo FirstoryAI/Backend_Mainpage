@@ -5,7 +5,6 @@ import com.firstory.domain.generation.entity.GenerationStage;
 import com.firstory.domain.generation.repository.GenerationRunRepository;
 import com.firstory.domain.notification.entity.NotificationType;
 import com.firstory.domain.notification.service.NotificationService;
-import com.firstory.domain.story.entity.Story;
 import com.firstory.domain.story.entity.StoryStatus;
 import com.firstory.global.ai.AiClient;
 import com.firstory.global.ai.AiGenerationResult;
@@ -83,7 +82,7 @@ public class GenerationPoller {
     private void poll(Long runId) {
         RunRef run = transactionTemplate.execute(status -> runRepository.findById(runId)
                 .filter(GenerationRun::isRunning)
-                .map(found -> new RunRef(found.getId(), found.getStory().getThreadId(), found.getStartedAt()))
+                .map(found -> new RunRef(found.getStory().getThreadId(), found.getStartedAt()))
                 .orElse(null));
         if (run == null) {
             return;
@@ -140,27 +139,25 @@ public class GenerationPoller {
     }
 
     /**
-     * @return 이번에 실패로 바꿨으면 true (이미 다른 쪽이 처리했으면 false)
+     * 아직 RUNNING이면 실행과 스토리를 실패로 바꾸고, 트랜잭션이 끝난 뒤 알림을 보낸다.
+     * 이미 다른 쪽이 처리했으면 아무것도 하지 않는다.
      */
-    boolean fail(Long runId, String errorCode) {
-        // 트랜잭션이 끝난 뒤 알림을 보낸다
+    private void fail(Long runId, String errorCode) {
         Boolean failed = transactionTemplate.execute(status -> runRepository.findByIdForUpdate(runId)
                 .filter(GenerationRun::isRunning)
                 .map(run -> {
                     run.fail(errorCode, clock.instant());
-                    Story story = run.getStory();
-                    story.changeStatus(StoryStatus.FAILED);
+                    run.getStory().changeStatus(StoryStatus.FAILED);
                     return true;
                 })
                 .orElse(false));
         if (!Boolean.TRUE.equals(failed)) {
-            return false;
+            return;
         }
         log.info("생성이 실패했어요: run_id={}, code={}", runId, errorCode);
         notificationService.notify(runId, NotificationType.STORY_FAILED);
-        return true;
     }
 
-    private record RunRef(Long id, String threadId, Instant startedAt) {
+    private record RunRef(String threadId, Instant startedAt) {
     }
 }

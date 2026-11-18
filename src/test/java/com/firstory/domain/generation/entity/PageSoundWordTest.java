@@ -1,5 +1,6 @@
 package com.firstory.domain.generation.entity;
 
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -77,7 +78,7 @@ class PageSoundWordTest {
         assertThat(PageSoundWord.validated(new PageSoundWord("톡", "#FFFFFF", List.of(piece("톡", 101, 1, PieceSide.CENTER))))).isNull();
         assertThat(PageSoundWord.validated(new PageSoundWord("톡", "#FFFFFF", List.of(piece("톡", Double.NaN, 1, PieceSide.CENTER))))).isNull();
         assertThat(PageSoundWord.validated(new PageSoundWord("톡", "#FFFFFF", List.of(piece("톡", 1, 1, null))))).isNull();
-        assertThat(PageSoundWord.validated(new PageSoundWord("톡", "#FFFFFF", java.util.Arrays.asList((PageSoundWord.Piece) null)))).isNull();
+        assertThat(PageSoundWord.validated(new PageSoundWord("톡", "#FFFFFF", Arrays.asList((PageSoundWord.Piece) null)))).isNull();
     }
 
     @Test

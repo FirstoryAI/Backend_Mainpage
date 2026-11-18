@@ -22,9 +22,10 @@ import com.firstory.domain.safety.entity.SafetySource;
 import com.firstory.domain.safety.service.SafetyGuard;
 import com.firstory.domain.story.dto.StoryStepResponse;
 import com.firstory.domain.story.entity.Story;
+import com.firstory.domain.story.entity.StoryInput;
 import com.firstory.domain.story.entity.StoryStatus;
-import com.firstory.domain.story.service.StoryLoader;
 import com.firstory.domain.story.service.BlockedTopics;
+import com.firstory.domain.story.service.StoryLoader;
 import com.firstory.global.ai.AiClient;
 import com.firstory.global.config.FirstoryProperties;
 import com.firstory.global.entity.CustomText;
@@ -39,7 +40,6 @@ import java.time.Clock;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -110,13 +110,14 @@ public class ReviewService {
         // ①
         Prepared prepared = transactionTemplate.execute(status -> {
             Story story = loader.findEditable(userId, storyId, REVIEWING);
-            blockedTopics.requireOpen(loader.input(story).getSituationCategory());   // 막기 전에 만든 동화
+            StoryInput input = loader.input(story);
+            blockedTopics.requireOpen(input.getSituationCategory());   // 막기 전에 만든 동화
             if (story.getRegenerateCount() >= maxRegenerations) {
                 throw new BusinessException(ErrorCode.REGENERATION_LIMIT_REACHED);
             }
             StoryVersion current = currentVersion(story);
             return new Prepared(story, current.getId(), current.getCheckpointId(), generationService.nextRunNo(story),
-                    loader.input(story).isToneRequired());
+                    input.isToneRequired());
         });
         Story story = prepared.story();
 
@@ -262,6 +263,7 @@ public class ReviewService {
 
     /**
      * IMAGES는 1~page-count 안의 중복 없는 쪽(비면 전체). 다른 범위에 쪽을 보내면 INVALID_PAGE_SELECTION.
+     * 검사를 지난 쪽 번호에는 null이 없다.
      */
     private List<Integer> targetPages(RegenerateScope scope, List<Integer> pages) {
         if (scope == RegenerateScope.ALL) {
@@ -280,7 +282,7 @@ public class ReviewService {
                 throw new BusinessException(ErrorCode.INVALID_PAGE_SELECTION);
             }
         }
-        return requested.stream().filter(Objects::nonNull).sorted().toList();
+        return requested.stream().sorted().toList();
     }
 
     private static String feedback(String raw) {
