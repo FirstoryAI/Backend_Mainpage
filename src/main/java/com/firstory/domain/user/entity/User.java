@@ -56,6 +56,10 @@ public class User extends BaseTimeEntity {
     @Column(name = "onboarding_seen_at")
     private Instant onboardingSeenAt;
 
+    // 정식 출시(구독) 알림 신청 시각. 무료 동화를 다 쓴 뒤 팝업에서 신청한다
+    @Column(name = "subscription_alert_at")
+    private Instant subscriptionAlertAt;
+
     @Column(name = "failed_login_count", nullable = false)
     private int failedLoginCount;
 
@@ -99,6 +103,19 @@ public class User extends BaseTimeEntity {
 
     public boolean hasSeenOnboarding() {
         return onboardingSeenAt != null;
+    }
+
+    /**
+     * 정식 출시 알림 신청. 여러 번 눌러도 처음 신청한 시각을 남긴다.
+     */
+    public void requestSubscriptionAlert(Instant now) {
+        if (subscriptionAlertAt == null) {
+            subscriptionAlertAt = now;
+        }
+    }
+
+    public boolean hasSubscriptionAlert() {
+        return subscriptionAlertAt != null;
     }
 
     /**

@@ -41,6 +41,11 @@ public class MeService {
     }
 
     @Transactional
+    public void requestSubscriptionAlert(Long userId) {
+        findUser(userId).requestSubscriptionAlert(clock.instant());
+    }
+
+    @Transactional
     public void changeEmailNotify(Long userId, boolean agreed) {
         findUser(userId).changeEmailNotify(agreed);
     }
@@ -88,7 +93,7 @@ public class MeService {
         CreditService.CreditSummary credits = creditService.summary(user.getId());
         return new MeResponse(user.getId(), user.getEmail(), user.hasSeenOnboarding(), user.isEmailNotify(),
                 user.isKakaoLinked(), user.hasPassword(), user.getSignupSource(), credits.unlimited(),
-                credits.remaining(), new MeResponse.FeedbackSubmitted(
+                credits.remaining(), user.hasSubscriptionAlert(), new MeResponse.FeedbackSubmitted(
                         storyFeedbackRepository.existsByUserId(user.getId()),
                         readingFeedbackRepository.existsByUserId(user.getId())));
     }

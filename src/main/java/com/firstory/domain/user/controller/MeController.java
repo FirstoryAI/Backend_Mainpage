@@ -62,6 +62,15 @@ public class MeController {
         meService.markOnboardingSeen(principal.getUserId());
     }
 
+    @Operation(summary = "정식 출시 알림 신청",
+            description = "무료 동화를 다 쓴 뒤 플랜 팝업의 '정식 출시 알림 받기'. 신청 시각을 남기고, 정식 출시되면 가입 이메일로 알린다. "
+                    + "여러 번 불러도 처음 신청 시각을 유지한다. 신청 여부는 GET /api/me의 subscriptionAlert. 응답 204")
+    @PostMapping("/subscription-alert")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void subscriptionAlert(@AuthenticationPrincipal UserPrincipal principal) {
+        meService.requestSubscriptionAlert(principal.getUserId());
+    }
+
     @Operation(summary = "이메일 알림 동의 바꾸기", description = "동의하면 새 동의 기록을 남기고, 철회하면 최신 기록에 철회 시각을 남긴다. 응답 204")
     @ApiErrorCodes(ErrorCode.VALIDATION_FAILED)
     @PutMapping("/consents/email-notify")

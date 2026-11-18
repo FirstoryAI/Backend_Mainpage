@@ -118,6 +118,8 @@
 - 숫자는 프론트에서 빼지 않는다. 새 동화의 생성을 시작할 때(`POST /confirm`) 서버가 1 줄인다. 홈에 들어올 때마다 다시 불러 서버 값을 쓴다.
 - `unlimited`가 `false`이고 `remaining`이 0이면 새 동화 만들기 전에 안내한다. 서버도 `POST /api/stories`를 403 `STORY_LIMIT_REACHED`로 막는다.
 
+**무료를 다 썼을 때 (정식 출시 알림)**: 남은 횟수가 0이면 "무료로 만들 수 있는 동화를 모두 만들었어요" 팝업 → [확인] → 플랜 팝업(화면에 고정 문구) → [정식 출시 알림 받기]에서 `POST /api/me/subscription-alert`(본문 없음) → 204. 여러 번 불러도 처음 신청 시각을 유지한다. 이미 신청했는지는 `GET /api/me`의 `subscriptionAlert`(true면 "알림 신청 완료"로 보여 줄 수 있다). 정식 출시되면 가입 이메일로 알린다(버튼 근처에 "정식 출시되면 이메일로 알려 드려요"를 함께 적는다).
+
 카드(`StoryCardResponse`): `id, title, status, label, category, categoryLabel, coverUrl, childDisplayName, createdAt, updatedAt`. `category`는 상황 분류 코드(`SituationCategory`, 서재 주제 칩은 이 코드로 나눈다), `categoryLabel`은 상황 분류 문구("기타"를 골랐으면 직접 입력한 분류)이고, 상황을 아직 입력하지 않았으면 둘 다 null. `title`, `coverUrl`은 그림이 나오기 전엔 null. `coverUrl`은 **제목이 그림 안에 들어간 정사각형(1:1) 표지**다. 표지가 없는 예전 동화는 캐릭터 시트(16:9) 주소라, 칸은 `object-fit: cover`로 채운다. **차단된 동화(BLOCKED)는 홈과 서재에 나오지 않는다.**
 
 ---
@@ -445,7 +447,7 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `GET /api/me`, `GET /api/children` | `email`, `emailNotify`, `kakaoLinked`, `hasPassword`, `storiesRemaining`(남은 동화 수, 무제한이면 null) / 아이 목록 |
+| 들어올 때 | `GET /api/me`, `GET /api/children` | `email`, `emailNotify`, `kakaoLinked`, `hasPassword`, `storiesRemaining`(남은 동화 수, 무제한이면 null), `subscriptionAlert`(정식 출시 알림 신청 여부) / 아이 목록 |
 | 이메일 알림 켜기·끄기 | `PUT /api/me/consents/email-notify` `{agreed: true}` | 204 |
 | 아이 추가 | `POST /api/children` (CRT-03의 `profile`과 같은 본문) | 201 |
 | 아이 정보 수정 | `PUT /api/children/{childId}` | 200 |
