@@ -252,7 +252,7 @@ com.firstory
 - 쿠키는 모두 HttpOnly(CSRF 쿠키 제외), SameSite=Lax, Secure는 `COOKIE_SECURE`.
 - CSRF는 켠다(SPA 방식). 프론트는 앱을 열 때와 로그아웃한 뒤 `GET /api/auth/csrf`를 불러 `XSRF-TOKEN` 쿠키를 받고, 상태를 바꾸는 요청에 `X-XSRF-TOKEN` 헤더로 돌려보낸다. 로그인, 가입도 검사한다.
 - 로그인은 필터가 아닌 API(`LoginService` + `LoginSuccessHandler`)에서 처리하고 `SecurityContextRepository`로 명시적으로 저장한다. 로그아웃은 `LogoutFilter`(`POST /api/auth/logout`).
-- 가입은 이메일 인증(`EmailVerificationService`, 6자리, 5분 유효, 60초 재발송·1시간 5번, 인증 결과 세션 10분 1회) 뒤 이메일 + 비밀번호. 휴대폰은 받지 않는다. 비밀번호 찾기도 이메일 인증(PASSWORD_RESET, 가입 여부를 드러내지 않는다).
+- 가입은 이메일 인증(`EmailVerificationService`, 6자리, 5분 유효, 60초 재발송·1시간 5번, 인증 결과 세션 10분 1회) 뒤 이메일 + 비밀번호. 휴대폰은 받지 않는다. 비밀번호 찾기도 이메일 인증(PASSWORD_RESET). 가입한 회원이 없으면(탈퇴 포함) 발송 기록 전에 404 `EMAIL_NOT_REGISTERED`(#89, 가입 여부는 `email/check`로도 알 수 있어 숨기지 않는다).
 - 카카오 로그인(`KakaoLoginService`): 카카오 회원번호(`users.kakao_id`)로 회원을 찾는다. 처음이면 세션에 `PendingKakaoSignup`(10분)을 남기고 `kakao/signup`에서 동의를 받아 만든다. 카카오가 인증한 이메일(`is_email_valid && is_email_verified`)이면 우리 이메일 인증을 건너뛰고, 아니면 이메일 인증(SIGNUP)을 마친 이메일로 만든다. **같은 이메일의 회원이 있으면 계정을 합치지 않고 `KAKAO_EMAIL_REGISTERED`.** 카카오 회원은 `password_hash`가 null이라 이메일 로그인은 `INVALID_CREDENTIALS`, 비밀번호 변경은 `PASSWORD_NOT_SET`, 탈퇴는 비밀번호 없이, 비밀번호 찾기로 비밀번호를 만들 수 있다.
 - 인증번호와 인증 결과는 세션에 저장한다(코드는 SHA-256 해시만). 세션에 넣는 객체는 `Serializable` record로 만들고 `toString`에서 번호를 가린다.
 - 비밀번호 변경과 탈퇴는 `SessionRevoker.revokeAll(email)`로 그 회원의 모든 세션과 remember-me 토큰을 지운다. Principal 이름은 이메일이다.

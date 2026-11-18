@@ -74,8 +74,9 @@ public class AuthController {
     @Operation(summary = "인증번호 받기",
             description = "6자리 인증번호를 메일로 보낸다. 5분 유효. 같은 이메일은 60초 뒤에 다시 받을 수 있고 1시간에 5번까지. "
                     + "purpose가 SIGNUP이면 이미 가입된 이메일인지 확인한다. "
-                    + "PASSWORD_RESET은 가입 여부와 상관없이 같은 응답이다 (가입되지 않은 이메일이면 메일만 가지 않는다)")
-    @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.DUPLICATE_EMAIL, ErrorCode.SIGNUP_INVITE_REQUIRED,
+                    + "PASSWORD_RESET은 가입된 이메일인지 확인한다 (탈퇴한 회원 포함 없으면 404 EMAIL_NOT_REGISTERED)")
+    @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.DUPLICATE_EMAIL, ErrorCode.EMAIL_NOT_REGISTERED,
+            ErrorCode.SIGNUP_INVITE_REQUIRED,
             ErrorCode.INVITE_CLOSED, ErrorCode.VERIFICATION_RESEND_TOO_SOON,
             ErrorCode.VERIFICATION_RATE_LIMITED, ErrorCode.EMAIL_SEND_FAILED})
     @PostMapping("/email/send-code")

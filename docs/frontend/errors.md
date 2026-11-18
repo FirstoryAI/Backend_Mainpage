@@ -49,6 +49,7 @@
 | `REQUIRED_CONSENT_MISSING` | 400 | 필수 항목에 모두 동의해야 가입할 수 있어요. | `POST /api/auth/signup`, `POST /api/auth/kakao/signup` |
 | `EMAIL_CHECK_RATE_LIMITED` | 429 | 이메일 확인을 너무 많이 했어요. 1분 후 다시 시도해 주세요. | `POST /api/auth/email/check` (같은 IP에서 1분에 11번째부터) |
 | `DUPLICATE_EMAIL` | 409 | 이미 가입된 이메일이에요. | `send-code`(SIGNUP), `POST /api/auth/signup` (`email/check`에서 미리 봐도 그사이 누가 가입했을 수 있다) |
+| `EMAIL_NOT_REGISTERED` | 404 | 가입되지 않은 이메일이에요. | `send-code`(PASSWORD_RESET) (가입한 회원이 없다. 탈퇴한 회원 포함. 메일은 가지 않는다) |
 | `KAKAO_LOGIN_FAILED` | 400 | 카카오 로그인에 실패했어요. 카카오 로그인을 다시 해 주세요. | `POST /api/auth/kakao/login` (code 만료·재사용, redirectUri 불일치) → 카카오 로그인부터 다시 |
 | `INVALID_KAKAO_REDIRECT_URI` | 400 | 등록되지 않은 카카오 로그인 주소예요. | `POST /api/auth/kakao/login` (서버 `KAKAO_REDIRECT_URIS`에 없는 redirectUri. 개발 설정 문제) |
 | `KAKAO_UNAVAILABLE` | 503 | 카카오가 잠시 응답하지 않아요. 잠시 후 다시 시도해 주세요. | `POST /api/auth/kakao/login` |
