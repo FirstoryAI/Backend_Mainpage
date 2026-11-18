@@ -182,10 +182,6 @@ public class Story extends BaseTimeEntity {
         }
     }
 
-    public boolean isOwnedBy(Long userId) {
-        return user.getId() != null && user.getId().equals(userId);
-    }
-
     public String libraryLabel() {
         return switch (status) {
             case DRAFT, INTERVIEWING, CONFIRMING -> "만들던 이야기";

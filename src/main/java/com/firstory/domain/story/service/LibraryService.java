@@ -1,6 +1,7 @@
 package com.firstory.domain.story.service;
 
 import com.firstory.domain.credit.service.CreditService;
+import com.firstory.domain.generation.entity.StoryVersion;
 import com.firstory.domain.guide.entity.ReadingGuide;
 import com.firstory.domain.guide.repository.ReadingGuideRepository;
 import com.firstory.domain.reading.entity.ReadingSession;
@@ -9,10 +10,10 @@ import com.firstory.domain.story.dto.HomeResponse;
 import com.firstory.domain.story.dto.LibraryResponse;
 import com.firstory.domain.story.dto.StoryCardResponse;
 import com.firstory.domain.story.dto.StoryDetailResponse;
-import com.firstory.domain.story.entity.Story;
-import com.firstory.domain.story.entity.StoryInput;
 import com.firstory.domain.story.entity.LibraryFilter;
 import com.firstory.domain.story.entity.SituationCategory;
+import com.firstory.domain.story.entity.Story;
+import com.firstory.domain.story.entity.StoryInput;
 import com.firstory.domain.story.entity.StoryStatus;
 import com.firstory.domain.story.repository.StoryInputRepository;
 import com.firstory.domain.story.repository.StoryRepository;
@@ -107,20 +108,34 @@ public class LibraryService {
         Story story = storyRepository.findDetail(storyId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
         StoryInput input = storyInputRepository.findById(story.getId()).orElse(null);
-        StoryDetailResponse.Situation situation = input == null || !input.hasSituation() ? null
-                : new StoryDetailResponse.Situation(input.getSituationCategory(),
-                input.getSituationCategory().getLabel(), input.getSituationTiming());
         Instant lastReadAt = readingSessionRepository.findTopByStoryIdOrderByStartedAtDesc(story.getId())
                 .map(ReadingSession::getStartedAt).orElse(null);
-        boolean hasVersion = story.getCurrentVersion() != null;
-        String synopsis = !hasVersion ? null : guideRepository.findByVersionId(story.getCurrentVersion().getId())
-                .map(ReadingGuide::getSynopsis).orElse(null);
+        StoryVersion version = story.getCurrentVersion();
+        boolean hasVersion = version != null;
         return new StoryDetailResponse(story.getId(), hasVersion ? story.getTitle() : null, story.getStatus(),
                 story.libraryLabel(), StoryCardResponse.coverUrl(story), StoryCardResponse.displayName(story.getChild()),
-                situation, input == null ? null : input.getInterviewSummary(), synopsis,
+                situation(input), input == null ? null : input.getInterviewSummary(), synopsis(version),
                 hasVersion ? properties.story().pageCount() : null, story.getCreatedAt(), story.getConfirmedAt(),
                 readingSessionRepository.countByStoryIdAndCompletedAtIsNotNull(story.getId()), lastReadAt,
                 story.getStatus() == StoryStatus.COMPLETED);
+    }
+
+    private static StoryDetailResponse.Situation situation(StoryInput input) {
+        if (input == null || !input.hasSituation()) {
+            return null;
+        }
+        SituationCategory category = input.getSituationCategory();
+        return new StoryDetailResponse.Situation(category, category.getLabel(), input.getSituationTiming());
+    }
+
+    /**
+     * 지금 보여 주는 버전의 가이드 줄거리. 버전이나 줄거리가 없으면 null.
+     */
+    private String synopsis(StoryVersion version) {
+        if (version == null) {
+            return null;
+        }
+        return guideRepository.findByVersionId(version.getId()).map(ReadingGuide::getSynopsis).orElse(null);
     }
 
     private HomeResponse.Counts counts(Long userId) {

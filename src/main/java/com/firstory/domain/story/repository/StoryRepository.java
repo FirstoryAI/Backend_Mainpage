@@ -27,16 +27,12 @@ public interface StoryRepository extends JpaRepository<Story, Long> {
     @Query("select s from Story s where s.id = :id and s.user.id = :userId")
     Optional<Story> findOwnedForUpdate(@Param("id") Long id, @Param("userId") Long userId);
 
-    Optional<Story> findByThreadId(String threadId);
-
     /**
      * AI 호출 뒤 결과를 저장할 때 쓴다. 같은 동화에 동시에 들어온 요청(위기 신호 순번, 인터뷰 차례)을 차례로 처리한다.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from Story s where s.id = :id")
     Optional<Story> findByIdForUpdate(@Param("id") Long id);
-
-    List<Story> findAllByUserIdOrderByCreatedAtDesc(Long userId);
 
     /**
      * 서재 목록 (LIB-01). 현재 버전과 아이를 함께 읽어 목록 크기와 무관하게 쿼리 수가 일정하다.
@@ -110,8 +106,6 @@ public interface StoryRepository extends JpaRepository<Story, Long> {
             left join fetch s.child
             where s.id = :id and s.user.id = :userId""")
     Optional<Story> findDetail(@Param("id") Long id, @Param("userId") Long userId);
-
-    List<Story> findAllByUserIdAndStatusInOrderByCreatedAtDesc(Long userId, Collection<StoryStatus> statuses);
 
     /**
      * 아이 프로필 삭제 전에 서비스에서 먼저 호출한다.
