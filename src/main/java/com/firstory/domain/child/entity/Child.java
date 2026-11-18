@@ -112,7 +112,7 @@ public class Child extends BaseTimeEntity {
      */
     public boolean hasProfile(YearMonth birthYm, Gender gender, Collection<Trait> traits, String customTrait,
                               Interests interests) {
-        Set<Trait> traitSet = toTraitSet(traits);
+        Set<Trait> traitSet = traitSetOf(traits);
         Interests normalized = Interests.normalize(interests.codes(), interests.customs());
         return this.birthYm.equals(birthYm)
                 && this.gender == gender
@@ -132,6 +132,17 @@ public class Child extends BaseTimeEntity {
     public static String customTraitOf(Collection<Trait> traits, String customTrait) {
         return CustomText.resolve(traits != null && traits.contains(Trait.OTHER), customTrait,
                 CUSTOM_TRAIT_MAX_LENGTH);
+    }
+
+    /**
+     * 성향에서 null과 중복을 지운다. 순서는 Trait 선언 순서.
+     */
+    public static Set<Trait> traitSetOf(Collection<Trait> traits) {
+        Set<Trait> set = EnumSet.noneOf(Trait.class);
+        if (traits != null) {
+            traits.stream().filter(Objects::nonNull).forEach(set::add);
+        }
+        return set;
     }
 
     public void rename(String displayName) {
@@ -154,7 +165,7 @@ public class Child extends BaseTimeEntity {
 
     private void applyProfile(YearMonth birthYm, Gender gender, Collection<Trait> traits, String customTrait,
                               Interests interests) {
-        Set<Trait> traitSet = toTraitSet(traits);
+        Set<Trait> traitSet = traitSetOf(traits);
         Interests normalized = Interests.normalize(interests.codes(), interests.customs());
         this.customTrait = customTraitOf(traitSet, customTrait);
         this.birthYm = Objects.requireNonNull(birthYm);
@@ -164,14 +175,6 @@ public class Child extends BaseTimeEntity {
         this.traits.addAll(traitSet);
         this.interestCodes = new ArrayList<>(normalized.codes());
         this.customInterests = new ArrayList<>(normalized.customs());
-    }
-
-    private static Set<Trait> toTraitSet(Collection<Trait> traits) {
-        Set<Trait> set = EnumSet.noneOf(Trait.class);
-        if (traits != null) {
-            traits.stream().filter(Objects::nonNull).forEach(set::add);
-        }
-        return set;
     }
 
     private static String validateDisplayName(String displayName) {

@@ -23,15 +23,7 @@ public final class BirthYmPolicy {
     }
 
     public static YearMonth parse(String raw, Clock clock) {
-        if (raw == null || !FORMAT.matcher(raw.strip()).matches()) {
-            throw new BusinessException(ErrorCode.INVALID_BIRTH_YM);
-        }
-        YearMonth birthYm;
-        try {
-            birthYm = YearMonth.parse(raw.strip());
-        } catch (DateTimeParseException e) {
-            throw new BusinessException(ErrorCode.INVALID_BIRTH_YM);
-        }
+        YearMonth birthYm = parseFormat(raw);
         validate(birthYm, clock);
         return birthYm;
     }
@@ -43,5 +35,17 @@ public final class BirthYmPolicy {
                 || ChronoUnit.MONTHS.between(birthYm, thisMonth) > MAX_AGE_MONTHS) {
             throw new BusinessException(ErrorCode.INVALID_BIRTH_YM);
         }
+    }
+
+    private static YearMonth parseFormat(String raw) {
+        String value = raw == null ? "" : raw.strip();
+        if (FORMAT.matcher(value).matches()) {
+            try {
+                return YearMonth.parse(value);
+            } catch (DateTimeParseException e) {
+                // 2021-13처럼 형식은 맞지만 없는 달이면 아래에서 INVALID_BIRTH_YM
+            }
+        }
+        throw new BusinessException(ErrorCode.INVALID_BIRTH_YM);
     }
 }

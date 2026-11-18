@@ -13,9 +13,7 @@ import java.time.Clock;
 import java.time.YearMonth;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.EnumSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -33,7 +31,7 @@ public record ChildProfile(YearMonth birthYm, Gender gender, Set<Trait> traits, 
         if (gender == null) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED);
         }
-        traits = Collections.unmodifiableSet(toTraitSet(traits));
+        traits = Collections.unmodifiableSet(Child.traitSetOf(traits));
         customTrait = Child.customTraitOf(traits, customTrait);
         Interests interests = Interests.normalize(interestCodes, customInterests);
         interestCodes = interests.codes();
@@ -42,19 +40,11 @@ public record ChildProfile(YearMonth birthYm, Gender gender, Set<Trait> traits, 
 
     public static ChildProfile of(String birthYm, Gender gender, Collection<Trait> traits, String customTrait,
                                   List<InterestCode> interestCodes, List<String> customInterests, Clock clock) {
-        return new ChildProfile(BirthYmPolicy.parse(birthYm, clock), gender, toTraitSet(traits), customTrait,
-                interestCodes, customInterests);
+        return new ChildProfile(BirthYmPolicy.parse(birthYm, clock), gender, Child.traitSetOf(traits),
+                customTrait, interestCodes, customInterests);
     }
 
     public Interests interests() {
         return new Interests(interestCodes, customInterests);
-    }
-
-    private static Set<Trait> toTraitSet(Collection<Trait> traits) {
-        Set<Trait> set = EnumSet.noneOf(Trait.class);
-        if (traits != null) {
-            traits.stream().filter(Objects::nonNull).forEach(set::add);
-        }
-        return set;
     }
 }
