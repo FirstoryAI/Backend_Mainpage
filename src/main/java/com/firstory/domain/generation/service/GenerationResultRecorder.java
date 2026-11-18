@@ -102,25 +102,25 @@ public class GenerationResultRecorder {
 
         if (!result.fileKeys().stream().allMatch(key -> StoryFiles.belongsTo(key, storyId))) {
             log.warn("AI 결과의 파일 경로가 이 동화 것이 아니어서 저장하지 않아요: run_id={}, story_id={}", runId, storyId);
-            return fail(run, story, INVALID_OUTPUT_PATH);
+            return fail(run, INVALID_OUTPUT_PATH);
         }
         if (!hasAllPages(result.pages())) {
             log.warn("AI 결과의 쪽 수가 맞지 않아요: run_id={}, expected={}, actual={}",
                     runId, pageCount, result.pages().size());
-            return fail(run, story, INVALID_PAGE_COUNT);
+            return fail(run, INVALID_PAGE_COUNT);
         }
         SafetyResult safety = result.safety();
         if (safety.level().isRecorded()) {
             recordUnsafeOutput(story, safety);
             log.info("완성 본문에 위기 신호가 있어 보여 주지 않아요: run_id={}, level={}", runId, safety.level());
-            return fail(run, story, OUTPUT_UNSAFE);
+            return fail(run, OUTPUT_UNSAFE);
         }
         if (blockedTopics.blocksAi(safety.topic())) {
             log.info("완성 본문이 막은 주제라 보여 주지 않아요: run_id={}, topic={}", runId, safety.topic());
             if (run.getBaseVersion() == null) {
                 creditService.release(storyId);
             }
-            return fail(run, story, OUTPUT_UNSAFE);
+            return fail(run, OUTPUT_UNSAFE);
         }
 
         int versionNo = versionRepository.findTopByStoryIdOrderByVersionNoDesc(storyId)
@@ -187,9 +187,9 @@ public class GenerationResultRecorder {
         }
     }
 
-    private Outcome fail(GenerationRun run, Story story, String errorCode) {
+    private Outcome fail(GenerationRun run, String errorCode) {
         run.fail(errorCode, clock.instant());
-        story.changeStatus(StoryStatus.FAILED);
+        run.getStory().changeStatus(StoryStatus.FAILED);
         return Outcome.FAILED;
     }
 

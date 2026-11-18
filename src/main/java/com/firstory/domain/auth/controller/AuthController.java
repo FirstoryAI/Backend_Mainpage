@@ -21,18 +21,18 @@ import com.firstory.domain.auth.service.SignupService;
 import com.firstory.domain.user.dto.MeResponse;
 import com.firstory.domain.user.entity.User;
 import com.firstory.domain.user.service.MeService;
+import com.firstory.global.error.ApiErrorCodes;
+import com.firstory.global.error.ErrorCode;
 import com.firstory.global.security.LoginSuccessHandler;
 import com.firstory.global.security.SessionRevoker;
 import com.firstory.global.security.UserPrincipal;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
-import com.firstory.global.error.ApiErrorCodes;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import com.firstory.global.error.ErrorCode;
-import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.web.csrf.CsrfToken;
@@ -45,7 +45,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Duration;
 import java.util.Optional;
-
 
 @Tag(name = "1. 회원가입/로그인 인증", description = "CSRF 토큰, 이메일 인증, 가입, 로그인, 카카오 로그인")
 @RestController
@@ -105,7 +104,6 @@ public class AuthController {
         return new EmailCheckResponse(emailCheckService.isAvailable(request.email(), httpRequest.getRemoteAddr()));
     }
 
-   
     @Operation(summary = "회원가입",
             description = "같은 세션에서 purpose SIGNUP으로 이메일 인증을 마친 뒤 부른다. 가입하면 바로 로그인된다 (로그인 상태 유지는 하지 않음). 비밀번호는 8~20자, 영문·숫자·특수문자 각각 1개 이상. 특수문자는 !@#$%^&*()_+-=[]{}:;,.?/\\ 만, 한글·공백 불가. 응답 201")
     @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.SIGNUP_INVITE_REQUIRED, ErrorCode.INVITE_CLOSED,
@@ -118,8 +116,7 @@ public class AuthController {
         HttpSession session = httpRequest.getSession();
         User user = signupService.signup(request, session);
         emailVerificationService.clearVerified(session);
-        loginSuccessHandler.login(UserPrincipal.from(user), false, httpRequest, httpResponse);
-        return meService.getMe(user.getId());
+        return logIn(UserPrincipal.from(user), false, httpRequest, httpResponse);
     }
 
     @Operation(summary = "로그인",
@@ -130,8 +127,7 @@ public class AuthController {
     public MeResponse login(@Valid @RequestBody LoginRequest request,
                             HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         UserPrincipal principal = loginService.authenticate(request.email(), request.password());
-        loginSuccessHandler.login(principal, request.rememberMeRequested(), httpRequest, httpResponse);
-        return meService.getMe(principal.getUserId());
+        return logIn(principal, request.rememberMeRequested(), httpRequest, httpResponse);
     }
 
     @Operation(summary = "비밀번호 재설정",
@@ -162,8 +158,8 @@ public class AuthController {
         HttpSession session = httpRequest.getSession();
         Optional<UserPrincipal> principal = kakaoLoginService.login(request.code(), request.redirectUri(), session);
         if (principal.isPresent()) {
-            loginSuccessHandler.login(principal.get(), request.rememberMeRequested(), httpRequest, httpResponse);
-            return KakaoLoginResponse.loggedIn(meService.getMe(principal.get().getUserId()));
+            return KakaoLoginResponse.loggedIn(
+                    logIn(principal.get(), request.rememberMeRequested(), httpRequest, httpResponse));
         }
         PendingKakaoSignup pending = kakaoLoginService.pending(session);
         return KakaoLoginResponse.signupRequired(pending.email(), pending.emailVerified());
@@ -182,7 +178,12 @@ public class AuthController {
     public MeResponse kakaoSignup(@Valid @RequestBody KakaoSignupRequest request,
                                   HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         User user = kakaoLoginService.signup(request, httpRequest.getSession());
-        loginSuccessHandler.login(UserPrincipal.from(user), false, httpRequest, httpResponse);
-        return meService.getMe(user.getId());
+        return logIn(UserPrincipal.from(user), false, httpRequest, httpResponse);
+    }
+
+    private MeResponse logIn(UserPrincipal principal, boolean rememberMe,
+                             HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        loginSuccessHandler.login(principal, rememberMe, httpRequest, httpResponse);
+        return meService.getMe(principal.getUserId());
     }
 }

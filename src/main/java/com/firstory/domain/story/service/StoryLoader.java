@@ -24,8 +24,7 @@ public class StoryLoader {
     private final StoryInputRepository storyInputRepository;
 
     public Story findOwned(Long userId, Long storyId) {
-        return storyRepository.findByIdAndUserId(storyId, userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
+        return storyRepository.findByIdAndUserId(storyId, userId).orElseThrow(StoryLoader::notFound);
     }
 
     /**
@@ -40,8 +39,7 @@ public class StoryLoader {
      * (이미 읽은 엔티티는 잠가도 다시 읽지 않는다).
      */
     public Story findEditableForUpdate(Long userId, Long storyId, Set<StoryStatus> allowed) {
-        Story story = storyRepository.findOwnedForUpdate(storyId, userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
+        Story story = storyRepository.findOwnedForUpdate(storyId, userId).orElseThrow(StoryLoader::notFound);
         return checkEditable(story, allowed);
     }
 
@@ -61,8 +59,7 @@ public class StoryLoader {
      * @param loaded AI 호출 전에 조회한 동화
      */
     public Story lockUnchanged(Story loaded) {
-        Story story = storyRepository.findByIdForUpdate(loaded.getId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
+        Story story = storyRepository.findByIdForUpdate(loaded.getId()).orElseThrow(StoryLoader::notFound);
         if (story.getStatus() != loaded.getStatus()) {
             throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
         }
@@ -70,7 +67,10 @@ public class StoryLoader {
     }
 
     public StoryInput input(Story story) {
-        return storyInputRepository.findById(story.getId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.STORY_NOT_FOUND));
+        return storyInputRepository.findById(story.getId()).orElseThrow(StoryLoader::notFound);
+    }
+
+    private static BusinessException notFound() {
+        return new BusinessException(ErrorCode.STORY_NOT_FOUND);
     }
 }

@@ -33,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -170,10 +171,10 @@ class GenerationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.version.versionNo").value(1))
                 .andExpect(jsonPath("$.version.title").value(FakeAiClient.SAMPLE.title(0)))
                 .andExpect(jsonPath("$.characterSheetUrl")
-                        .value(storyUrl(id) + "/versions/" + versionId + "/character-sheet"))
-                .andExpect(jsonPath("$.coverUrl").value(storyUrl(id) + "/versions/" + versionId + "/cover"))
-                .andExpect(jsonPath("$.frontCoverUrl").value(storyUrl(id) + "/versions/" + versionId + "/front-cover"))
-                .andExpect(jsonPath("$.backCoverUrl").value(storyUrl(id) + "/versions/" + versionId + "/back-cover"))
+                        .value(versionUrl(id, versionId) + "/character-sheet"))
+                .andExpect(jsonPath("$.coverUrl").value(versionUrl(id, versionId) + "/cover"))
+                .andExpect(jsonPath("$.frontCoverUrl").value(versionUrl(id, versionId) + "/front-cover"))
+                .andExpect(jsonPath("$.backCoverUrl").value(versionUrl(id, versionId) + "/back-cover"))
                 .andExpect(jsonPath("$.pages", hasSize(10)))
                 .andExpect(jsonPath("$.pages[0].text").value(FakeAiClient.SAMPLE.pageText(1)))
                 .andExpect(jsonPath("$.pages[0].textPosition").value("BOTTOM"))
@@ -192,8 +193,8 @@ class GenerationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.pages[1].soundWord.pieces[*].text", contains("콩닥", "콩닥")))
                 .andExpect(jsonPath("$.pages[1].soundWord.pieces[*].side", contains("LEFT", "RIGHT")))
                 .andExpect(jsonPath("$.pages[1].soundWord.pieces[0].y").value(40.0))
-                .andExpect(jsonPath("$.pages[3].soundWord").value(org.hamcrest.Matchers.nullValue()))
-                .andExpect(jsonPath("$.pages[*].imageStatus", everyItem(org.hamcrest.Matchers.is("DONE"))))
+                .andExpect(jsonPath("$.pages[3].soundWord").value(nullValue()))
+                .andExpect(jsonPath("$.pages[*].imageStatus", everyItem(is("DONE"))))
                 .andExpect(jsonPath("$.pages[*].imageUrl", everyItem(matchesPattern(
                         "/api/stories/" + id + "/versions/" + versionId + "/pages/\\d+/image"))))
                 .andExpect(jsonPath("$.regenerateRemaining").value(1))
@@ -225,12 +226,12 @@ class GenerationIntegrationTest extends IntegrationTest {
                 .andReturn();
         assertThat(result.getResponse().getContentAsByteArray()).startsWith(PNG_SIGNATURE);
 
-        parent.get(storyUrl(id) + "/versions/" + versionId + "/character-sheet")
+        parent.get(versionUrl(id, versionId) + "/character-sheet")
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "image/png"));
 
         // 표지는 진짜 AI처럼 정사각형
-        byte[] cover = parent.get(storyUrl(id) + "/versions/" + versionId + "/cover")
+        byte[] cover = parent.get(versionUrl(id, versionId) + "/cover")
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "image/png"))
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"))
@@ -241,7 +242,7 @@ class GenerationIntegrationTest extends IntegrationTest {
 
         // 앞·뒤표지는 쪽과 같은 크기 (#61)
         for (String side : List.of("front-cover", "back-cover")) {
-            byte[] book = parent.get(storyUrl(id) + "/versions/" + versionId + "/" + side)
+            byte[] book = parent.get(versionUrl(id, versionId) + "/" + side)
                     .andExpect(status().isOk())
                     .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "image/png"))
                     .andExpect(header().string("X-Content-Type-Options", "nosniff"))
@@ -261,8 +262,8 @@ class GenerationIntegrationTest extends IntegrationTest {
         parent.get(storyUrl(id) + "/preview")
                 .andExpect(jsonPath("$.frontCoverUrl").value(nullValue()))
                 .andExpect(jsonPath("$.backCoverUrl").value(nullValue()));
-        assertError(parent.get(storyUrl(id) + "/versions/" + versionId + "/front-cover"), ErrorCode.IMAGE_NOT_FOUND);
-        assertError(parent.get(storyUrl(id) + "/versions/" + versionId + "/back-cover"), ErrorCode.IMAGE_NOT_FOUND);
+        assertError(parent.get(versionUrl(id, versionId) + "/front-cover"), ErrorCode.IMAGE_NOT_FOUND);
+        assertError(parent.get(versionUrl(id, versionId) + "/back-cover"), ErrorCode.IMAGE_NOT_FOUND);
     }
 
     @Test
@@ -280,8 +281,8 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertError(parent.get(imageUrl(id, versionId, 0)), ErrorCode.IMAGE_NOT_FOUND);
         browser().get(imageUrl(id, versionId, 1)).andExpect(status().isUnauthorized());
         for (String side : List.of("/front-cover", "/back-cover")) {
-            assertError(other.get(storyUrl(id) + "/versions/" + versionId + side), ErrorCode.STORY_NOT_FOUND);
-            assertError(parent.get(storyUrl(id) + "/versions/" + otherVersionId + side), ErrorCode.VERSION_NOT_FOUND);
+            assertError(other.get(versionUrl(id, versionId) + side), ErrorCode.STORY_NOT_FOUND);
+            assertError(parent.get(versionUrl(id, otherVersionId) + side), ErrorCode.VERSION_NOT_FOUND);
         }
     }
 
@@ -424,8 +425,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         pollTimes(POLLS_TO_REVIEW_TEXT);
         long v2 = currentVersionId(id);
 
-        parent.put(storyUrl(id) + "/current-version", """
-                {"versionId": %d}""".formatted(v1)).andExpect(status().isOk())
+        showVersion(id, v1).andExpect(status().isOk())
                 .andExpect(jsonPath("$.version.versionNo").value(1));
         // 다시 만들기는 1회지만(firstory.policy.max-regenerations), 횟수를 늘렸을 때의 버전 나무를 보려고 되돌린다
         jdbc.update("UPDATE stories SET regenerate_count = 0 WHERE id = ?", id);
@@ -437,8 +437,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         assertThat(ai.lastBaseCheckpointId(threadId(id))).isEqualTo(FakeAiClient.checkpointId(1));
         assertThat(parentVersionId(v3)).isEqualTo(v1);
         assertThat(parentVersionId(v2)).isEqualTo(v1);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM story_versions WHERE story_id = ?", Integer.class, id))
-                .isEqualTo(3);
+        assertThat(versionCount(id)).isEqualTo(3);
         // 그림만 다시는 v1의 글을 쓴다 (v2의 글이 아님)
         parent.get(storyUrl(id) + "/preview").andExpect(jsonPath("$.pages[0].text").value(FakeAiClient.SAMPLE.pageText(1)));
     }
@@ -453,12 +452,9 @@ class GenerationIntegrationTest extends IntegrationTest {
         long v2 = currentVersionId(id);
         int statusCalls = ai.statusCalls(threadId(id));
 
-        parent.put(storyUrl(id) + "/current-version", """
-                {"versionId": %d}""".formatted(v1)).andExpect(status().isOk());
-        parent.put(storyUrl(id) + "/current-version", """
-                {"versionId": %d}""".formatted(v2)).andExpect(status().isOk());
-        parent.put(storyUrl(id) + "/current-version", """
-                {"versionId": %d}""".formatted(v1)).andExpect(status().isOk());
+        showVersion(id, v1).andExpect(status().isOk());
+        showVersion(id, v2).andExpect(status().isOk());
+        showVersion(id, v1).andExpect(status().isOk());
 
         assertThat(currentVersionId(id)).isEqualTo(v1);
         assertThat(regenerateCount(id)).isOne();
@@ -471,8 +467,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         long id = reviewingStory();
         long other = reviewingStory();
 
-        assertError(parent.put(storyUrl(id) + "/current-version", """
-                {"versionId": %d}""".formatted(currentVersionId(other))), ErrorCode.VERSION_NOT_FOUND);
+        assertError(showVersion(id, currentVersionId(other)), ErrorCode.VERSION_NOT_FOUND);
     }
 
     @Test
@@ -615,8 +610,7 @@ class GenerationIntegrationTest extends IntegrationTest {
 
         assertThat(storyStatus(id)).isEqualTo("FAILED");
         generation(id).andExpect(jsonPath("$.error").value("OUTPUT_UNSAFE"));
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM story_versions WHERE story_id = ?", Integer.class, id))
-                .isZero();
+        assertThat(versionCount(id)).isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM safety_flags WHERE story_id = ?", Integer.class, id)).isZero();
 
         parent.post(storyUrl(id) + "/retry", null).andExpect(status().isAccepted());
@@ -634,8 +628,7 @@ class GenerationIntegrationTest extends IntegrationTest {
 
         assertThat(storyStatus(id)).isEqualTo("FAILED");
         generation(id).andExpect(jsonPath("$.error").value("OUTPUT_UNSAFE"));
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM story_versions WHERE story_id = ?", Integer.class, id))
-                .isZero();
+        assertThat(versionCount(id)).isZero();
         Map<String, Object> flag = jdbc.queryForMap("SELECT source, level, occurrence_no FROM safety_flags WHERE story_id = ?", id);
         assertThat(flag.get("source")).isEqualTo("OUTPUT");
         assertThat(flag.get("level")).isEqualTo("REVISE");
@@ -671,8 +664,7 @@ class GenerationIntegrationTest extends IntegrationTest {
 
         assertThat(storyStatus(id)).isEqualTo("FAILED");
         generation(id).andExpect(jsonPath("$.error").value("INVALID_OUTPUT_PATH"));
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM story_versions WHERE story_id = ?", Integer.class, id))
-                .isZero();
+        assertThat(versionCount(id)).isZero();
     }
 
     @Test
@@ -741,8 +733,7 @@ class GenerationIntegrationTest extends IntegrationTest {
         pollTimes(2);
 
         assertThat(storyStatus(id)).isEqualTo("REVIEWING");
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM story_versions WHERE story_id = ?", Integer.class, id))
-                .isOne();
+        assertThat(versionCount(id)).isOne();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM story_pages p JOIN story_versions v ON v.id = p.version_id "
                 + "WHERE v.story_id = ?", Integer.class, id)).isEqualTo(10);
     }
@@ -838,8 +829,17 @@ class GenerationIntegrationTest extends IntegrationTest {
         return "/api/stories/" + id;
     }
 
+    private ResultActions showVersion(long id, long versionId) throws Exception {
+        return parent.put(storyUrl(id) + "/current-version", """
+                {"versionId": %d}""".formatted(versionId));
+    }
+
+    private static String versionUrl(long id, long versionId) {
+        return storyUrl(id) + "/versions/" + versionId;
+    }
+
     private static String imageUrl(long id, long versionId, int pageNo) {
-        return storyUrl(id) + "/versions/" + versionId + "/pages/" + pageNo + "/image";
+        return versionUrl(id, versionId) + "/pages/" + pageNo + "/image";
     }
 
     private String storyStatus(long id) {
@@ -860,6 +860,10 @@ class GenerationIntegrationTest extends IntegrationTest {
 
     private int regenerateCount(long id) {
         return jdbc.queryForObject("SELECT regenerate_count FROM stories WHERE id = ?", Integer.class, id);
+    }
+
+    private int versionCount(long id) {
+        return jdbc.queryForObject("SELECT count(*) FROM story_versions WHERE story_id = ?", Integer.class, id);
     }
 
     private int runs(long id) {

@@ -35,7 +35,7 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 /**
- * Swagger 문서 설정. springdoc은 local 프로필에서만 켠다 (application.yml).
+ * Swagger 문서 설정. springdoc은 local, dev 프로필에서만 켠다 (application.yml).
  */
 @Configuration
 @ConditionalOnProperty(name = "springdoc.api-docs.enabled", havingValue = "true")

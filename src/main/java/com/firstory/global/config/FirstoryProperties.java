@@ -89,9 +89,8 @@ public record FirstoryProperties(Story story, Policy policy, Ai ai, Web web, Aut
     public record Web(boolean cookieSecure, String cookieDomain, List<String> allowedOrigins) {
 
         public Web {
-            cookieDomain = cookieDomain == null || cookieDomain.isBlank() ? null : cookieDomain.trim();
-            allowedOrigins = allowedOrigins == null ? List.of()
-                    : allowedOrigins.stream().map(String::trim).filter(origin -> !origin.isEmpty()).toList();
+            cookieDomain = blankToNull(cookieDomain);
+            allowedOrigins = trimNonBlank(allowedOrigins);
         }
 
         public boolean hasCookieDomain() {
@@ -113,10 +112,9 @@ public record FirstoryProperties(Story story, Policy policy, Ai ai, Web web, Aut
     public record Beta(boolean creditsEnabled, boolean inviteOnly, List<String> unlimitedEmails, String inviteRedirect) {
 
         public Beta {
-            unlimitedEmails = unlimitedEmails == null ? List.of()
-                    : unlimitedEmails.stream().map(String::trim).filter(email -> !email.isEmpty())
-                            .map(email -> email.toLowerCase(Locale.ROOT)).toList();
-            inviteRedirect = blankToNull(inviteRedirect) == null ? "/" : inviteRedirect.trim();
+            unlimitedEmails = trimNonBlank(unlimitedEmails).stream()
+                    .map(email -> email.toLowerCase(Locale.ROOT)).toList();
+            inviteRedirect = blankToDefault(inviteRedirect, "/");
         }
 
         public boolean isUnlimited(String email) {
@@ -130,8 +128,6 @@ public record FirstoryProperties(Story story, Policy policy, Ai ai, Web web, Aut
      * @param from     보내는 주소. 비우면 username
      * @param username SMTP 로그인 계정 (Gmail이면 팀 계정 주소)
      * @param password SMTP 비밀번호 (Gmail이면 2단계 인증 뒤 만든 앱 비밀번호 16자리). smtp인데 비면 기동 실패
-     */
-    /**
      * @param assetBaseUrl 메일 속 로고·캐릭터 그림 주소 앞부분 (백엔드 공개 주소 + /mail). 비우면 HTML 없이 글자만 보낸다
      * @param appUrl       메일 버튼이 여는 프론트 주소. 비우면 HTML 없이 글자만 보낸다
      */
@@ -145,11 +141,11 @@ public record FirstoryProperties(Story story, Policy policy, Ai ai, Web web, Aut
 
         public Mail {
             mode = mode == null ? MailMode.SMTP : mode;
-            host = host == null || host.isBlank() ? "smtp.gmail.com" : host.trim();
+            host = blankToDefault(host, "smtp.gmail.com");
             port = port == 0 ? 587 : port;
             username = blankToNull(username);
             password = blankToNull(password);
-            from = blankToNull(from) == null ? username : from.trim();
+            from = blankToDefault(from, username);
             assetBaseUrl = blankToNull(assetBaseUrl);
             appUrl = blankToNull(appUrl);
             if (mode == MailMode.SMTP && (username == null || password == null)) {
@@ -177,17 +173,12 @@ public record FirstoryProperties(Story story, Policy policy, Ai ai, Web web, Aut
             mode = mode == null ? KakaoMode.HTTP : mode;
             restApiKey = blankToNull(restApiKey);
             clientSecret = blankToNull(clientSecret);
-            redirectUris = redirectUris == null ? List.of()
-                    : redirectUris.stream().map(String::trim).filter(uri -> !uri.isEmpty()).toList();
+            redirectUris = trimNonBlank(redirectUris);
             if (mode == KakaoMode.HTTP && restApiKey == null) {
                 throw new IllegalStateException(
                         "firstory.kakao.mode=http이면 KAKAO_REST_API_KEY가 필요해요. 카카오 없이 띄우려면 KAKAO_MODE=fake로 실행해요.");
             }
         }
-    }
-
-    private static String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
     }
 
     /**
@@ -214,5 +205,19 @@ public record FirstoryProperties(Story story, Policy policy, Ai ai, Web web, Aut
 
         public record S3(String bucket, String region) {
         }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private static String blankToDefault(String value, String fallback) {
+        String trimmed = blankToNull(value);
+        return trimmed == null ? fallback : trimmed;
+    }
+
+    // 쉼표로 받은 목록에서 앞뒤 공백을 지우고 빈 값을 뺀다
+    private static List<String> trimNonBlank(List<String> values) {
+        return values == null ? List.of() : values.stream().map(String::trim).filter(value -> !value.isEmpty()).toList();
     }
 }

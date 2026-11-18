@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
  * REVISE     limit번째 전까지 다시 쓰기 안내, limit번째부터 차단 (동화 단위, REVISE만 센다)
  * CRISIS     1번만에 차단
  * </pre>
- * REVISE 횟수는 SafetyFlagRepository.countByStoryIdAndLevel로 센다.
+ * REVISE 횟수는 SafetyFlagRepository.countByStoryIdAndLevelAndSourceNot(OUTPUT)으로 센다 (결과 위기 신호는 빼고).
  */
 @Component
 public class SafetyPolicy {

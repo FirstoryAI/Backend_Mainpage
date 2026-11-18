@@ -1,5 +1,6 @@
 package com.firstory.domain.auth.service;
 
+import com.firstory.domain.user.entity.User;
 import com.firstory.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,6 @@ public class LoginAttemptRecorder {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordSuccess(Long userId) {
-        userRepository.findById(userId).ifPresent(user -> user.recordLoginSuccess());
+        userRepository.findById(userId).ifPresent(User::recordLoginSuccess);
     }
 }

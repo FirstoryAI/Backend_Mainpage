@@ -58,12 +58,15 @@ public record PreviewResponse(Long storyId, StoryStatus status, VersionSummary v
                         : StoryImageUrls.characterSheet(storyId, version.getId()),
                 StoryImageUrls.coverOrSheet(storyId, version),
                 StoryImageUrls.frontCover(storyId, version), StoryImageUrls.backCover(storyId, version),
-                pages.stream().map(page -> new Page(page.getPageNo(), page.getText(), page.getImageStatus(),
-                        page.getImageStatus() == ImageStatus.DONE
-                                ? StoryImageUrls.page(storyId, version.getId(), page.getPageNo()) : null,
-                        page.getTextPosition(), page.getTextBlocks(), page.getSoundWord()))
-                        .toList(),
+                pages.stream().map(page -> pageOf(storyId, version.getId(), page)).toList(),
                 regenerateRemaining);
+    }
+
+    private static Page pageOf(Long storyId, Long versionId, StoryPage page) {
+        String imageUrl = page.getImageStatus() == ImageStatus.DONE
+                ? StoryImageUrls.page(storyId, versionId, page.getPageNo()) : null;
+        return new Page(page.getPageNo(), page.getText(), page.getImageStatus(), imageUrl, page.getTextPosition(),
+                page.getTextBlocks(), page.getSoundWord());
     }
 
     // 본문에 부모 입력이 반영되어 있어 로그에 남기지 않는다

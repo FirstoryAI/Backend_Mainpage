@@ -1,4 +1,5 @@
 package com.firstory.domain.auth.service;
+
 import com.firstory.domain.auth.dto.SignupRequest;
 import com.firstory.domain.auth.entity.EmailPurpose;
 import com.firstory.domain.auth.entity.PasswordPolicy;
@@ -16,18 +17,22 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 /**
- * 가입. 이메일 + 비밀번호 가입과 카카오 가입(KakaoLoginService)이 회원 저장과 동의 기록을 함께 쓴다.
+ * 가입. 이메일 + 비밀번호 가입과 카카오 가입(KakaoLoginService)이 회원 저장(saveUnique)을 함께 쓴다.
  */
 @Service
 @RequiredArgsConstructor
 public class SignupService {
+
     private static final String EMAIL_UNIQUE_INDEX = "ux_users_email_active";
     private static final String KAKAO_UNIQUE_INDEX = "ux_users_kakao_id_active";
+
     private final UserRepository userRepository;
     private final EmailVerificationService emailVerificationService;
     private final PasswordEncoder passwordEncoder;
     private final SignupGate signupGate;
+
     @Transactional
     public User signup(SignupRequest request, HttpSession session) {
         PasswordPolicy.validate(request.password());

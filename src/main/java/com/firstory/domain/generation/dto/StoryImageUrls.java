@@ -12,31 +12,29 @@ public final class StoryImageUrls {
     }
 
     public static String page(Long storyId, Long versionId, int pageNo) {
-        return "/api/stories/" + storyId + "/versions/" + versionId + "/pages/" + pageNo + "/image";
+        return versionPath(storyId, versionId) + "/pages/" + pageNo + "/image";
     }
 
     public static String characterSheet(Long storyId, Long versionId) {
-        return "/api/stories/" + storyId + "/versions/" + versionId + "/character-sheet";
+        return versionPath(storyId, versionId) + "/character-sheet";
     }
 
     public static String cover(Long storyId, Long versionId) {
-        return "/api/stories/" + storyId + "/versions/" + versionId + "/cover";
+        return versionPath(storyId, versionId) + "/cover";
     }
 
     /**
      * 앞표지 주소. 앞표지가 없는 버전(이전 버전, 표지 실패)이면 null.
      */
     public static String frontCover(Long storyId, StoryVersion version) {
-        return version.getFrontCoverKey() == null ? null
-                : "/api/stories/" + storyId + "/versions/" + version.getId() + "/front-cover";
+        return version.getFrontCoverKey() == null ? null : versionPath(storyId, version.getId()) + "/front-cover";
     }
 
     /**
      * 뒤표지 주소. 뒤표지가 없는 버전이면 null.
      */
     public static String backCover(Long storyId, StoryVersion version) {
-        return version.getBackCoverKey() == null ? null
-                : "/api/stories/" + storyId + "/versions/" + version.getId() + "/back-cover";
+        return version.getBackCoverKey() == null ? null : versionPath(storyId, version.getId()) + "/back-cover";
     }
 
     /**
@@ -47,5 +45,9 @@ public final class StoryImageUrls {
             return cover(storyId, version.getId());
         }
         return version.getCharacterSheetKey() == null ? null : characterSheet(storyId, version.getId());
+    }
+
+    private static String versionPath(Long storyId, Long versionId) {
+        return "/api/stories/" + storyId + "/versions/" + versionId;
     }
 }

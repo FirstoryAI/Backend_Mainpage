@@ -1,8 +1,8 @@
 package com.firstory.domain.story.controller;
 
 import com.firstory.domain.generation.repository.GenerationRunRepository;
-import com.firstory.domain.generation.service.GenerationPoller;
 import com.firstory.domain.generation.repository.StoryVersionRepository;
+import com.firstory.domain.generation.service.GenerationPoller;
 import com.firstory.domain.story.entity.StoryStatus;
 import com.firstory.domain.story.repository.StoryInputRepository;
 import com.firstory.domain.story.repository.StoryRepository;
@@ -15,6 +15,7 @@ import com.firstory.support.StoryStates;
 import com.jayway.jsonpath.JsonPath;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
+import org.hamcrest.Matcher;
 import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,13 +23,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
+import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.in;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -113,8 +117,7 @@ class LibraryIntegrationTest extends IntegrationTest {
     void 서재_카드는_버전이_있어야_제목과_표지가_있고_표지가_없는_버전은_캐릭터_시트() throws Exception {
         long draft = create(StoryStatus.DRAFT, false);
         long completed = create(StoryStatus.COMPLETED, false);
-        long versionId = jdbc.queryForObject("SELECT current_version_id FROM stories WHERE id = ?", Long.class,
-                completed);
+        long versionId = currentVersionId(completed);
 
         parent.get("/api/stories?filter=UNREAD")
                 .andExpect(jsonPath("$.items[0].id").value(completed))
@@ -333,7 +336,7 @@ class LibraryIntegrationTest extends IntegrationTest {
     @Test
     void 상세는_읽은_횟수와_마지막_읽은_시각을_보여준다() throws Exception {
         long id = create(StoryStatus.COMPLETED, true);
-        long versionId = jdbc.queryForObject("SELECT current_version_id FROM stories WHERE id = ?", Long.class, id);
+        long versionId = currentVersionId(id);
         jdbc.update("""
                 INSERT INTO reading_sessions (story_id, version_id, last_page, started_at, completed_at, created_at, updated_at)
                 VALUES (?, ?, 10, '2026-10-01T00:00:00Z', '2026-10-01T00:10:00Z', now(), now()),
@@ -399,7 +402,7 @@ class LibraryIntegrationTest extends IntegrationTest {
     @Test
     void 완성된_동화를_지우면_목록_상세_그림이_모두_404() throws Exception {
         long id = StoryFlow.completed(parent, poller);
-        long versionId = jdbc.queryForObject("SELECT current_version_id FROM stories WHERE id = ?", Long.class, id);
+        long versionId = currentVersionId(id);
         String image = "/api/stories/" + id + "/versions/" + versionId + "/pages/1/image";
         parent.get(image).andExpect(status().isOk());
 
@@ -430,16 +433,20 @@ class LibraryIntegrationTest extends IntegrationTest {
         }
     }
 
-    private org.hamcrest.Matcher<Iterable<? extends String>> everyIn(String... statuses) {
-        return org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.in(statuses));
+    private Matcher<Iterable<? extends String>> everyIn(String... statuses) {
+        return everyItem(in(statuses));
     }
 
     private void expectFilter(String filter, long... ids) throws Exception {
-        Integer[] expected = java.util.Arrays.stream(ids).mapToObj(id -> (int) id).toArray(Integer[]::new);
+        Integer[] expected = Arrays.stream(ids).mapToObj(id -> (int) id).toArray(Integer[]::new);
         parent.get("/api/stories?filter=" + filter)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(ids.length))
                 .andExpect(jsonPath("$.items[*].id", containsInAnyOrder(expected)));
+    }
+
+    private long currentVersionId(long storyId) {
+        return jdbc.queryForObject("SELECT current_version_id FROM stories WHERE id = ?", Long.class, storyId);
     }
 
     private long create(StoryStatus status, boolean read) {

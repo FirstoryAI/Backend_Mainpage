@@ -90,14 +90,14 @@ public class MeService {
     }
 
     private MeResponse toResponse(User user) {
-        CreditService.CreditSummary credits = creditService.summary(user.getId());
-        return new MeResponse(user.getId(), user.getEmail(), user.hasSeenOnboarding(), user.isEmailNotify(),
+        Long userId = user.getId();
+        CreditService.CreditSummary credits = creditService.summary(userId);
+        MeResponse.FeedbackSubmitted feedbackSubmitted = new MeResponse.FeedbackSubmitted(
+                storyFeedbackRepository.existsByUserId(userId), readingFeedbackRepository.existsByUserId(userId));
+        return new MeResponse(userId, user.getEmail(), user.hasSeenOnboarding(), user.isEmailNotify(),
                 user.isKakaoLinked(), user.hasPassword(), user.getSignupSource(), credits.unlimited(),
-                credits.remaining(), user.hasSubscriptionAlert(), new MeResponse.FeedbackSubmitted(
-                        storyFeedbackRepository.existsByUserId(user.getId()),
-                        readingFeedbackRepository.existsByUserId(user.getId())));
+                credits.remaining(), user.hasSubscriptionAlert(), feedbackSubmitted);
     }
-
 
     // 탈퇴했거나 세션이 남아 있는 사이 지워진 회원이면 다시 로그인하게 한다
     private User findUser(Long userId) {

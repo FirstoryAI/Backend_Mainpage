@@ -59,10 +59,9 @@ public class StoryDraftService {
     private static final Set<StoryStatus> CONFIRMING = EnumSet.of(StoryStatus.CONFIRMING);
     private static final Set<StoryStatus> TONE_EDITABLE =
             EnumSet.of(StoryStatus.DRAFT, StoryStatus.INTERVIEWING, StoryStatus.CONFIRMING);
-    // 생성 중(REQUESTED, GENERATING_*)에는 지울 수 없다
-    private static final Set<StoryStatus> DELETABLE = EnumSet.of(StoryStatus.DRAFT, StoryStatus.INTERVIEWING,
-            StoryStatus.CONFIRMING, StoryStatus.BLOCKED, StoryStatus.REVIEWING, StoryStatus.COMPLETED,
-            StoryStatus.FAILED);
+    // ① 조회 트랜잭션에서 더 확인할 것이 없는 단계
+    private static final Runnable NO_VERIFY = () -> {
+    };
 
     private final StoryLoader loader;
     private final CreditService creditService;
@@ -133,8 +132,8 @@ public class StoryDraftService {
      */
     public StoryStepResponse editSummary(Long userId, Long storyId, SummaryRequest request) {
         String summary = CustomText.strip(request.summary());
-        return checkThenSave(userId, storyId, CONFIRMING, Collections.singletonList(summary), () -> {
-        }, (story, input) -> input.editSummary(summary));
+        return checkThenSave(userId, storyId, CONFIRMING, Collections.singletonList(summary), NO_VERIFY,
+                (story, input) -> input.editSummary(summary));
     }
 
     /**
@@ -163,15 +162,15 @@ public class StoryDraftService {
     @Transactional
     public void delete(Long userId, Long storyId) {
         Story story = loader.findOwned(userId, storyId);
-        if (!DELETABLE.contains(story.getStatus())) {
+        // 생성 중(REQUESTED, GENERATING_*)에는 지울 수 없다
+        if (story.getStatus().isGenerating()) {
             throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
         }
         story.delete(clock.instant());
     }
 
     private StoryStepResponse checkThenSave(Long userId, Long storyId, List<String> texts, Consumer<StoryInput> write) {
-        return checkThenSave(userId, storyId, texts, () -> {
-        }, (story, input) -> write.accept(input));
+        return checkThenSave(userId, storyId, texts, NO_VERIFY, (story, input) -> write.accept(input));
     }
 
     private StoryStepResponse checkThenSave(Long userId, Long storyId, List<String> texts, Runnable verify,

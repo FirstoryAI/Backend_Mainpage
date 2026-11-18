@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Optional;
 
 /**
@@ -120,8 +121,9 @@ public class ReadingService {
     @Transactional
     public void complete(Long userId, Long sessionId, CompleteRequest.Feedback feedback) {
         ReadingSession session = ownedSession(userId, sessionId);
-        session.complete(clock.instant());
-        session.getStory().markFirstReadCompleted(clock.instant());
+        Instant now = clock.instant();
+        session.complete(now);
+        session.getStory().markFirstReadCompleted(now);
         if (feedback != null && !feedbackRepository.existsBySessionId(session.getId())) {
             feedbackRepository.save(ReadingFeedback.record(session, feedback.childInterest(),
                     feedback.conversationFlow(), feedback.conversationHelpfulness(), feedback.comment()));

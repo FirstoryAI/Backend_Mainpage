@@ -123,16 +123,11 @@ class ReadingIntegrationTest extends IntegrationTest {
 
     @Test
     void AI_가이드_형식_그대로_저장되고_parent_hint_scene_note_if_undecided가_없어도_된다() throws Exception {
-        Long userId = userId(parent);
-        StoryStates states = new StoryStates(tx, userRepository, storyRepository, storyInputRepository,
-                runRepository, versionRepository);
-        long id = states.create(userId, StoryStatus.GENERATING_IMAGES, false, clock.instant());
-        long runId = tx.execute(status -> runRepository.save(Fixtures.run(storyRepository.getReferenceById(id), 1)))
-                .getId();
-        String prefix = "stories/" + id + "/runs/1/images/";
+        long id = generatingStory();
+        long runId = firstRun(id);
         List<AiGenerationResult.Page> pages = IntStream.rangeClosed(1, 10)
                 .mapToObj(n -> new AiGenerationResult.Page(n, n + "쪽", null,
-                        n == 3 ? TextPosition.TOP : TextPosition.BOTTOM, prefix + "page-0" + n + ".png", "done"))
+                        n == 3 ? TextPosition.TOP : TextPosition.BOTTOM, pageKey(id, n), "done"))
                 .toList();
         AiGenerationResult result = new AiGenerationResult(1, "cp-1", "제목", null, null, null, null, List.of(), pages,
                 new AiGenerationResult.Guide(null, "의도", List.of("팁"), "다리 질문", null, List.of(
@@ -140,8 +135,7 @@ class ReadingIntegrationTest extends IntegrationTest {
                         new AiGenerationResult.Prompt(2, "둘째 쪽 질문", "emotion", "힌트", "장면 설명"))),
                 null, null);
 
-        recorder.record(runId, result);
-        parent.post("/api/stories/" + id + "/approve", null).andExpect(status().isOk());
+        recordAndApprove(id, runId, result);
 
         // seq는 받은 순서대로 1부터 (쪽 순서로 다시 정렬하지 않는다)
         guide(id)
@@ -159,23 +153,17 @@ class ReadingIntegrationTest extends IntegrationTest {
 
     @Test
     void text_blocks가_없는_쪽은_textBlocks_null이고_있는_쪽은_그대로_내려간다() throws Exception {
-        Long userId = userId(parent);
-        StoryStates states = new StoryStates(tx, userRepository, storyRepository, storyInputRepository,
-                runRepository, versionRepository);
-        long id = states.create(userId, StoryStatus.GENERATING_IMAGES, false, clock.instant());
-        long runId = tx.execute(status -> runRepository.save(Fixtures.run(storyRepository.getReferenceById(id), 1)))
-                .getId();
-        String prefix = "stories/" + id + "/runs/1/images/";
+        long id = generatingStory();
+        long runId = firstRun(id);
         List<PageTextBlock> blocks = List.of(
                 new PageTextBlock(List.of(List.of("첫째 줄.", "둘째 줄."), List.of("셋째 줄.")), 5.0, 7.0, TextColor.DARK),
                 new PageTextBlock(List.of(List.of("오른쪽 글.")), 55.5, 80.0, TextColor.LIGHT));
         List<AiGenerationResult.Page> pages = IntStream.rangeClosed(1, 10)
                 .mapToObj(n -> new AiGenerationResult.Page(n, n + "쪽", null, TextPosition.BOTTOM,
-                        prefix + "page-0" + n + ".png", "done", n == 1 ? blocks : null))
+                        pageKey(id, n), "done", n == 1 ? blocks : null))
                 .toList();
-        recorder.record(runId, new AiGenerationResult(1, "cp-1", "제목", null, null, null, null, List.of(), pages,
-                null, null, null));
-        parent.post("/api/stories/" + id + "/approve", null).andExpect(status().isOk());
+        recordAndApprove(id, runId, new AiGenerationResult(1, "cp-1", "제목", null, null, null, null, List.of(),
+                pages, null, null, null));
 
         parent.get("/api/stories/" + id + "/book")
                 .andExpect(status().isOk())
@@ -193,23 +181,17 @@ class ReadingIntegrationTest extends IntegrationTest {
 
     @Test
     void sound_word가_있는_쪽은_soundWord로_없는_쪽은_null로_내려간다() throws Exception {
-        Long userId = userId(parent);
-        StoryStates states = new StoryStates(tx, userRepository, storyRepository, storyInputRepository,
-                runRepository, versionRepository);
-        long id = states.create(userId, StoryStatus.GENERATING_IMAGES, false, clock.instant());
-        long runId = tx.execute(status -> runRepository.save(Fixtures.run(storyRepository.getReferenceById(id), 1)))
-                .getId();
-        String prefix = "stories/" + id + "/runs/1/images/";
+        long id = generatingStory();
+        long runId = firstRun(id);
         PageSoundWord word = new PageSoundWord("훌쩍훌쩍", "#E03E4E", List.of(
                 new PageSoundWord.Piece("훌쩍", 18.2, 46.0, PieceSide.LEFT),
                 new PageSoundWord.Piece("훌쩍", 37.9, 46.0, PieceSide.RIGHT)));
         List<AiGenerationResult.Page> pages = IntStream.rangeClosed(1, 10)
                 .mapToObj(n -> new AiGenerationResult.Page(n, n + "쪽", null, TextPosition.BOTTOM,
-                        prefix + "page-0" + n + ".png", "done", null, n == 1 ? word : null))
+                        pageKey(id, n), "done", null, n == 1 ? word : null))
                 .toList();
-        recorder.record(runId, new AiGenerationResult(1, "cp-1", "제목", null, null, null, null, List.of(), pages,
-                null, null, null));
-        parent.post("/api/stories/" + id + "/approve", null).andExpect(status().isOk());
+        recordAndApprove(id, runId, new AiGenerationResult(1, "cp-1", "제목", null, null, null, null, List.of(),
+                pages, null, null, null));
         // 11/16 전 옛 모양이 DB에 남은 쪽: 읽지 못하면 그 쪽만 null, 응답은 200 (#72)
         jdbc.update("""
                 UPDATE story_pages SET sound_word = '{"text": "톡", "x": 50, "y": 50, "color": "DARK"}'::jsonb
@@ -413,6 +395,27 @@ class ReadingIntegrationTest extends IntegrationTest {
         assertThat(jdbc.queryForObject("SELECT completed_at FROM reading_sessions WHERE id = ?", Object.class,
                 sessionId)).isEqualTo(completedAt);
         parent.get("/api/stories/" + id).andExpect(jsonPath("$.readCount").value(2));
+    }
+
+    // 생성 결과를 바로 기록할 수 있게 그림 단계의 동화를 DB에 만든다
+    private long generatingStory() throws Exception {
+        StoryStates states = new StoryStates(tx, userRepository, storyRepository, storyInputRepository,
+                runRepository, versionRepository);
+        return states.create(userId(parent), StoryStatus.GENERATING_IMAGES, false, clock.instant());
+    }
+
+    private long firstRun(long id) {
+        return tx.execute(status -> runRepository.save(Fixtures.run(storyRepository.getReferenceById(id), 1)))
+                .getId();
+    }
+
+    private static String pageKey(long id, int pageNo) {
+        return "stories/" + id + "/runs/1/images/page-0" + pageNo + ".png";
+    }
+
+    private void recordAndApprove(long id, long runId, AiGenerationResult result) throws Exception {
+        recorder.record(runId, result);
+        parent.post("/api/stories/" + id + "/approve", null).andExpect(status().isOk());
     }
 
     private ResultActions guide(long id) throws Exception {

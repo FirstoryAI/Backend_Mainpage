@@ -47,13 +47,19 @@ public record BookResponse(Long storyId, Long versionId, String title, String co
         Long storyId = story.getId();
         return new BookResponse(storyId, version.getId(), story.getTitle(), StoryCardResponse.coverUrl(story),
                 StoryImageUrls.frontCover(storyId, version), StoryImageUrls.backCover(storyId, version), pageCount,
-                pages.stream().map(page -> new Page(page.getPageNo(), page.getText(),
-                        page.getImageStatus() == ImageStatus.DONE
-                                ? StoryImageUrls.page(storyId, version.getId(), page.getPageNo()) : null,
-                        page.getImageStatus(), page.getTextPosition(), page.getTextBlocks(), page.getSoundWord()))
-                        .toList(),
-                prompts.stream().map(prompt -> new Prompt(prompt.getId(), prompt.getAfterPage(), prompt.getQuestion(),
-                        prompt.getParentHint())).toList());
+                pages.stream().map(page -> toPage(storyId, version.getId(), page)).toList(),
+                prompts.stream().map(BookResponse::toPrompt).toList());
+    }
+
+    private static Page toPage(Long storyId, Long versionId, StoryPage page) {
+        String imageUrl = page.getImageStatus() == ImageStatus.DONE
+                ? StoryImageUrls.page(storyId, versionId, page.getPageNo()) : null;
+        return new Page(page.getPageNo(), page.getText(), imageUrl, page.getImageStatus(), page.getTextPosition(),
+                page.getTextBlocks(), page.getSoundWord());
+    }
+
+    private static Prompt toPrompt(GuidePrompt prompt) {
+        return new Prompt(prompt.getId(), prompt.getAfterPage(), prompt.getQuestion(), prompt.getParentHint());
     }
 
     // 본문에 부모 입력이 반영되어 있어 로그에 남기지 않는다

@@ -37,11 +37,13 @@ public class GuideService {
     @Transactional(readOnly = true)
     public GuideResponse guide(Long userId, Long storyId) {
         Story story = loader.findOwned(userId, storyId);
-        if (!GUIDE_STATUSES.contains(story.getStatus()) || story.getCurrentVersion() == null) {
+        StoryVersion version = story.getCurrentVersion();
+        if (!GUIDE_STATUSES.contains(story.getStatus()) || version == null) {
             throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION);
         }
-        ReadingGuide guide = guideRepository.findByVersionId(story.getCurrentVersion().getId()).orElse(null);
-        List<GuidePrompt> prompts = guide == null ? List.of() : promptRepository.findAllByGuideIdOrderBySeqAsc(guide.getId());
+        ReadingGuide guide = guideRepository.findByVersionId(version.getId()).orElse(null);
+        List<GuidePrompt> prompts = guide == null ? List.of()
+                : promptRepository.findAllByGuideIdOrderBySeqAsc(guide.getId());
         return GuideResponse.of(story.getId(), story.getTitle(), guide, prompts);
     }
 

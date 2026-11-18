@@ -9,10 +9,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -41,10 +39,7 @@ class FrontendErrorsDocTest {
 
     @Test
     void 문서의_코드는_한_번씩만() throws IOException {
-        List<String> codes = rows().stream().map(Row::code).toList();
-
-        Set<String> unique = codes.stream().collect(Collectors.toSet());
-        assertThat(codes).hasSameSizeAs(unique);
+        assertThat(rows()).extracting(Row::code).doesNotHaveDuplicates();
     }
 
     private static List<Row> rows() throws IOException {

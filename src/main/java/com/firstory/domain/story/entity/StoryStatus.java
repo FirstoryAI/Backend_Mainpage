@@ -1,6 +1,5 @@
 package com.firstory.domain.story.entity;
 
-import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
@@ -39,10 +38,6 @@ public enum StoryStatus {
 
     public boolean canTransitionTo(StoryStatus next) {
         return TRANSITIONS.get(this).contains(next);
-    }
-
-    public Set<StoryStatus> nextStatuses() {
-        return Collections.unmodifiableSet(TRANSITIONS.get(this));
     }
 
     public boolean isCreating() {

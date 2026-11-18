@@ -2,6 +2,7 @@ package com.firstory.domain.generation.service;
 
 import com.firstory.domain.generation.entity.ImageStatus;
 import com.firstory.domain.generation.entity.StoryFiles;
+import com.firstory.domain.generation.entity.StoryPage;
 import com.firstory.domain.generation.entity.StoryVersion;
 import com.firstory.domain.generation.repository.StoryPageRepository;
 import com.firstory.domain.generation.repository.StoryVersionRepository;
@@ -15,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.function.Function;
 
 /**
  * 그림 내려주기. 보안 규칙:
@@ -41,35 +44,37 @@ public class StoryImageService {
         StoryVersion version = findVersion(story, versionId);
         String key = pageRepository.findByVersionIdAndPageNo(version.getId(), pageNo)
                 .filter(page -> page.getImageStatus() == ImageStatus.DONE)
-                .map(page -> page.getImageKey())
+                .map(StoryPage::getImageKey)
                 .orElseThrow(() -> new BusinessException(ErrorCode.IMAGE_NOT_FOUND));
         return read(story, key);
     }
 
     @Transactional(readOnly = true)
     public StoredFile characterSheet(Long userId, Long storyId, Long versionId) {
-        Story story = loader.findOwned(userId, storyId);
-        StoryVersion version = findVersion(story, versionId);
-        return read(story, version.getCharacterSheetKey());
+        return versionImage(userId, storyId, versionId, StoryVersion::getCharacterSheetKey);
     }
 
     @Transactional(readOnly = true)
     public StoredFile cover(Long userId, Long storyId, Long versionId) {
-        Story story = loader.findOwned(userId, storyId);
-        StoryVersion version = findVersion(story, versionId);
-        return read(story, version.getCoverKey());
+        return versionImage(userId, storyId, versionId, StoryVersion::getCoverKey);
     }
 
     @Transactional(readOnly = true)
     public StoredFile frontCover(Long userId, Long storyId, Long versionId) {
-        Story story = loader.findOwned(userId, storyId);
-        return read(story, findVersion(story, versionId).getFrontCoverKey());
+        return versionImage(userId, storyId, versionId, StoryVersion::getFrontCoverKey);
     }
 
     @Transactional(readOnly = true)
     public StoredFile backCover(Long userId, Long storyId, Long versionId) {
+        return versionImage(userId, storyId, versionId, StoryVersion::getBackCoverKey);
+    }
+
+    /**
+     * 버전에 하나씩 있는 그림(캐릭터 시트, 표지들). keyOf로 그 버전의 어느 key를 쓸지 고른다.
+     */
+    private StoredFile versionImage(Long userId, Long storyId, Long versionId, Function<StoryVersion, String> keyOf) {
         Story story = loader.findOwned(userId, storyId);
-        return read(story, findVersion(story, versionId).getBackCoverKey());
+        return read(story, keyOf.apply(findVersion(story, versionId)));
     }
 
     private StoryVersion findVersion(Story story, Long versionId) {

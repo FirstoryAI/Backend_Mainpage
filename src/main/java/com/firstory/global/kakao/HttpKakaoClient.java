@@ -64,10 +64,10 @@ public class HttpKakaoClient implements KakaoClient {
             throw new BusinessException(ErrorCode.KAKAO_UNAVAILABLE);
         }
         JsonNode account = me.path("kakao_account");
-        String email = account.path("email").isString() ? account.path("email").asString() : null;
+        JsonNode email = account.path("email");
         boolean verified = account.path("is_email_valid").asBoolean(false)
                 && account.path("is_email_verified").asBoolean(false);
-        return new KakaoUser(me.path("id").asString(), email, verified);
+        return new KakaoUser(me.path("id").asString(), email.isString() ? email.asString() : null, verified);
     }
 
     private String token(String authorizationCode, String redirectUri) {

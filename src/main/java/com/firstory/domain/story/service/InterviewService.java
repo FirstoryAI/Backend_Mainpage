@@ -97,20 +97,17 @@ public class InterviewService {
 
         // ② AI가 위기 신호 판단과 다음 질문을 함께 준다. 판단을 먼저 적용한다
         InterviewReply reply = aiClient.answerInterview(story.getThreadId(), answer, blockedTopics.aiValues());
-        SafetyOutcome outcome = null;
-        if (answer != null) {
-            outcome = safetyGuard.apply(story, SafetySource.INTERVIEW, reply.safety(), turn);
-            if (outcome.isBlocked()) {
-                return InterviewResponse.blocked(story.getId(), outcome, current.toneRequired());
-            }
-            if (outcome.action() == SafetyAction.ASK_REVISE) {
-                return InterviewResponse.question(story.getId(), story.getStatus(), turn.getTurnNo(),
-                        turn.getQuestion(), List.of(), null, outcome, current.toneRequired());
-            }
+        SafetyOutcome outcome = answer == null ? null
+                : safetyGuard.apply(story, SafetySource.INTERVIEW, reply.safety(), turn);
+        if (outcome != null && outcome.isBlocked()) {
+            return InterviewResponse.blocked(story.getId(), outcome, current.toneRequired());
+        }
+        if (outcome != null && outcome.action() == SafetyAction.ASK_REVISE) {
+            return InterviewResponse.question(story.getId(), story.getStatus(), turn.getTurnNo(),
+                    turn.getQuestion(), List.of(), null, outcome, current.toneRequired());
         }
 
         // ③
-        SafetyOutcome checked = outcome;
         return transactionTemplate.execute(status -> {
             Story locked = loader.lockUnchanged(story);
             InterviewTurn answered = interviewTurnRepository.findById(turn.getId())
@@ -122,7 +119,7 @@ public class InterviewService {
             if (reply.contextUpdate() != null) {
                 answered.updateContext(reply.contextUpdate());
             }
-            return apply(locked, loader.input(locked), answered.getTurnNo(), reply, checked);
+            return apply(locked, loader.input(locked), answered.getTurnNo(), reply, outcome);
         });
     }
 
@@ -174,10 +171,12 @@ public class InterviewService {
 
     private static String text(Story story, Map<?, ?> parent, String key) {
         Object value = parent.get(key);
-        if (value == null || value instanceof String) {
-            return CustomText.strip((String) value);
+        if (value instanceof String text) {
+            return CustomText.strip(text);
         }
-        log.warn("AI 최종 context의 parent.{}가 글이 아니에요: thread_id={}", key, story.getThreadId());
+        if (value != null) {
+            log.warn("AI 최종 context의 parent.{}가 글이 아니에요: thread_id={}", key, story.getThreadId());
+        }
         return null;
     }
 

@@ -1,5 +1,6 @@
 package com.firstory.global.error;
 
+import com.firstory.global.error.ValidationErrorResponse.FieldMessage;
 import org.springframework.util.ReflectionUtils;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.exc.StreamReadException;
@@ -20,40 +21,49 @@ import java.util.Map;
  */
 final class RequestBodyErrors {
 
-    static final String BODY = "body";
-    static final String MISSING_BODY = "요청 내용이 없어요.";
-    static final String BROKEN_JSON = "JSON 형식이 맞지 않아요.";
-    static final String UNKNOWN_KEY = "알 수 없는 항목이 있어요.";
-    static final String UNKNOWN_CHOICE = "고를 수 없는 값이에요.";
-    static final String WRONG_TYPE = "형식이 맞지 않아요.";
+    private static final String BODY = "body";
+    private static final String MISSING_BODY = "요청 내용이 없어요.";
+    private static final String BROKEN_JSON = "JSON 형식이 맞지 않아요.";
+    private static final String UNKNOWN_KEY = "알 수 없는 항목이 있어요.";
+    private static final String UNKNOWN_CHOICE = "고를 수 없는 값이에요.";
+    private static final String WRONG_TYPE = "형식이 맞지 않아요.";
 
     private RequestBodyErrors() {
     }
 
-    static ValidationErrorResponse.FieldMessage describe(Throwable cause) {
+    static FieldMessage describe(Throwable cause) {
         JacksonException jackson = findJackson(cause);
         if (jackson == null) {
-            return new ValidationErrorResponse.FieldMessage(BODY, MISSING_BODY);
+            return new FieldMessage(BODY, MISSING_BODY);
         }
         Path path = path(jackson.getPath());
         String field = path.name().isEmpty() ? BODY : path.name();
+        return new FieldMessage(field, message(jackson, path));
+    }
+
+    private static String message(JacksonException jackson, Path path) {
         if (jackson instanceof StreamReadException) {
-            return new ValidationErrorResponse.FieldMessage(field, BROKEN_JSON);
+            return BROKEN_JSON;
         }
         if (path.endsAtMapField()) {
             // Map 값이 아니라 키를 읽지 못했다 (값이면 경로가 Map 안으로 이어진다)
-            return new ValidationErrorResponse.FieldMessage(field, UNKNOWN_KEY);
+            return UNKNOWN_KEY;
         }
-        if (jackson instanceof InvalidFormatException format && format.getTargetType() != null
-                && format.getTargetType().isEnum()) {
-            return new ValidationErrorResponse.FieldMessage(field, UNKNOWN_CHOICE);
+        if (isUnknownEnumValue(jackson)) {
+            return UNKNOWN_CHOICE;
+        }
+        return WRONG_TYPE;
+    }
+
+    private static boolean isUnknownEnumValue(JacksonException jackson) {
+        if (jackson instanceof InvalidFormatException format) {
+            return format.getTargetType() != null && format.getTargetType().isEnum();
         }
         // @JsonCreator로 값을 찾는 enum(FeedbackChoice)이 받은 값을 찾지 못했다
-        if (jackson instanceof ValueInstantiationException instantiation && instantiation.getType() != null
-                && instantiation.getType().isEnumType()) {
-            return new ValidationErrorResponse.FieldMessage(field, UNKNOWN_CHOICE);
+        if (jackson instanceof ValueInstantiationException instantiation) {
+            return instantiation.getType() != null && instantiation.getType().isEnumType();
         }
-        return new ValidationErrorResponse.FieldMessage(field, WRONG_TYPE);
+        return false;
     }
 
     private static JacksonException findJackson(Throwable cause) {
@@ -102,8 +112,11 @@ final class RequestBodyErrors {
     }
 
     private static Field declaredField(Object from, String property) {
-        Class<?> owner = from instanceof Class<?> type ? type : from == null ? null : from.getClass();
-        return owner == null ? null : ReflectionUtils.findField(owner, property);
+        if (from == null) {
+            return null;
+        }
+        Class<?> owner = from instanceof Class<?> type ? type : from.getClass();
+        return ReflectionUtils.findField(owner, property);
     }
 
     private static boolean isArray(Object from) {

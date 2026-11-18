@@ -88,8 +88,7 @@ class StoryCreationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.turn").value(nullValue()))
                 .andExpect(jsonPath("$.choices").isEmpty());
 
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM interview_turns WHERE story_id = ? AND answer IS NOT NULL",
-                Integer.class, id)).isEqualTo(3);
+        assertThat(answeredTurns(id)).isEqualTo(3);
         Map<String, Object> input = jdbc.queryForMap(
                 "SELECT final_context::text AS final_context, message_direction, parent_message, interview_end_reason "
                         + "FROM story_inputs WHERE story_id = ?", id);
@@ -189,8 +188,7 @@ class StoryCreationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.question").value(FakeAiClient.FIRST_QUESTION))
                 .andExpect(jsonPath("$.safety.action").value("ASK_REVISE"))
                 .andExpect(jsonPath("$.safety.reason").value(SafetyGuard.BLOCKED_TOPIC_REASON));
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM interview_turns WHERE story_id = ? AND answer IS NOT NULL",
-                Integer.class, id)).isZero();
+        assertThat(answeredTurns(id)).isZero();
 
         answer(id, "울었어요").andExpect(jsonPath("$.turn").value(2));
         assertThat(storyStatus(id)).isEqualTo("INTERVIEWING");
@@ -260,8 +258,7 @@ class StoryCreationIntegrationTest extends IntegrationTest {
         assertThat(flag.get("source")).isEqualTo("INTERVIEW");
         assertThat(flag.get("level")).isEqualTo("CRISIS");
         assertThat(flag.get("turn_no")).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM interview_turns WHERE story_id = ? AND answer IS NOT NULL",
-                Integer.class, id)).isZero();
+        assertThat(answeredTurns(id)).isZero();
         assertThat(ai.answerCalls(threadId(id))).isOne();   // 판단은 AI가 인터뷰 응답에 담아 준다 (AI#83)
     }
 
@@ -672,6 +669,11 @@ class StoryCreationIntegrationTest extends IntegrationTest {
 
     private static String interviewUrl(long id, String action) {
         return storyUrl(id) + "/interview/" + action;
+    }
+
+    private int answeredTurns(long id) {
+        return jdbc.queryForObject("SELECT count(*) FROM interview_turns WHERE story_id = ? AND answer IS NOT NULL",
+                Integer.class, id);
     }
 
     private int flags(long id, String level) {

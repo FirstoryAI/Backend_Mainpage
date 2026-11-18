@@ -76,11 +76,7 @@ public class HttpAiClient implements AiClient {
         TransactionGuard.requireNoTransaction();
         SafetyCheckRequest request = new SafetyCheckRequest(sourceValue(source), texts,
                 questionContext == null ? null : Map.of("question", questionContext));
-        SafetyCheckResponse response = call(null, () -> restClient.post()
-                .uri("/v1/safety/check")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
+        SafetyCheckResponse response = call(null, () -> post(request, "/v1/safety/check")
                 .body(SafetyCheckResponse.class));
         if (response == null || response.safety() == null || response.safety().level() == null) {
             throw invalidResponse(null, "safety");
@@ -90,8 +86,7 @@ public class HttpAiClient implements AiClient {
 
     private static SafetyResult toSafety(String threadId, SafetyBody safety) {
         try {
-            return new SafetyResult(SafetyLevel.valueOf(safety.level().toUpperCase(Locale.ROOT)), safety.category(),
-                    safety.reason(), safety.topic());
+            return safety.toResult();
         } catch (IllegalArgumentException e) {
             throw invalidResponse(threadId, "safety.level");
         }
@@ -101,26 +96,15 @@ public class HttpAiClient implements AiClient {
     public InterviewReply startInterview(String threadId, UUID runId, Map<String, Object> context, Tone tone) {
         TransactionGuard.requireNoTransaction();
         StartInterviewRequest request = new StartInterviewRequest(runId, context, tone == null ? null : tone.aiValue());
-        return toReply(threadId, call(threadId, () -> restClient.post()
-                .uri("/v1/threads/{threadId}/interview/start", threadId)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
+        return toReply(threadId, call(threadId, () -> post(request, "/v1/threads/{threadId}/interview/start", threadId)
                 .body(InterviewBody.class)));
     }
 
     @Override
     public InterviewReply answerInterview(String threadId, String answer, List<String> blockedTopics) {
         TransactionGuard.requireNoTransaction();
-        // 막은 주제(blocked_topics)에 걸리면 AI가 답을 받기 전으로 되돌린다 (#79). 건너뛰기는 검사하지 않아 보내지 않는다
-        Map<String, Object> request = answer == null ? Map.of("skip", true)
-                : blockedTopics.isEmpty() ? Map.of("answer", answer)
-                : Map.of("answer", answer, "blocked_topics", blockedTopics);
-        InterviewBody body = call(threadId, () -> restClient.post()
-                .uri("/v1/threads/{threadId}/interview/answer", threadId)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
+        Map<String, Object> request = answerRequest(answer, blockedTopics);
+        InterviewBody body = call(threadId, () -> post(request, "/v1/threads/{threadId}/interview/answer", threadId)
                 .body(InterviewBody.class));
         InterviewReply reply = toReply(threadId, body);
         if (answer == null) {
@@ -133,18 +117,24 @@ public class HttpAiClient implements AiClient {
         return reply.withSafety(toSafety(threadId, body.safety()));
     }
 
+    // 막은 주제(blocked_topics)에 걸리면 AI가 답을 받기 전으로 되돌린다 (#79). 건너뛰기는 검사하지 않아 보내지 않는다
+    private static Map<String, Object> answerRequest(String answer, List<String> blockedTopics) {
+        if (answer == null) {
+            return Map.of("skip", true);
+        }
+        if (blockedTopics.isEmpty()) {
+            return Map.of("answer", answer);
+        }
+        return Map.of("answer", answer, "blocked_topics", blockedTopics);
+    }
+
     @Override
     public void generate(String threadId, UUID runId, int runNo, String outputPrefix, Tone tone,
                          Map<String, Object> context, String summary) {
         TransactionGuard.requireNoTransaction();
         RunRequest request = new RunRequest(runId, runNo, outputPrefix, tone == null ? null : tone.aiValue(), context,
                 summary);
-        call(threadId, () -> restClient.post()
-                .uri("/v1/threads/{threadId}/generate", threadId)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
-                .toBodilessEntity());
+        call(threadId, () -> post(request, "/v1/threads/{threadId}/generate", threadId).toBodilessEntity());
     }
 
     @Override
@@ -201,12 +191,7 @@ public class HttpAiClient implements AiClient {
     public void retry(String threadId, UUID runId, int runNo, String outputPrefix) {
         TransactionGuard.requireNoTransaction();
         RunRequest request = new RunRequest(runId, runNo, outputPrefix, null, null, null);
-        call(threadId, () -> restClient.post()
-                .uri("/v1/threads/{threadId}/retry", threadId)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
-                .toBodilessEntity());
+        call(threadId, () -> post(request, "/v1/threads/{threadId}/retry", threadId).toBodilessEntity());
     }
 
     static String scopeValue(RegenerateScope scope) {
@@ -219,12 +204,16 @@ public class HttpAiClient implements AiClient {
     }
 
     private void review(String threadId, Object request) {
-        call(threadId, () -> restClient.post()
-                .uri("/v1/threads/{threadId}/review", threadId)
+        call(threadId, () -> post(request, "/v1/threads/{threadId}/review", threadId).toBodilessEntity());
+    }
+
+    // JSON 본문 POST. call의 Supplier 안에서 불러야 연결·응답 오류가 변환된다
+    private RestClient.ResponseSpec post(Object body, String uri, Object... uriVariables) {
+        return restClient.post()
+                .uri(uri, uriVariables)
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
-                .toBodilessEntity());
+                .body(body)
+                .retrieve();
     }
 
     // error는 { code, node, message } 객체 (스펙 7-5). message는 남기지 않는다
@@ -329,6 +318,11 @@ public class HttpAiClient implements AiClient {
     }
 
     record SafetyBody(String level, String category, String reason, String topic) {
+
+        // level이 모르는 값이면 IllegalArgumentException
+        SafetyResult toResult() {
+            return new SafetyResult(SafetyLevel.valueOf(level.toUpperCase(Locale.ROOT)), category, reason, topic);
+        }
     }
 
     record InterviewBody(String type, Integer turn, String question, List<String> choices,
@@ -392,16 +386,14 @@ public class HttpAiClient implements AiClient {
                     guide(guide),
                     cost == null ? null : new AiGenerationResult.Cost(cost.inputTokens(), cost.outputTokens(),
                             cost.imageCount()),
-                    safety == null || safety.level() == null ? null : new SafetyResult(
-                            SafetyLevel.valueOf(safety.level().toUpperCase(Locale.ROOT)), safety.category(),
-                            safety.reason(), safety.topic()));
+                    safety == null || safety.level() == null ? null : safety.toResult());
         }
 
         // 없거나(옛 AI, 그림이 실패한 쪽) 형식이 어긋나면 그 쪽만 null. 생성은 실패시키지 않는다.
         // 로그에는 글이 들어 있을 수 있어 thread_id와 쪽 번호만 남긴다
         private static List<PageTextBlock> textBlocks(String threadId, PageBody page) {
             JsonNode node = page.textBlocks();
-            if (node == null || node.isNull() || node.isMissingNode()) {
+            if (isAbsent(node)) {
                 return null;
             }
             List<PageTextBlock> blocks = PageTextBlock.validated(parseTextBlocks(node));
@@ -414,31 +406,46 @@ public class HttpAiClient implements AiClient {
         // 없거나(옛 AI, 별표 말이 없는 쪽) 형식이 어긋나면 그 쪽만 null. 로그에는 thread_id와 쪽 번호만 (말이 부모 입력일 수 있다)
         private static PageSoundWord soundWord(String threadId, PageBody page) {
             JsonNode node = page.soundWord();
-            if (node == null || node.isNull() || node.isMissingNode()) {
+            if (isAbsent(node)) {
                 return null;
             }
-            PageSoundWord word = node.isObject() && node.path("text").isString() && node.path("color").isString()
-                    && node.path("pieces").isArray()
-                    ? PageSoundWord.validated(new PageSoundWord(node.path("text").asString(), node.path("color").asString(),
-                    pieces(node.path("pieces"))))
-                    : null;
+            PageSoundWord word = parseSoundWord(node);
             if (word == null) {
                 log.warn("sound_word 형식이 맞지 않아 뺐어요: thread_id={}, page_no={}", threadId, page.pageNo());
             }
             return word;
         }
 
+        private static boolean isAbsent(JsonNode node) {
+            return node == null || node.isNull() || node.isMissingNode();
+        }
+
+        // 모양이 다르면 null (검사는 PageSoundWord.validated가 한다)
+        private static PageSoundWord parseSoundWord(JsonNode node) {
+            if (!node.isObject() || !node.path("text").isString() || !node.path("color").isString()
+                    || !node.path("pieces").isArray()) {
+                return null;
+            }
+            return PageSoundWord.validated(new PageSoundWord(node.path("text").asString(),
+                    node.path("color").asString(), pieces(node.path("pieces"))));
+        }
+
         // 조각 하나라도 모양이 어긋나면 그 자리를 null로 둔다 (validated가 전체를 null로)
         private static List<PageSoundWord.Piece> pieces(JsonNode array) {
             List<PageSoundWord.Piece> out = new ArrayList<>();
-            for (JsonNode p : array) {
-                out.add(p.isObject() && p.path("text").isString() && p.path("x").isNumber() && p.path("y").isNumber()
-                        && p.path("side").isString()
-                        ? new PageSoundWord.Piece(p.path("text").asString(), p.path("x").asDouble(), p.path("y").asDouble(),
-                        PieceSide.fromAi(p.path("side").asString()))
-                        : null);
+            for (JsonNode piece : array) {
+                out.add(parsePiece(piece));
             }
             return out;
+        }
+
+        private static PageSoundWord.Piece parsePiece(JsonNode piece) {
+            if (!piece.isObject() || !piece.path("text").isString() || !piece.path("x").isNumber()
+                    || !piece.path("y").isNumber() || !piece.path("side").isString()) {
+                return null;
+            }
+            return new PageSoundWord.Piece(piece.path("text").asString(), piece.path("x").asDouble(),
+                    piece.path("y").asDouble(), PieceSide.fromAi(piece.path("side").asString()));
         }
 
         // 모양이 하나라도 다르면 null (검사는 PageTextBlock.validated가 한다)
@@ -478,10 +485,8 @@ public class HttpAiClient implements AiClient {
             if (guide == null) {
                 return null;
             }
-            Map<String, Object> before = guide.get("before_reading") instanceof Map<?, ?> map
-                    ? (Map<String, Object>) map : Map.of();
-            Map<String, Object> after = guide.get("after_reading") instanceof Map<?, ?> map
-                    ? (Map<String, Object>) map : Map.of();
+            Map<String, Object> before = mapOrEmpty(guide.get("before_reading"));
+            Map<String, Object> after = mapOrEmpty(guide.get("after_reading"));
             List<AiGenerationResult.Prompt> prompts = guide.get("prompts") instanceof List<?> list
                     ? list.stream().map(item -> (Map<String, Object>) item)
                     .map(item -> new AiGenerationResult.Prompt(((Number) item.get("after_page")).intValue(),
@@ -493,6 +498,11 @@ public class HttpAiClient implements AiClient {
             String synopsis = guide.get("synopsis") instanceof String text && !text.isBlank() ? text : null;
             return new AiGenerationResult.Guide(synopsis, (String) before.get("intent"), (List<String>) before.get("tips"),
                     (String) after.get("bridge_question"), (String) after.get("if_undecided"), prompts);
+        }
+
+        @SuppressWarnings("unchecked")
+        private static Map<String, Object> mapOrEmpty(Object value) {
+            return value instanceof Map<?, ?> map ? (Map<String, Object>) map : Map.of();
         }
     }
 

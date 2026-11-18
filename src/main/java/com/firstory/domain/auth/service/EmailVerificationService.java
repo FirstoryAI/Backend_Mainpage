@@ -61,27 +61,8 @@ public class EmailVerificationService {
         String email = User.normalizeEmail(rawEmail);
         Instant now = clock.instant();
         transactionTemplate.executeWithoutResult(status -> {
-            boolean exists = userRepository.existsByEmail(email);
-            if (purpose == EmailPurpose.SIGNUP && exists) {
-                throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
-            }
-            // 가입 여부는 email/check와 SIGNUP의 DUPLICATE_EMAIL로도 알 수 있어 숨기지 않는다 (#89)
-            if (purpose == EmailPurpose.PASSWORD_RESET && !exists) {
-                throw new BusinessException(ErrorCode.EMAIL_NOT_REGISTERED);
-            }
-            if (purpose == EmailPurpose.SIGNUP) {
-                // 베타 동안 가입할 수 없는 사람에게는 인증 메일부터 보내지 않는다
-                signupGate.checkCanSignUp(email, session);
-            }
-            String emailHash = EmailVerification.sha256(email);
-            if (emailSendLogRepository.countByEmailHashAndCreatedAtAfter(emailHash, now.minus(Duration.ofHours(1)))
-                    >= HOURLY_SEND_LIMIT) {
-                throw new BusinessException(ErrorCode.VERIFICATION_RATE_LIMITED);
-            }
-            if (emailSendLogRepository.existsByEmailHashAndCreatedAtAfter(emailHash, now.minus(RESEND_INTERVAL))) {
-                throw new BusinessException(ErrorCode.VERIFICATION_RESEND_TOO_SOON);
-            }
-            emailSendLogRepository.save(EmailSendLog.record(emailHash, purpose));
+            checkCanReceive(session, email, purpose);
+            recordSend(email, purpose, now);
         });
 
         String code = newCode();
@@ -96,27 +77,69 @@ public class EmailVerificationService {
     }
 
     /**
+     * 가입은 아직 가입하지 않은 이메일만, 비밀번호 찾기는 가입한 이메일만 받는다.
+     */
+    private void checkCanReceive(HttpSession session, String email, EmailPurpose purpose) {
+        boolean exists = userRepository.existsByEmail(email);
+        switch (purpose) {
+            case SIGNUP -> {
+                if (exists) {
+                    throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+                }
+                // 베타 동안 가입할 수 없는 사람에게는 인증 메일부터 보내지 않는다
+                signupGate.checkCanSignUp(email, session);
+            }
+            // 가입 여부는 email/check와 SIGNUP의 DUPLICATE_EMAIL로도 알 수 있어 숨기지 않는다 (#89)
+            case PASSWORD_RESET -> {
+                if (!exists) {
+                    throw new BusinessException(ErrorCode.EMAIL_NOT_REGISTERED);
+                }
+            }
+        }
+    }
+
+    /**
+     * 이메일마다 60초에 한 번, 1시간에 5번까지. 기록에는 이메일의 해시만 남긴다.
+     */
+    private void recordSend(String email, EmailPurpose purpose, Instant now) {
+        String emailHash = EmailVerification.sha256(email);
+        if (emailSendLogRepository.countByEmailHashAndCreatedAtAfter(emailHash, now.minus(Duration.ofHours(1)))
+                >= HOURLY_SEND_LIMIT) {
+            throw new BusinessException(ErrorCode.VERIFICATION_RATE_LIMITED);
+        }
+        if (emailSendLogRepository.existsByEmailHashAndCreatedAtAfter(emailHash, now.minus(RESEND_INTERVAL))) {
+            throw new BusinessException(ErrorCode.VERIFICATION_RESEND_TOO_SOON);
+        }
+        emailSendLogRepository.save(EmailSendLog.record(emailHash, purpose));
+    }
+
+    /**
      * 가입과 비밀번호 찾기는 무엇 때문에 온 메일인지 알 수 있게 문구를 나눈다 (#58).
      */
     private MailContent mail(EmailPurpose purpose, String code) {
-        if (purpose == EmailPurpose.PASSWORD_RESET) {
-            return new MailContent("[FIRSTORY] 비밀번호 재설정 인증번호예요", MailTemplates.withContact("""
+        return switch (purpose) {
+            case PASSWORD_RESET -> mail("[FIRSTORY] 비밀번호 재설정 인증번호예요", """
                     FIRSTORY 비밀번호 재설정 인증번호예요.
 
                     %s
 
                     새 비밀번호를 만들 때 입력해 주세요. 5분 동안 쓸 수 있어요.
-                    요청하지 않았다면 누군가 이메일을 잘못 입력했을 수 있어요. 비밀번호는 바뀌지 않았으니 이 메일은 지워도 괜찮아요."""
-                    .formatted(code)), mailTemplates.html(MailTemplates.VERIFY_PASSWORD_RESET, Map.of("code", code)));
-        }
-        return new MailContent("[FIRSTORY] 회원가입 인증번호예요", MailTemplates.withContact("""
-                FIRSTORY 회원가입 인증번호예요.
+                    요청하지 않았다면 누군가 이메일을 잘못 입력했을 수 있어요. 비밀번호는 바뀌지 않았으니 이 메일은 지워도 괜찮아요.""",
+                    MailTemplates.VERIFY_PASSWORD_RESET, code);
+            case SIGNUP -> mail("[FIRSTORY] 회원가입 인증번호예요", """
+                    FIRSTORY 회원가입 인증번호예요.
 
-                %s
+                    %s
 
-                가입 화면에 입력해 주세요. 5분 동안 쓸 수 있어요.
-                가입을 요청하지 않았다면 이 메일은 지워도 괜찮아요.""".formatted(code)),
-                mailTemplates.html(MailTemplates.VERIFY_SIGNUP, Map.of("code", code)));
+                    가입 화면에 입력해 주세요. 5분 동안 쓸 수 있어요.
+                    가입을 요청하지 않았다면 이 메일은 지워도 괜찮아요.""",
+                    MailTemplates.VERIFY_SIGNUP, code);
+        };
+    }
+
+    private MailContent mail(String subject, String textFormat, String htmlTemplate, String code) {
+        return new MailContent(subject, MailTemplates.withContact(textFormat.formatted(code)),
+                mailTemplates.html(htmlTemplate, Map.of("code", code)));
     }
 
     /**
@@ -124,12 +147,13 @@ public class EmailVerificationService {
      * (dev 서버에서 Gmail을 켜면 000000으로 아무 이메일이나 인증되지 않게).
      */
     private String newCode() {
-        if (properties.mail().mode() != MailMode.LOG) {
-            return EmailVerification.newCode(random);
+        if (properties.mail().mode() == MailMode.LOG) {
+            LocalFixedVerificationCode fixed = localFixedCode.getIfAvailable();
+            if (fixed != null && fixed.code().isPresent()) {
+                return fixed.code().get();
+            }
         }
-        LocalFixedVerificationCode fixed = localFixedCode.getIfAvailable();
-        return fixed == null ? EmailVerification.newCode(random)
-                : fixed.code().orElseGet(() -> EmailVerification.newCode(random));
+        return EmailVerification.newCode(random);
     }
 
     public void verify(HttpSession session, String rawEmail, String code) {

@@ -1,5 +1,6 @@
 package com.firstory.domain.safety.service;
 
+import com.firstory.domain.generation.entity.RegenerateScope;
 import com.firstory.domain.safety.entity.HelpKind;
 import com.firstory.domain.safety.entity.SafetyAction;
 import com.firstory.domain.safety.entity.SafetyFlag;
@@ -16,7 +17,6 @@ import com.firstory.domain.story.entity.Tone;
 import com.firstory.domain.story.repository.StoryInputRepository;
 import com.firstory.domain.story.repository.StoryRepository;
 import com.firstory.domain.story.service.BlockedTopics;
-import com.firstory.domain.generation.entity.RegenerateScope;
 import com.firstory.global.ai.AiClient;
 import com.firstory.global.ai.AiGenerationResult;
 import com.firstory.global.ai.AiGenerationStatus;
@@ -72,11 +72,7 @@ class SafetyGuardTest {
 
     @BeforeEach
     void setUp() {
-        SafetyPolicy policy = new SafetyPolicy(new FirstoryProperties(null,
-                new FirstoryProperties.Policy(3, REVISE_LIMIT), null, null, null, null, null, null, null, null));
-        guard = new SafetyGuard(ai, policy, BlockedTopics.of(Set.of(SituationCategory.SEPARATION)), flags, stories, inputs,
-                TransactionOperations.withoutTransaction(),
-                Clock.fixed(NOW, ZoneOffset.UTC));
+        guard = guardBlocking(Set.of(SituationCategory.SEPARATION));
         story = story(user());
         input = StoryInput.begin(story);
         when(stories.findByIdForUpdate(any())).thenReturn(Optional.of(story));
@@ -142,10 +138,7 @@ class SafetyGuardTest {
 
     @Test
     void 막은_주제가_없으면_topic이_있어도_그대로() {
-        SafetyGuard open = new SafetyGuard(ai, new SafetyPolicy(new FirstoryProperties(null,
-                new FirstoryProperties.Policy(3, REVISE_LIMIT), null, null, null, null, null, null, null, null)),
-                BlockedTopics.of(Set.of()), flags, stories, inputs, TransactionOperations.withoutTransaction(),
-                Clock.fixed(NOW, ZoneOffset.UTC));
+        SafetyGuard open = guardBlocking(Set.of());
         ai.next = new SafetyResult(SafetyLevel.OK, null, null, "separation");
 
         assertThat(open.check(story, SafetySource.FORM, List.of("글"), null, null).action())
@@ -305,6 +298,13 @@ class SafetyGuardTest {
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION);
         verify(flags, never()).save(any());
+    }
+
+    private SafetyGuard guardBlocking(Set<SituationCategory> blockedTopics) {
+        SafetyPolicy policy = new SafetyPolicy(new FirstoryProperties(null,
+                new FirstoryProperties.Policy(3, REVISE_LIMIT), null, null, null, null, null, null, null, null));
+        return new SafetyGuard(ai, policy, BlockedTopics.of(blockedTopics), flags, stories, inputs,
+                TransactionOperations.withoutTransaction(), Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private SafetyOutcome check(String... texts) {
