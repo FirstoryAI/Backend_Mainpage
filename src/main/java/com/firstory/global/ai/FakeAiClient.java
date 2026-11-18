@@ -38,6 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -106,6 +107,7 @@ public class FakeAiClient implements AiClient {
             "illustrate", 3, "illustrate_only", 3, "render", 4);
     // [[FAIL]]이면 이 노드에서 실패한다
     private static final String FAIL_AT = "write_story";
+    private static final Pattern SOUND_WORD = Pattern.compile("\\*\\*(.+?)\\*\\*");
 
     private final FileStorage storage;
     private final int pageCount;
@@ -171,13 +173,13 @@ public class FakeAiClient implements AiClient {
         throwIfFailing();
         pause(settings.interviewDelay());
         threads.put(threadId, new ThreadState(context, followUps(threadId)));
-        return InterviewReply.question(1, FIRST_QUESTION, SAMPLE.questionChoices().getFirst(), null);
+        return question(0, null);
     }
 
     @Override
     public InterviewReply answerInterview(String threadId, String answer, List<String> blockedTopics) {
         TransactionGuard.requireNoTransaction();
-        answerCalls.computeIfAbsent(threadId, id -> new AtomicInteger()).incrementAndGet();
+        increment(answerCalls, threadId);
         throwIfFailing();
         pause(settings.interviewDelay());
         ThreadState state = threads.get(threadId);
@@ -196,16 +198,14 @@ public class FakeAiClient implements AiClient {
         if (safety.level() == SafetyLevel.REVISE || safety.level() == SafetyLevel.CRISIS
                 || (safety.topic() != null && blockedTopics.contains(safety.topic()))) {
             // 답을 받기 전으로 되돌린 것처럼 차례를 넘기지 않고 같은 질문을 준다
-            return InterviewReply.question(current + 1, SAMPLE.questions().get(current),
-                    SAMPLE.questionChoices().get(current), null).withSafety(safety);
+            return question(current, null).withSafety(safety);
         }
         state.answers.add(answer);
         int answered = state.answered.incrementAndGet();
         if (answered > state.followUps) {
             return finish(state, InterviewEndReason.SUFFICIENT).withSafety(safety);
         }
-        return InterviewReply.question(answered + 1, SAMPLE.questions().get(answered),
-                SAMPLE.questionChoices().get(answered), Map.of("answered_turns", answered)).withSafety(safety);
+        return question(answered, Map.of("answered_turns", answered)).withSafety(safety);
     }
 
     @Override
@@ -228,7 +228,7 @@ public class FakeAiClient implements AiClient {
     @Override
     public AiGenerationStatus status(String threadId) {
         TransactionGuard.requireNoTransaction();
-        statusCalls.computeIfAbsent(threadId, id -> new AtomicInteger()).incrementAndGet();
+        increment(statusCalls, threadId);
         throwIfFailing(false);
         ThreadState state = existing(threadId);
         synchronized (state) {
@@ -269,7 +269,7 @@ public class FakeAiClient implements AiClient {
                            String baseCheckpointId, UUID runId, int runNo, String outputPrefix) {
         TransactionGuard.requireNoTransaction();
         throwIfFailing();
-        regenerateCalls.computeIfAbsent(threadId, id -> new AtomicInteger()).incrementAndGet();
+        increment(regenerateCalls, threadId);
         ThreadState state = existing(threadId);
         synchronized (state) {
             // base_checkpoint_id가 null이면 thread의 현재 상태(마지막 결과)에서 다시 만든다
@@ -284,7 +284,8 @@ public class FakeAiClient implements AiClient {
             };
             state.lastBaseCheckpointId = baseCheckpointId;
             state.lastRegenerateScope = scope;
-            state.start(runNo, outputPrefix, nodes, scope, pages, base, ++state.regenerations, Mishaps.NONE,
+            state.regenerations++;
+            state.start(runNo, outputPrefix, nodes, scope, pages, base, state.regenerations, Mishaps.NONE,
                     clock.instant());
         }
     }
@@ -293,7 +294,7 @@ public class FakeAiClient implements AiClient {
     public void retry(String threadId, UUID runId, int runNo, String outputPrefix) {
         TransactionGuard.requireNoTransaction();
         throwIfFailing();
-        retryCalls.computeIfAbsent(threadId, id -> new AtomicInteger()).incrementAndGet();
+        increment(retryCalls, threadId);
         ThreadState state = existing(threadId);
         synchronized (state) {
             // 진짜 AI처럼 FAILED에서만 받는다. 결과 위기 신호로 실패한 경우(AI는 REVIEWING) Spring은 regenerate를 부른다
@@ -359,36 +360,41 @@ public class FakeAiClient implements AiClient {
      * 테스트용. 마지막 regenerate에 받은 범위.
      */
     public RegenerateScope lastRegenerateScope(String threadId) {
-        ThreadState state = threads.get(threadId);
-        return state == null ? null : state.lastRegenerateScope;
+        return lastOf(threadId, state -> state.lastRegenerateScope);
     }
 
     /**
      * 테스트용. 마지막 generate에 받은 context (생성 전 확인에서 고친 입력이 들어 있다).
      */
     public Map<String, Object> lastGenerateContext(String threadId) {
-        ThreadState state = threads.get(threadId);
-        return state == null ? null : state.lastGenerateContext;
+        return lastOf(threadId, state -> state.lastGenerateContext);
     }
 
     /**
      * 테스트용. 마지막 generate에 받은 "이번 이야기에서 나누고 싶은 것".
      */
     public String lastGenerateSummary(String threadId) {
-        ThreadState state = threads.get(threadId);
-        return state == null ? null : state.lastGenerateSummary;
+        return lastOf(threadId, state -> state.lastGenerateSummary);
     }
 
     /**
      * 테스트용. 마지막 regenerate에 받은 기준 checkpointId. null이면 현재 상태에서 다시 만든 것.
      */
     public String lastBaseCheckpointId(String threadId) {
-        ThreadState state = threads.get(threadId);
-        return state == null ? null : state.lastBaseCheckpointId;
+        return lastOf(threadId, state -> state.lastBaseCheckpointId);
     }
 
     public static String checkpointId(int runNo) {
         return "fake-cp-" + runNo;
+    }
+
+    private <T> T lastOf(String threadId, Function<ThreadState, T> field) {
+        ThreadState state = threads.get(threadId);
+        return state == null ? null : field.apply(state);
+    }
+
+    private static void increment(Map<String, AtomicInteger> calls, String threadId) {
+        calls.computeIfAbsent(threadId, id -> new AtomicInteger()).incrementAndGet();
     }
 
     private static int count(Map<String, AtomicInteger> calls, String threadId) {
@@ -466,6 +472,12 @@ public class FakeAiClient implements AiClient {
         }
     }
 
+    // index번째(0부터) 샘플 질문과 그 답변 카드. 차례(turn)는 index + 1
+    private static InterviewReply question(int index, Map<String, Object> contextUpdate) {
+        return InterviewReply.question(index + 1, SAMPLE.questions().get(index), SAMPLE.questionChoices().get(index),
+                contextUpdate);
+    }
+
     private InterviewReply finish(ThreadState state, InterviewEndReason reason) {
         state.interviewDone = true;
         return InterviewReply.confirm(SUMMARY, SITUATION_SUMMARY, reason, finalContext(state.context));
@@ -476,29 +488,31 @@ public class FakeAiClient implements AiClient {
         String prefix = misdirectOutput ? "stories/0/runs/" + runNo + "/" : state.outputPrefix;
         AiGenerationResult base = state.scope == RegenerateScope.IMAGES ? state.base : null;
         List<Integer> targets = state.pages.isEmpty() ? null : state.pages;
+        // 일부 쪽 그림만 다시
+        boolean partial = base != null && targets != null;
 
         List<AiGenerationResult.Page> pages = new ArrayList<>();
         for (int pageNo = 1; pageNo <= pageCount; pageNo++) {
-            boolean redraw = base == null || targets == null || targets.contains(pageNo);
+            boolean redraw = !partial || targets.contains(pageNo);
             AiGenerationResult.Page previous = base == null ? null : base.pages().get(pageNo - 1);
             String text = previous != null ? previous.text() : SAMPLE.pageText(pageNo);
+            TextPosition position = textPosition(pageNo);
             if (!redraw) {
-                pages.add(new AiGenerationResult.Page(pageNo, text, previous.imagePrompt(), previous.textPosition(),
-                        previous.imagePath(), previous.imageStatus(), previous.textBlocks(), previous.soundWord()));
+                pages.add(previous);
             } else if (state.mishaps.pageFail() && pageNo == FAILED_PAGE) {
-                pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, textPosition(pageNo), null,
+                pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, position, null,
                         "failed", null));   // 진짜 AI도 그림이 실패한 쪽에는 textBlocks를 주지 않는다
             } else {
                 String key = prefix + "images/page-%02d.png".formatted(pageNo);
                 storage.write(key, png(color(pageNo, runNo)), "image/png");
-                pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, textPosition(pageNo), key,
-                        "done", textBlocks(text, textPosition(pageNo)), soundWord(text)));
+                pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, position, key,
+                        "done", textBlocks(text, position), soundWord(text)));
             }
         }
 
         // 표지: 일부 쪽 그림만 다시면 이전 표지, 그 밖에는 새로 (진짜 AI는 글 다시에서 제목이 그대로면 재사용)
         String coverKey;
-        if (base != null && targets != null) {
+        if (partial) {
             coverKey = base.coverPath();
         } else {
             coverKey = prefix + "images/cover.png";
@@ -506,7 +520,6 @@ public class FakeAiClient implements AiClient {
         }
 
         // 앞·뒤표지 (쪽과 같은 크기): 일부 쪽 그림만 다시면 둘 다 이전 것 (진짜 AI의 뒤표지는 주인공 혼자 그린 그림이라 쪽과 상관없다)
-        boolean partial = base != null && targets != null;
         String frontCoverKey = partial ? base.frontCoverPath() : bookCover(prefix, "front-cover", runNo);
         String backCoverKey = partial ? base.backCoverPath() : bookCover(prefix, "back-cover", runNo);
 
@@ -519,14 +532,20 @@ public class FakeAiClient implements AiClient {
             sheets = List.of(new AiGenerationResult.CharacterSheet("main", "아로", sheetKey));
         }
 
-        SafetyResult safety = state.mishaps.unsafeOutput()
-                ? new SafetyResult(SafetyLevel.REVISE, "harmful_discipline", "완성된 이야기에 아이에게 맞지 않는 표현이 있어요.")
-                : state.mishaps.separationOutput() ? new SafetyResult(SafetyLevel.OK, null, null, SEPARATION_TOPIC)
-                : SafetyResult.ok();
         return new AiGenerationResult(runNo, checkpointId(runNo), SAMPLE.title(state.titleNo),
                 Map.of("hero", "아로", "run_no", runNo), coverKey, frontCoverKey, backCoverKey, sheets, pages,
                 SAMPLE.resultGuide(), new AiGenerationResult.Cost(INPUT_TOKENS, OUTPUT_TOKENS, pageCount + 4),
-                safety);   // 쪽 + 시트 + 표지 3 (정사각형·앞·뒤)
+                outputSafety(state.mishaps));   // 쪽 + 시트 + 표지 3 (정사각형·앞·뒤)
+    }
+
+    private static SafetyResult outputSafety(Mishaps mishaps) {
+        if (mishaps.unsafeOutput()) {
+            return new SafetyResult(SafetyLevel.REVISE, "harmful_discipline", "완성된 이야기에 아이에게 맞지 않는 표현이 있어요.");
+        }
+        if (mishaps.separationOutput()) {
+            return new SafetyResult(SafetyLevel.OK, null, null, SEPARATION_TOPIC);
+        }
+        return SafetyResult.ok();
     }
 
     // AI 가짜 원고(mock.py)처럼 3의 배수 쪽만 위
@@ -557,8 +576,6 @@ public class FakeAiClient implements AiClient {
                 : List.of(new PageSoundWord.Piece(w, 75.0, 40.0, PieceSide.CENTER));
         return new PageSoundWord(word, "#7B4FD6", pieces);
     }
-
-    private static final Pattern SOUND_WORD = Pattern.compile("\\*\\*(.+?)\\*\\*");
 
     private Color color(int pageNo, int runNo) {
         return Color.getHSBColor((pageNo - 1) / (float) pageCount, 0.45f + 0.1f * (runNo % 5), 0.95f);
