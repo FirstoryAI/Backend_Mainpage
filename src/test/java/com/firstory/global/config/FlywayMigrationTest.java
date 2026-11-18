@@ -41,25 +41,18 @@ class FlywayMigrationTest extends IntegrationTest {
 
     @Test
     void V4_tone_required는_기본값_false() {
-        assertThat(jdbc.queryForObject("""
-                SELECT column_default FROM information_schema.columns
-                WHERE table_name = 'story_inputs' AND column_name = 'tone_required'""", String.class))
-                .isEqualTo("false");
+        assertThat(columnInfo("story_inputs", "tone_required", "column_default")).isEqualTo("false");
     }
 
     @Test
     void V5_target_pages와_실행_중_인덱스가_있다() {
         assertThat(columns("generation_runs")).contains("target_pages");
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM pg_indexes WHERE indexname = 'ix_generation_runs_running'",
-                Integer.class)).isOne();
+        assertThat(indexCount("ix_generation_runs_running")).isOne();
     }
 
     @Test
     void V6_text_position은_기본값_BOTTOM() {
-        assertThat(jdbc.queryForObject("""
-                SELECT column_default FROM information_schema.columns
-                WHERE table_name = 'story_pages' AND column_name = 'text_position'""", String.class))
-                .startsWith("'BOTTOM'");
+        assertThat(columnInfo("story_pages", "text_position", "column_default")).startsWith("'BOTTOM'");
     }
 
     @Test
@@ -109,23 +102,15 @@ class FlywayMigrationTest extends IntegrationTest {
     @Test
     void V16_쪽에_의성어_자리_컬럼이_있고_비어_있어도_된다() {
         assertThat(columns("story_pages")).contains("sound_word");
-        assertThat(jdbc.queryForObject("""
-                SELECT is_nullable FROM information_schema.columns
-                WHERE table_name = 'story_pages' AND column_name = 'sound_word'""", String.class)).isEqualTo("YES");
-        assertThat(jdbc.queryForObject("""
-                SELECT data_type FROM information_schema.columns
-                WHERE table_name = 'story_pages' AND column_name = 'sound_word'""", String.class)).isEqualTo("jsonb");
+        assertThat(columnInfo("story_pages", "sound_word", "is_nullable")).isEqualTo("YES");
+        assertThat(columnInfo("story_pages", "sound_word", "data_type")).isEqualTo("jsonb");
     }
 
     @Test
     void V11_쪽에_글_덩어리_배치_컬럼이_있고_비어_있어도_된다() {
         assertThat(columns("story_pages")).contains("text_blocks");
-        assertThat(jdbc.queryForObject("""
-                SELECT is_nullable FROM information_schema.columns
-                WHERE table_name = 'story_pages' AND column_name = 'text_blocks'""", String.class)).isEqualTo("YES");
-        assertThat(jdbc.queryForObject("""
-                SELECT data_type FROM information_schema.columns
-                WHERE table_name = 'story_pages' AND column_name = 'text_blocks'""", String.class)).isEqualTo("jsonb");
+        assertThat(columnInfo("story_pages", "text_blocks", "is_nullable")).isEqualTo("YES");
+        assertThat(columnInfo("story_pages", "text_blocks", "data_type")).isEqualTo("jsonb");
     }
 
     @Test
@@ -134,11 +119,8 @@ class FlywayMigrationTest extends IntegrationTest {
                 .doesNotContain("phone_enc", "phone_hash", "phone_verified_at");
         assertThat(columns("email_send_logs")).contains("email_hash", "purpose");
         assertThat(columns("sms_send_logs")).isEmpty();
-        assertThat(jdbc.queryForObject("""
-                SELECT is_nullable FROM information_schema.columns
-                WHERE table_name = 'users' AND column_name = 'password_hash'""", String.class)).isEqualTo("YES");
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM pg_indexes WHERE indexname = 'ux_users_kakao_id_active'",
-                Integer.class)).isOne();
+        assertThat(columnInfo("users", "password_hash", "is_nullable")).isEqualTo("YES");
+        assertThat(indexCount("ux_users_kakao_id_active")).isOne();
     }
 
     @Test
@@ -150,9 +132,7 @@ class FlywayMigrationTest extends IntegrationTest {
     void V15_동의_기록과_이메일_인증_시각이_없고_알림은_실행_종류_상태만_남는다() {
         assertThat(columns("user_consents")).isEmpty();
         assertThat(columns("users")).contains("email_notify", "onboarding_seen_at").doesNotContain("email_verified_at");
-        assertThat(jdbc.queryForObject("""
-                SELECT data_type || ':' || is_nullable || ':' || column_default FROM information_schema.columns
-                WHERE table_name = 'users' AND column_name = 'email_notify'""", String.class))
+        assertThat(columnInfo("users", "email_notify", "data_type || ':' || is_nullable || ':' || column_default"))
                 .isEqualTo("boolean:NO:false");
         assertThat(columns("notifications")).containsExactlyInAnyOrder("id", "generation_run_id", "type", "status",
                 "fail_reason", "created_at", "updated_at");
@@ -222,5 +202,18 @@ class FlywayMigrationTest extends IntegrationTest {
         return jdbc.queryForList(
                 "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ?",
                 String.class, table);
+    }
+
+    /**
+     * 컬럼 한 개의 information_schema 값. expression은 그 행에서 읽을 식이다 (예: "is_nullable").
+     */
+    private String columnInfo(String table, String column, String expression) {
+        return jdbc.queryForObject("SELECT " + expression
+                        + " FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
+                String.class, table, column);
+    }
+
+    private int indexCount(String indexName) {
+        return jdbc.queryForObject("SELECT count(*) FROM pg_indexes WHERE indexname = ?", Integer.class, indexName);
     }
 }

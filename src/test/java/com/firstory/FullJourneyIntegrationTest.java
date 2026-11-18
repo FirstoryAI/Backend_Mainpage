@@ -110,7 +110,7 @@ class FullJourneyIntegrationTest extends IntegrationTest {
         parent.get(story + "/generation")
                 .andExpect(jsonPath("$.status").value("GENERATING_TEXT"))
                 .andExpect(jsonPath("$.stage").value(1));
-        pollUntilReviewing(story);
+        pollUntilReviewing(storyId);
         String preview = parent.get(story + "/preview")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("REVIEWING"))
@@ -120,7 +120,7 @@ class FullJourneyIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.pages[1].text").value(FakeAiClient.SAMPLE.pageText(2)))
                 .andExpect(jsonPath("$.regenerateRemaining").value(1))
                 .andReturn().getResponse().getContentAsString();
-        long version1 = ((Number) JsonPath.read(preview, "$.version.id")).longValue();
+        long version1 = longAt(preview, "$.version.id");
         String imageUrl = JsonPath.read(preview, "$.pages[0].imageUrl");
         MvcResult image = parent.get(imageUrl)
                 .andExpect(status().isOk())
@@ -133,7 +133,7 @@ class FullJourneyIntegrationTest extends IntegrationTest {
         parent.post(story + "/regenerate", """
                 {"scope": "IMAGES", "pages": [3]}""")
                 .andExpect(status().isAccepted());
-        pollUntilReviewing(story);
+        pollUntilReviewing(storyId);
         parent.get(story + "/preview")
                 .andExpect(jsonPath("$.version.versionNo").value(2))
                 .andExpect(jsonPath("$.version.title").value(FakeAiClient.SAMPLE.title(1)))
@@ -170,7 +170,7 @@ class FullJourneyIntegrationTest extends IntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.prompts", hasSize(2)))
                 .andReturn().getResponse().getContentAsString();
-        long promptId = ((Number) JsonPath.read(guide, "$.prompts[0].id")).longValue();
+        long promptId = longAt(guide, "$.prompts[0].id");
 
         // 7. 읽기 시작 → 쪽 넘김 → 대화 버튼 → 다 읽음 → 서재 READ
         parent.get(story + "/book")
@@ -180,19 +180,13 @@ class FullJourneyIntegrationTest extends IntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.lastPage").value(0)), "$.sessionId");
         String session = "/api/reading-sessions/" + sessionId;
-        for (int page = 1; page <= 4; page++) {
-            parent.put(session + "/progress", """
-                    {"page": %d}""".formatted(page)).andExpect(status().isNoContent());
-        }
+        readPages(parent, session, 1, 4);
         parent.put(session + "/dialogue/" + promptId, """
                 {"action": "TALKED"}""").andExpect(status().isNoContent());
         parent.get(story + "/reading-sessions/resume")
                 .andExpect(jsonPath("$.sessionId").value(sessionId))
                 .andExpect(jsonPath("$.lastPage").value(4));
-        for (int page = 5; page <= 10; page++) {
-            parent.put(session + "/progress", """
-                    {"page": %d}""".formatted(page)).andExpect(status().isNoContent());
-        }
+        readPages(parent, session, 5, 10);
         parent.post(session + "/complete", """
                 {"feedback": {"childInterest": "HIGH", "conversationFlow": "NATURAL",
                  "conversationHelpfulness": "VERY", "comment": "또 읽고 싶대요"}}""")
@@ -209,11 +203,10 @@ class FullJourneyIntegrationTest extends IntegrationTest {
     }
 
     // 스케줄러가 꺼져 있어 직접 진행시킨다. 처음 만들기는 5번, 그림만 다시는 3번
-    private void pollUntilReviewing(String story) throws Exception {
+    private void pollUntilReviewing(long storyId) {
         for (int i = 0; i < 10; i++) {
             poller.pollOnce();
-            String status = jdbc.queryForObject("SELECT status FROM stories WHERE id = ?", String.class,
-                    Long.parseLong(story.substring(story.lastIndexOf('/') + 1)));
+            String status = jdbc.queryForObject("SELECT status FROM stories WHERE id = ?", String.class, storyId);
             if (List.of("REVIEWING", "FAILED").contains(status)) {
                 assertThat(status).isEqualTo("REVIEWING");
                 return;
@@ -222,7 +215,18 @@ class FullJourneyIntegrationTest extends IntegrationTest {
         throw new AssertionError("REVIEWING이 되지 않았어요");
     }
 
+    private static void readPages(Browser browser, String session, int from, int to) throws Exception {
+        for (int page = from; page <= to; page++) {
+            browser.put(session + "/progress", """
+                    {"page": %d}""".formatted(page)).andExpect(status().isNoContent());
+        }
+    }
+
     private static long id(ResultActions result, String path) throws Exception {
-        return ((Number) JsonPath.read(result.andReturn().getResponse().getContentAsString(), path)).longValue();
+        return longAt(result.andReturn().getResponse().getContentAsString(), path);
+    }
+
+    private static long longAt(String json, String path) {
+        return ((Number) JsonPath.read(json, path)).longValue();
     }
 }

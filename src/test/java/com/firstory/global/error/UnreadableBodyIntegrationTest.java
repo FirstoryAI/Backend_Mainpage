@@ -92,11 +92,6 @@ class UnreadableBodyIntegrationTest extends IntegrationTest {
         assertField(browser().post("/api/auth/login", null), "body", "요청 내용이 없어요.", output);
     }
 
-    private static long newStory(Browser parent) throws Exception {
-        String body = parent.post("/api/stories", null).andReturn().getResponse().getContentAsString();
-        return ((Number) JsonPath.read(body, "$.storyId")).longValue();
-    }
-
     @Test
     void 피드백_선택_답이_코드도_문구도_아니면_그_필드(CapturedOutput output) throws Exception {
         Browser parent = signUp(newEmail());
@@ -106,6 +101,11 @@ class UnreadableBodyIntegrationTest extends IntegrationTest {
 
         assertField(parent.post("/api/stories/1/approve", body), "feedback.situationReflection",
                 "고를 수 없는 값이에요.", output);
+    }
+
+    private static long newStory(Browser parent) throws Exception {
+        String body = parent.post("/api/stories", null).andReturn().getResponse().getContentAsString();
+        return ((Number) JsonPath.read(body, "$.storyId")).longValue();
     }
 
     private static void assertField(ResultActions result, String field, String message, CapturedOutput output)

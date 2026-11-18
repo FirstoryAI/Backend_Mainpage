@@ -4,6 +4,7 @@ import com.firstory.global.config.FirstoryProperties;
 import com.firstory.global.config.FirstoryProperties.Kakao.KakaoMode;
 import com.firstory.global.error.BusinessException;
 import com.firstory.global.error.ErrorCode;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
@@ -13,6 +14,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -45,7 +47,7 @@ class HttpKakaoClientTest {
     void 인가_코드로_토큰을_받고_회원번호와_인증된_이메일을_읽는다() {
         server.expect(requestTo(AUTH + "/oauth/token"))
                 .andExpect(method(HttpMethod.POST))
-                .andExpect(content().formDataContains(java.util.Map.of("grant_type", "authorization_code",
+                .andExpect(content().formDataContains(Map.of("grant_type", "authorization_code",
                         "client_id", "rest-key", "redirect_uri", REDIRECT, "code", "the-code",
                         "client_secret", "secret")))
                 .andRespond(withSuccess("""
@@ -90,9 +92,7 @@ class HttpKakaoClientTest {
                 .body("""
                         {"error": "invalid_grant", "error_code": "KOE320"}"""));
 
-        assertThatThrownBy(() -> client.fetchUser("used", REDIRECT))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.KAKAO_LOGIN_FAILED));
+        assertError(() -> client.fetchUser("used", REDIRECT), ErrorCode.KAKAO_LOGIN_FAILED);
     }
 
     @Test
@@ -100,13 +100,16 @@ class HttpKakaoClientTest {
         token();
         server.expect(requestTo(API + "/v2/user/me")).andRespond(withServerError());
 
-        assertThatThrownBy(() -> client.fetchUser("c", REDIRECT))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.KAKAO_UNAVAILABLE));
+        assertError(() -> client.fetchUser("c", REDIRECT), ErrorCode.KAKAO_UNAVAILABLE);
     }
 
     private void token() {
         server.expect(requestTo(AUTH + "/oauth/token")).andRespond(withSuccess("""
                 {"access_token": "t"}""", MediaType.APPLICATION_JSON));
+    }
+
+    private static void assertError(ThrowingCallable call, ErrorCode expected) {
+        assertThatThrownBy(call).isInstanceOfSatisfying(BusinessException.class,
+                e -> assertThat(e.getErrorCode()).isEqualTo(expected));
     }
 }

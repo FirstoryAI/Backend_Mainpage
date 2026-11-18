@@ -22,6 +22,7 @@ import com.firstory.global.config.FirstoryProperties;
 import com.firstory.global.config.FirstoryProperties.Ai.AiMode;
 import com.firstory.global.error.BusinessException;
 import com.firstory.global.error.ErrorCode;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -30,6 +31,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.ClientHttpRequest;
 import org.springframework.mock.http.client.MockClientHttpRequest;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.client.MockRestServiceServer;
@@ -64,6 +66,7 @@ class HttpAiClientTest {
     static final String BASE_URL = "http://ai.test";
     static final String TOKEN = "internal-secret";
     static final String THREAD_ID = "3f1c2b9e-0000-4000-8000-000000000001";
+    static final String SAFETY_CHECK = BASE_URL + "/v1/safety/check";
     static final JsonMapper JSON = JsonMapper.builder().build();
 
     MockRestServiceServer server;
@@ -79,7 +82,7 @@ class HttpAiClientTest {
 
     @Test
     void 폼_위기_신호_검사() {
-        server.expect(requestTo(BASE_URL + "/v1/safety/check"))
+        server.expect(requestTo(SAFETY_CHECK))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header(HttpAiClient.TOKEN_HEADER, TOKEN))
                 .andExpect(content().json("""
@@ -96,7 +99,7 @@ class HttpAiClientTest {
 
     @Test
     void 인터뷰_답변_검사는_직전_질문을_context로_보낸다() {
-        server.expect(requestTo(BASE_URL + "/v1/safety/check"))
+        server.expect(requestTo(SAFETY_CHECK))
                 .andExpect(content().json("""
                         {"source": "interview_answer", "texts": ["대답을 안 해줬대요."],
                          "context": {"question": "그때 아이는 어떤 표정이었나요?"}}""", JsonCompareMode.STRICT))
@@ -121,10 +124,10 @@ class HttpAiClientTest {
     void 인터뷰_시작_요청은_스펙과_같은_키_구조이고_호칭이_없다() {
         UUID runId = UUID.randomUUID();
         List<String> bodies = new ArrayList<>();
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/start"))
+        server.expect(requestTo(threadUrl("/interview/start")))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header(HttpAiClient.TOKEN_HEADER, TOKEN))
-                .andExpect(request -> bodies.add(((MockClientHttpRequest) request).getBodyAsString()))
+                .andExpect(request -> bodies.add(bodyOf(request)))
                 .andRespond(withSuccess("""
                         {"type": "question", "turn": 1, "question": "무슨 일이 있었나요?",
                          "choices": ["친구랑 다퉜어요", "넘어졌어요"], "context_update": null}""",
@@ -154,8 +157,8 @@ class HttpAiClientTest {
 
     @Test
     void 분위기를_고르지_않았으면_tone은_null() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/start"))
-                .andExpect(request -> assertThat(JSON.readTree(((MockClientHttpRequest) request).getBodyAsString())
+        server.expect(requestTo(threadUrl("/interview/start")))
+                .andExpect(request -> assertThat(JSON.readTree(bodyOf(request))
                         .get("tone").isNull()).isTrue())
                 .andRespond(withSuccess("""
                         {"type": "question", "turn": 1, "question": "q"}""", MediaType.APPLICATION_JSON));
@@ -167,7 +170,7 @@ class HttpAiClientTest {
 
     @Test
     void 답변을_보내면_다음_질문을_받는다() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/answer"))
+        server.expect(requestTo(threadUrl("/interview/answer")))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header(HttpAiClient.TOKEN_HEADER, TOKEN))
                 .andExpect(content().json("""
@@ -190,7 +193,7 @@ class HttpAiClientTest {
 
     @Test
     void 답변의_위기_신호_판단을_함께_받는다() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/answer"))
+        server.expect(requestTo(threadUrl("/interview/answer")))
                 .andRespond(withSuccess("""
                         {"type": "question", "turn": 1, "question": "당시에 어떻게 반응해주셨어요?", "choices": ["안아 줬어요"],
                          "context_update": null,
@@ -206,7 +209,7 @@ class HttpAiClientTest {
 
     @Test
     void 위기_신호의_topic을_읽는다() {
-        server.expect(requestTo(BASE_URL + "/v1/safety/check"))
+        server.expect(requestTo(SAFETY_CHECK))
                 .andRespond(withSuccess("""
                         {"safety": {"level": "OK", "category": null, "reason": null, "topic": "separation"}}""",
                         MediaType.APPLICATION_JSON));
@@ -219,7 +222,7 @@ class HttpAiClientTest {
 
     @Test
     void topic이_없는_옛_응답과_모르는_키가_있는_응답도_읽는다() {
-        server.expect(requestTo(BASE_URL + "/v1/safety/check"))
+        server.expect(requestTo(SAFETY_CHECK))
                 .andRespond(withSuccess("""
                         {"safety": {"level": "SENSITIVE", "category": null, "reason": "r", "extra": 1}, "more": true}""",
                         MediaType.APPLICATION_JSON));
@@ -232,7 +235,7 @@ class HttpAiClientTest {
 
     @Test
     void 인터뷰_답변에_막은_주제를_보내고_topic을_읽는다() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/answer"))
+        server.expect(requestTo(threadUrl("/interview/answer")))
                 .andExpect(content().json("""
                         {"answer": "강아지가 떠났어요", "blocked_topics": ["separation"]}""", JsonCompareMode.STRICT))
                 .andRespond(withSuccess("""
@@ -249,7 +252,7 @@ class HttpAiClientTest {
 
     @Test
     void 건너뛰기에는_막은_주제를_보내지_않는다() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/answer"))
+        server.expect(requestTo(threadUrl("/interview/answer")))
                 .andExpect(content().json("""
                         {"skip": true}""", JsonCompareMode.STRICT))
                 .andRespond(withSuccess("""
@@ -262,7 +265,7 @@ class HttpAiClientTest {
 
     @Test
     void 답변인데_위기_신호_판단이_없으면_AI_UNAVAILABLE() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/answer"))
+        server.expect(requestTo(threadUrl("/interview/answer")))
                 .andRespond(withSuccess("""
                         {"type": "question", "turn": 2, "question": "그때 아이는 어떤 표정이었나요?", "context_update": null}""",
                         MediaType.APPLICATION_JSON));
@@ -272,7 +275,7 @@ class HttpAiClientTest {
 
     @Test
     void 답변_카드는_빈_것과_겹치는_것을_빼고_4개까지() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/answer"))
+        server.expect(requestTo(threadUrl("/interview/answer")))
                 .andRespond(withSuccess("""
                         {"type": "question", "turn": 2, "question": "어떤 마음이었을까요?",
                          "choices": [" 속상했어요 ", "", null, "속상했어요", "무서웠어요", "화났어요", "잘 모르겠어요", "부끄러웠어요"],
@@ -286,7 +289,7 @@ class HttpAiClientTest {
 
     @Test
     void 건너뛰기는_skip_true를_보내고_확인_응답을_받는다() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/answer"))
+        server.expect(requestTo(threadUrl("/interview/answer")))
                 .andExpect(content().json("""
                         {"skip": true}""", JsonCompareMode.STRICT))
                 .andRespond(withSuccess("""
@@ -318,7 +321,7 @@ class HttpAiClientTest {
     void AI_오류_응답을_바꾼다(int status, String code, ErrorCode expected) {
         String body = code == null ? "" : """
                 {"error": {"code": "%s", "message": "부모 입력이 담긴 메시지"}}""".formatted(code);
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/answer"))
+        server.expect(requestTo(threadUrl("/interview/answer")))
                 .andRespond(withStatus(HttpStatus.valueOf(status)).contentType(MediaType.APPLICATION_JSON).body(body));
 
         assertError(() -> client.answerInterview(THREAD_ID, "답변"), expected);
@@ -326,7 +329,7 @@ class HttpAiClientTest {
 
     @Test
     void 타임아웃은_AI_UNAVAILABLE() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/answer"))
+        server.expect(requestTo(threadUrl("/interview/answer")))
                 .andRespond(withException(new SocketTimeoutException("Read timed out")));
 
         assertError(() -> client.answerInterview(THREAD_ID, "답변"), ErrorCode.AI_UNAVAILABLE);
@@ -334,7 +337,7 @@ class HttpAiClientTest {
 
     @Test
     void 연결_실패는_AI_UNAVAILABLE() {
-        server.expect(requestTo(BASE_URL + "/v1/safety/check"))
+        server.expect(requestTo(SAFETY_CHECK))
                 .andRespond(withException(new ConnectException("Connection refused")));
 
         assertError(() -> client.checkSafety(SafetySource.FORM, List.of("글"), null), ErrorCode.AI_UNAVAILABLE);
@@ -342,10 +345,10 @@ class HttpAiClientTest {
 
     @Test
     void 알_수_없는_응답_형식은_AI_UNAVAILABLE() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/interview/answer"))
+        server.expect(requestTo(threadUrl("/interview/answer")))
                 .andRespond(withSuccess("""
                         {"type": "unknown"}""", MediaType.APPLICATION_JSON));
-        server.expect(requestTo(BASE_URL + "/v1/safety/check"))
+        server.expect(requestTo(SAFETY_CHECK))
                 .andRespond(withSuccess("""
                         {"safety": {"level": "DANGER"}}""", MediaType.APPLICATION_JSON));
 
@@ -356,7 +359,7 @@ class HttpAiClientTest {
     @Test
     void 생성_시작은_run_정보와_tone을_보낸다() {
         UUID runId = UUID.fromString("6c1f0f7e-2b8a-4f53-9a6e-0f5b8f0c2d11");
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/generate"))
+        server.expect(requestTo(threadUrl("/generate")))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header(HttpAiClient.TOKEN_HEADER, TOKEN))
                 .andExpect(content().json("""
@@ -375,13 +378,13 @@ class HttpAiClientTest {
 
     @Test
     void 진행_상태를_읽는다() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/status"))
+        server.expect(requestTo(threadUrl("/status")))
                 .andExpect(method(HttpMethod.GET))
                 .andExpect(header(HttpAiClient.TOKEN_HEADER, TOKEN))
                 .andRespond(withSuccess("""
                         {"state": "RUNNING", "run_no": 1, "current_node": "illustrate", "stage": 3, "error": null,
                          "updated_at": "2026-10-21T05:30:00Z"}""", MediaType.APPLICATION_JSON));
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/status"))
+        server.expect(requestTo(threadUrl("/status")))
                 .andRespond(withSuccess("""
                         {"state": "FAILED", "run_no": 1, "current_node": "illustrate", "stage": 3,
                          "error": {"code": "IMAGE_API_ERROR", "node": "illustrate", "message": "부모 입력"}}""",
@@ -395,7 +398,7 @@ class HttpAiClientTest {
 
     @Test
     void 결과를_읽는다() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/result"))
+        server.expect(requestTo(threadUrl("/result")))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withSuccess("""
                         {"run_no": 1, "checkpoint_id": "1ef8a", "title": "공룡 아로의 새 친구",
@@ -429,15 +432,11 @@ class HttpAiClientTest {
 
     @Test
     void 결과의_앞뒤표지_key를_읽는다() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/result"))
-                .andRespond(withSuccess("""
-                        {"run_no": 1, "checkpoint_id": "cp", "title": "제목",
-                         "cover_path": "stories/1/runs/1/images/cover.webp",
-                         "front_cover_path": "stories/1/runs/1/images/front-cover.webp",
-                         "back_cover_path": "stories/1/runs/1/images/back-cover.webp", "pages": []}""",
-                        MediaType.APPLICATION_JSON));
-
-        AiGenerationResult result = client.result(THREAD_ID);
+        AiGenerationResult result = resultOf("""
+                {"run_no": 1, "checkpoint_id": "cp", "title": "제목",
+                 "cover_path": "stories/1/runs/1/images/cover.webp",
+                 "front_cover_path": "stories/1/runs/1/images/front-cover.webp",
+                 "back_cover_path": "stories/1/runs/1/images/back-cover.webp", "pages": []}""");
 
         assertThat(result.frontCoverPath()).isEqualTo("stories/1/runs/1/images/front-cover.webp");
         assertThat(result.backCoverPath()).isEqualTo("stories/1/runs/1/images/back-cover.webp");
@@ -445,13 +444,9 @@ class HttpAiClientTest {
 
     @Test
     void 옛_AI_결과에_앞뒤표지가_없어도_읽는다() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/result"))
-                .andRespond(withSuccess("""
-                        {"run_no": 1, "checkpoint_id": "cp", "title": "제목",
-                         "cover_path": "stories/1/runs/1/images/cover.webp", "back_cover_path": null, "pages": []}""",
-                        MediaType.APPLICATION_JSON));
-
-        AiGenerationResult result = client.result(THREAD_ID);
+        AiGenerationResult result = resultOf("""
+                {"run_no": 1, "checkpoint_id": "cp", "title": "제목",
+                 "cover_path": "stories/1/runs/1/images/cover.webp", "back_cover_path": null, "pages": []}""");
 
         assertThat(result.frontCoverPath()).isNull();
         assertThat(result.backCoverPath()).isNull();
@@ -465,9 +460,7 @@ class HttpAiClientTest {
                         "sound_word": %s}]}""";
 
     private AiGenerationResult resultWithSound(String soundWordJson) {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/result"))
-                .andRespond(withSuccess(PAGE_WITH_SOUND.formatted(soundWordJson), MediaType.APPLICATION_JSON));
-        return client.result(THREAD_ID);
+        return resultOf(PAGE_WITH_SOUND.formatted(soundWordJson));
     }
 
     @Test
@@ -518,8 +511,11 @@ class HttpAiClientTest {
                         "text_blocks": %s}]}""";
 
     private AiGenerationResult resultWith(String textBlocksJson) {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/result"))
-                .andRespond(withSuccess(PAGE_WITH.formatted(textBlocksJson), MediaType.APPLICATION_JSON));
+        return resultOf(PAGE_WITH.formatted(textBlocksJson));
+    }
+
+    private AiGenerationResult resultOf(String json) {
+        server.expect(requestTo(threadUrl("/result"))).andRespond(withSuccess(json, MediaType.APPLICATION_JSON));
         return client.result(THREAD_ID);
     }
 
@@ -538,13 +534,11 @@ class HttpAiClientTest {
 
     @Test
     void text_blocks가_없거나_null인_옛_AI_결과도_읽는다() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/result"))
-                .andRespond(withSuccess("""
-                        {"run_no": 1, "checkpoint_id": "cp", "title": "제목",
-                         "pages": [{"page_no": 1, "text": "글", "image_prompt": "p", "text_position": "top",
-                                    "image_path": "stories/123/runs/1/images/page-01.png", "image_status": "done"}]}""",
-                        MediaType.APPLICATION_JSON));
-        assertThat(client.result(THREAD_ID).pages().getFirst().textBlocks()).isNull();
+        AiGenerationResult withoutKey = resultOf("""
+                {"run_no": 1, "checkpoint_id": "cp", "title": "제목",
+                 "pages": [{"page_no": 1, "text": "글", "image_prompt": "p", "text_position": "top",
+                            "image_path": "stories/123/runs/1/images/page-01.png", "image_status": "done"}]}""");
+        assertThat(withoutKey.pages().getFirst().textBlocks()).isNull();
 
         server.reset();
         assertThat(resultWith("null").pages().getFirst().textBlocks()).isNull();
@@ -573,14 +567,11 @@ class HttpAiClientTest {
 
     @Test
     void 가이드의_parent_hint_scene_note_if_undecided는_없어도_된다() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/result"))
-                .andRespond(withSuccess("""
-                        {"run_no": 1, "checkpoint_id": "cp", "title": "제목", "pages": [],
-                         "guide": {"before_reading": {"intent": "의도", "tips": []},
-                                   "prompts": [{"after_page": 3, "purpose": "emotion", "text": "질문"}],
-                                   "after_reading": {"bridge_question": "다리"}}}""", MediaType.APPLICATION_JSON));
-
-        AiGenerationResult.Guide guide = client.result(THREAD_ID).guide();
+        AiGenerationResult.Guide guide = resultOf("""
+                {"run_no": 1, "checkpoint_id": "cp", "title": "제목", "pages": [],
+                 "guide": {"before_reading": {"intent": "의도", "tips": []},
+                           "prompts": [{"after_page": 3, "purpose": "emotion", "text": "질문"}],
+                           "after_reading": {"bridge_question": "다리"}}}""").guide();
 
         assertThat(guide.ifUndecided()).isNull();
         assertThat(guide.prompts()).containsExactly(new AiGenerationResult.Prompt(3, "질문", "emotion", null, null));
@@ -588,8 +579,8 @@ class HttpAiClientTest {
 
     @Test
     void 기준_checkpoint가_없으면_null로_보낸다() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/review"))
-                .andExpect(request -> assertThat(JSON.readTree(((MockClientHttpRequest) request).getBodyAsString())
+        server.expect(requestTo(threadUrl("/review")))
+                .andExpect(request -> assertThat(JSON.readTree(bodyOf(request))
                         .get("base_checkpoint_id").isNull()).isTrue())
                 .andRespond(withStatus(HttpStatus.ACCEPTED));
 
@@ -601,7 +592,7 @@ class HttpAiClientTest {
 
     @Test
     void 확정은_approve() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/review"))
+        server.expect(requestTo(threadUrl("/review")))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(content().json("""
                         {"action": "approve"}""", JsonCompareMode.STRICT))
@@ -616,7 +607,7 @@ class HttpAiClientTest {
     @Test
     void 다시_만들기는_scope를_바꾸고_기준_checkpoint를_보낸다() {
         UUID runId = UUID.fromString("6c1f0f7e-2b8a-4f53-9a6e-0f5b8f0c2d12");
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/review"))
+        server.expect(requestTo(threadUrl("/review")))
                 .andExpect(content().json("""
                         {"action": "regenerate", "scope": "images", "pages": [3, 5], "feedback": null,
                          "base_checkpoint_id": "1ef8a", "run_id": "6c1f0f7e-2b8a-4f53-9a6e-0f5b8f0c2d12",
@@ -641,7 +632,7 @@ class HttpAiClientTest {
     @Test
     void 다시_시도는_retry() {
         UUID runId = UUID.fromString("6c1f0f7e-2b8a-4f53-9a6e-0f5b8f0c2d13");
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/retry"))
+        server.expect(requestTo(threadUrl("/retry")))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(content().json("""
                         {"run_id": "6c1f0f7e-2b8a-4f53-9a6e-0f5b8f0c2d13", "run_no": 2,
@@ -655,7 +646,7 @@ class HttpAiClientTest {
 
     @Test
     void 생성_중인_thread에_다시_시작하면_AI_BUSY() {
-        server.expect(requestTo(BASE_URL + "/v1/threads/" + THREAD_ID + "/generate"))
+        server.expect(requestTo(threadUrl("/generate")))
                 .andRespond(withStatus(HttpStatus.CONFLICT).contentType(MediaType.APPLICATION_JSON).body("""
                         {"error": {"code": "THREAD_BUSY", "message": "busy"}}"""));
 
@@ -672,10 +663,16 @@ class HttpAiClientTest {
         return AiContextMapper.toContext(input);
     }
 
-    private static void assertError(Runnable call, ErrorCode expected) {
-        assertThatThrownBy(call::run)
-                .isInstanceOf(BusinessException.class)
-                .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(expected);
+    private static String threadUrl(String path) {
+        return BASE_URL + "/v1/threads/" + THREAD_ID + path;
+    }
+
+    private static String bodyOf(ClientHttpRequest request) {
+        return ((MockClientHttpRequest) request).getBodyAsString();
+    }
+
+    private static void assertError(ThrowingCallable call, ErrorCode expected) {
+        assertThatThrownBy(call).isInstanceOfSatisfying(BusinessException.class,
+                e -> assertThat(e.getErrorCode()).isEqualTo(expected));
     }
 }

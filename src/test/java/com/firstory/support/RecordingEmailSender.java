@@ -6,6 +6,7 @@ import com.firstory.global.mail.MailContent;
 import com.firstory.global.mail.LoggingEmailSender;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -41,21 +42,18 @@ public class RecordingEmailSender implements EmailSender {
      * 이 주소로 마지막에 보낸 메일 본문. 없으면 null.
      */
     public String lastText(String email) {
-        Sent sent = last.get(User.normalizeEmail(email));
-        return sent == null ? null : sent.text();
+        return lastSent(email).map(Sent::text).orElse(null);
     }
 
     /**
      * 이 주소로 마지막에 보낸 메일의 HTML. 없으면 null.
      */
     public String lastHtml(String email) {
-        Sent sent = last.get(User.normalizeEmail(email));
-        return sent == null ? null : sent.html();
+        return lastSent(email).map(Sent::html).orElse(null);
     }
 
     public String lastSubject(String email) {
-        Sent sent = last.get(User.normalizeEmail(email));
-        return sent == null ? null : sent.subject();
+        return lastSent(email).map(Sent::subject).orElse(null);
     }
 
     public String lastCode(String email) {
@@ -68,6 +66,10 @@ public class RecordingEmailSender implements EmailSender {
             throw new IllegalStateException("메일에 인증번호가 없어요.");
         }
         return matcher.group();
+    }
+
+    private Optional<Sent> lastSent(String email) {
+        return Optional.ofNullable(last.get(User.normalizeEmail(email)));
     }
 
     private record Sent(String subject, String text, String html) {
