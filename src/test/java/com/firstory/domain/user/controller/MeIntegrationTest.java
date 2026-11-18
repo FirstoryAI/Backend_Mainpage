@@ -29,6 +29,28 @@ class MeIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void 정식_출시_알림을_신청하면_내_정보에_표시되고_다시_불러도_처음_시각을_유지한다() throws Exception {
+        String email = newEmail();
+        Browser browser = signUp(email);
+        browser.get("/api/me").andExpect(jsonPath("$.subscriptionAlert").value(false));
+
+        browser.post("/api/me/subscription-alert", null).andExpect(status().isNoContent());
+        Object first = jdbc.queryForObject("SELECT subscription_alert_at FROM users WHERE email = ?", Object.class, email);
+
+        advance(Duration.ofMinutes(5));
+        browser.post("/api/me/subscription-alert", null).andExpect(status().isNoContent());
+
+        browser.get("/api/me").andExpect(jsonPath("$.subscriptionAlert").value(true));
+        assertThat(jdbc.queryForObject("SELECT subscription_alert_at FROM users WHERE email = ?", Object.class, email))
+                .isEqualTo(first);
+    }
+
+    @Test
+    void 정식_출시_알림_신청은_로그인이_필요하다() throws Exception {
+        browser().post("/api/me/subscription-alert", null).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void 비밀번호를_바꾸면_다른_기기는_끊기고_바꾼_기기는_유지된다() throws Exception {
         String email = newEmail();
         Browser a = signUp(email);

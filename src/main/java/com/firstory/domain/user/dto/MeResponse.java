@@ -16,6 +16,7 @@ public record MeResponse(
         @Schema(description = "동화를 이용권 없이 만들 수 있는지 (개발용 이메일)") boolean unlimitedStories,
         @Schema(description = "앞으로 AI로 만들 수 있는 동화 수 (만료되지 않은 이용권의 남은 횟수 합). 무제한이면 null. "
                 + "0이면 동화 만들기 시작(POST /api/stories)이 STORY_LIMIT_REACHED") Integer storiesRemaining,
+        @Schema(description = "정식 출시 알림을 신청했는지 (POST /api/me/subscription-alert)") boolean subscriptionAlert,
         @Schema(description = "피드백 팝업을 이미 냈는지. 종류마다 한 번이라도 저장에 성공했으면 true (팝업을 다시 띄우지 않는다)")
         FeedbackSubmitted feedbackSubmitted) {
 
