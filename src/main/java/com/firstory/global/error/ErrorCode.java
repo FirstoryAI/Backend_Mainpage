@@ -27,6 +27,7 @@ public enum ErrorCode {
     REQUIRED_CONSENT_MISSING(HttpStatus.BAD_REQUEST, "필수 항목에 모두 동의해야 가입할 수 있어요."),
     EMAIL_CHECK_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "이메일 확인을 너무 많이 했어요. 1분 후 다시 시도해 주세요."),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "이미 가입된 이메일이에요."),
+    EMAIL_NOT_REGISTERED(HttpStatus.NOT_FOUND, "가입되지 않은 이메일이에요."),
     KAKAO_LOGIN_FAILED(HttpStatus.BAD_REQUEST, "카카오 로그인에 실패했어요. 카카오 로그인을 다시 해 주세요."),
     INVALID_KAKAO_REDIRECT_URI(HttpStatus.BAD_REQUEST, "등록되지 않은 카카오 로그인 주소예요."),
     KAKAO_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "카카오가 잠시 응답하지 않아요. 잠시 후 다시 시도해 주세요."),

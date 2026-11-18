@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
-import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.Duration;
 
@@ -42,41 +41,34 @@ class PasswordResetIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void 가입되지_않은_이메일도_응답이_같고_메일은_가지_않는다() throws Exception {
-        String registered = newEmail();
-        member(registered);
-        String unknown = newEmail();
-
-        Browser a = browser();
-        Browser b = browser();
-        MvcResult sentToRegistered = a.post("/api/auth/email/send-code", sendCodeJson(registered)).andReturn();
-        MvcResult sentToUnknown = b.post("/api/auth/email/send-code", sendCodeJson(unknown)).andReturn();
-
-        assertThat(sentToUnknown.getResponse().getStatus()).isEqualTo(200)
-                .isEqualTo(sentToRegistered.getResponse().getStatus());
-        assertThat(sentToUnknown.getResponse().getContentAsString())
-                .isEqualTo(sentToRegistered.getResponse().getContentAsString());
-        assertThat(mail.lastSubject(registered)).isEqualTo("[FIRSTORY] 비밀번호 재설정 인증번호예요");
-        assertThat(mail.lastHtml(registered)).contains("비밀번호 재설정 인증번호예요", mail.lastCode(registered));
-        assertThat(mail.lastText(unknown)).isNull();
-
-        // 인증번호를 모르는 사람에게는 verify 결과도 같다
-        String wrongCode = mail.lastCode(registered).equals("000000") ? "111111" : "000000";
-        a.post("/api/auth/email/verify", verifyJson(registered, wrongCode))
-                .andExpect(jsonPath("$.code").value("VERIFICATION_CODE_MISMATCH"));
-        b.post("/api/auth/email/verify", verifyJson(unknown, wrongCode))
-                .andExpect(jsonPath("$.code").value("VERIFICATION_CODE_MISMATCH"));
-    }
-
-    @Test
-    void 가입되지_않은_이메일도_발송_횟수_제한이_같다() throws Exception {
+    void 가입되지_않은_이메일이면_EMAIL_NOT_REGISTERED이고_메일은_가지_않는다() throws Exception {
         String unknown = newEmail();
         Browser browser = browser();
 
-        browser.post("/api/auth/email/send-code", sendCodeJson(unknown)).andExpect(status().isOk());
         browser.post("/api/auth/email/send-code", sendCodeJson(unknown))
-                .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.code").value("VERIFICATION_RESEND_TOO_SOON"));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("EMAIL_NOT_REGISTERED"))
+                .andExpect(jsonPath("$.message").value("가입되지 않은 이메일이에요."));
+        assertThat(mail.lastText(unknown)).isNull();
+
+        // 발송 기록을 남기지 않아 바로 다시 요청해도 60초 재발송 제한이 아니라 같은 오류다
+        browser.post("/api/auth/email/send-code", sendCodeJson(unknown))
+                .andExpect(jsonPath("$.code").value("EMAIL_NOT_REGISTERED"));
+        // 받은 적 없는 인증번호라 verify는 VERIFICATION_EXPIRED
+        browser.post("/api/auth/email/verify", verifyJson(unknown, "000000"))
+                .andExpect(jsonPath("$.code").value("VERIFICATION_EXPIRED"));
+    }
+
+    @Test
+    void 가입된_이메일은_비밀번호_재설정_메일을_받는다() throws Exception {
+        String registered = newEmail();
+        member(registered);
+
+        browser().post("/api/auth/email/send-code", sendCodeJson(registered))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.expiresInSeconds").value(300));
+        assertThat(mail.lastSubject(registered)).isEqualTo("[FIRSTORY] 비밀번호 재설정 인증번호예요");
+        assertThat(mail.lastHtml(registered)).contains("비밀번호 재설정 인증번호예요", mail.lastCode(registered));
     }
 
     @Test
@@ -156,7 +148,7 @@ class PasswordResetIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    void 탈퇴한_회원의_이메일은_가입되지_않은_이메일과_같다() throws Exception {
+    void 탈퇴한_회원의_이메일은_EMAIL_NOT_REGISTERED() throws Exception {
         String email = newEmail();
         Browser member = signUp(email);
         member.post("/api/me/withdraw", """
@@ -165,7 +157,8 @@ class PasswordResetIntegrationTest extends IntegrationTest {
         String signupText = mail.lastText(email);
 
         advance(Duration.ofSeconds(61));
-        browser().post("/api/auth/email/send-code", sendCodeJson(email)).andExpect(status().isOk());
+        browser().post("/api/auth/email/send-code", sendCodeJson(email))
+                .andExpect(jsonPath("$.code").value("EMAIL_NOT_REGISTERED"));
 
         // 가입 때 받은 메일이 그대로 마지막이다. 재설정 메일은 가지 않았다
         assertThat(mail.lastText(email)).isSameAs(signupText);

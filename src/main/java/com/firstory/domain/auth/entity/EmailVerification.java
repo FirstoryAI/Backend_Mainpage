@@ -35,16 +35,6 @@ public record EmailVerification(String email, EmailPurpose purpose, String codeH
         return new EmailVerification(email, purpose, sha256(code), now.plus(VALIDITY), 0);
     }
 
-    /**
-     * 가입하지 않은 이메일의 비밀번호 재설정. 메일은 보내지 않고, 어떤 번호로도 맞지 않는 인증을 남긴다
-     * (가입 여부를 응답으로 드러내지 않으려고).
-     */
-    public static EmailVerification issueUnmatchable(String email, EmailPurpose purpose, RandomGenerator random,
-                                                     Instant now) {
-        String neverSent = "x" + Long.toHexString(random.nextLong()) + Long.toHexString(random.nextLong());
-        return new EmailVerification(email, purpose, sha256(neverSent), now.plus(VALIDITY), 0);
-    }
-
     public boolean isFor(String email) {
         return this.email.equals(email);
     }

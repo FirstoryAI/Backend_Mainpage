@@ -38,24 +38,6 @@ class EmailVerificationTest {
     }
 
     @Test
-    void 보내지_않은_인증번호는_어떤_6자리와도_맞지_않는다() {
-        RandomGenerator zero = new RandomGenerator() {
-            @Override
-            public long nextLong() {
-                return 0;
-            }
-        };
-        EmailVerification unmatchable =
-                EmailVerification.issueUnmatchable(EMAIL, EmailPurpose.PASSWORD_RESET, zero, NOW);
-
-        assertThat(unmatchable.matches("000000")).isFalse();
-        assertThat(unmatchable.matches("0")).isFalse();
-        assertThat(unmatchable.matches("")).isFalse();
-        assertThat(unmatchable.isFor(EMAIL)).isTrue();
-        assertThat(unmatchable.expiresAt()).isEqualTo(NOW.plus(EmailVerification.VALIDITY));
-    }
-
-    @Test
     void 인증번호는_해시로만_저장하고_평문이_없다() {
         EmailVerification verification = EmailVerification.issue(EMAIL, EmailPurpose.SIGNUP, "123456", NOW);
 

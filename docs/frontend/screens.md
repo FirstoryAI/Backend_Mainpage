@@ -83,11 +83,11 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 인증번호 받기 | `POST /api/auth/email/send-code` `{email, purpose: "PASSWORD_RESET"}` | 가입 여부와 상관없이 200 → "가입된 이메일이라면 인증번호가 발송돼요" |
+| 인증번호 받기 | `POST /api/auth/email/send-code` `{email, purpose: "PASSWORD_RESET"}` | 200 → 인증번호 입력. 404 `EMAIL_NOT_REGISTERED` → "가입되지 않은 이메일이에요" |
 | 확인 | `POST /api/auth/email/verify` `{email, code}` | 204 → 새 비밀번호 입력 |
 | 새 비밀번호 | `POST /api/auth/password/reset` `{email, newPassword}` | 204 → 로그인 화면 (모든 기기 로그아웃됨) |
 
-- 가입되지 않은 이메일은 메일이 오지 않을 뿐 응답이 같다. "가입되지 않은 이메일이에요" 같은 문구를 만들지 않는다. 자세한 규칙은 auth.md "비밀번호 찾기".
+- 가입되지 않은 이메일(탈퇴한 회원 포함)은 404 `EMAIL_NOT_REGISTERED`이고 메일이 가지 않는다. 자세한 규칙은 auth.md "비밀번호 찾기".
 - 비밀번호가 없는 카카오 회원도 여기서 비밀번호를 만든다.
 
 ## ONB-01 첫 방문 안내

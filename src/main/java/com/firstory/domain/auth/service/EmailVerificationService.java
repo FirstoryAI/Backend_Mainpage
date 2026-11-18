@@ -60,10 +60,14 @@ public class EmailVerificationService {
     public Duration sendCode(HttpSession session, String rawEmail, EmailPurpose purpose) {
         String email = User.normalizeEmail(rawEmail);
         Instant now = clock.instant();
-        boolean registered = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
+        transactionTemplate.executeWithoutResult(status -> {
             boolean exists = userRepository.existsByEmail(email);
             if (purpose == EmailPurpose.SIGNUP && exists) {
                 throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+            }
+            // 가입 여부는 email/check와 SIGNUP의 DUPLICATE_EMAIL로도 알 수 있어 숨기지 않는다 (#89)
+            if (purpose == EmailPurpose.PASSWORD_RESET && !exists) {
+                throw new BusinessException(ErrorCode.EMAIL_NOT_REGISTERED);
             }
             if (purpose == EmailPurpose.SIGNUP) {
                 // 베타 동안 가입할 수 없는 사람에게는 인증 메일부터 보내지 않는다
@@ -78,15 +82,7 @@ public class EmailVerificationService {
                 throw new BusinessException(ErrorCode.VERIFICATION_RESEND_TOO_SOON);
             }
             emailSendLogRepository.save(EmailSendLog.record(emailHash, purpose));
-            return exists;
-        }));
-
-        // 가입하지 않은 이메일의 비밀번호 재설정은 메일을 보내지 않지만 응답은 같다 (가입 여부를 드러내지 않는다)
-        if (purpose == EmailPurpose.PASSWORD_RESET && !registered) {
-            session.setAttribute(VERIFICATION_ATTRIBUTE,
-                    EmailVerification.issueUnmatchable(email, purpose, random, now));
-            return EmailVerification.VALIDITY;
-        }
+        });
 
         String code = newCode();
         try {
