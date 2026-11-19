@@ -1,10 +1,13 @@
 package com.firstory.domain.credit;
 
+import com.firstory.domain.generation.service.GenerationPoller;
 import com.firstory.global.error.ErrorCode;
 import com.firstory.global.kakao.KakaoUser;
 import com.firstory.support.Browser;
 import com.firstory.support.IntegrationTest;
+import com.firstory.support.StoryFlow;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
 
 import java.sql.Timestamp;
@@ -24,6 +27,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class BetaInviteOnlyIntegrationTest extends IntegrationTest {
 
     static final String DEV_EMAIL = "beta-dev@example.com";
+
+    @Autowired
+    GenerationPoller poller;
 
     @Test
     void 초대받지_않은_사람은_인증번호도_받지_못한다() throws Exception {
@@ -138,6 +144,36 @@ class BetaInviteOnlyIntegrationTest extends IntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.signupSource").value("INVITE"))
                 .andExpect(jsonPath("$.storiesRemaining").value(2));
+    }
+
+    @Test
+    void 탈퇴하고_초대_링크로_다시_가입하면_자리는_쓰고_이용권은_이어_받는다() throws Exception {
+        String code = inviteCode(100);
+        String email = newEmail();
+        Browser parent = browser();
+        parent.get("/api/invite/" + code);
+        signUpIn(parent, email, allConsents());
+        StoryFlow.reviewing(parent, poller);
+        parent.post("/api/me/withdraw", """
+                {"currentPassword": "%s"}""".formatted(PASSWORD)).andExpect(status().isNoContent());
+        advance(Duration.ofMinutes(2));   // 같은 이메일 인증번호 재발송 간격
+
+        // 예전 회원이어도 베타 동안은 초대 링크가 있어야 한다
+        browser().post("/api/auth/email/send-code", """
+                {"email": "%s", "purpose": "SIGNUP"}""".formatted(email))
+                .andExpect(jsonPath("$.code").value("SIGNUP_INVITE_REQUIRED"));
+
+        Browser back = browser();
+        back.get("/api/invite/" + code);
+        signUpIn(back, email, allConsents());
+
+        back.get("/api/me").andExpect(jsonPath("$.signupSource").value("INVITE"));
+        back.get("/api/home")
+                .andExpect(jsonPath("$.credits.beta").value(true))
+                .andExpect(jsonPath("$.credits.remaining").value(1))
+                .andExpect(jsonPath("$.credits.total").value(2));
+        assertThat(jdbc.queryForObject("SELECT used_count FROM invite_codes WHERE code = ?", Integer.class, code))
+                .isEqualTo(2);
     }
 
     private String kakaoSignupJson() {

@@ -3,6 +3,7 @@ package com.firstory.domain.credit;
 import com.firstory.domain.generation.service.GenerationPoller;
 import com.firstory.global.ai.FakeAiClient;
 import com.firstory.global.error.ErrorCode;
+import com.firstory.global.kakao.KakaoUser;
 import com.firstory.support.Browser;
 import com.firstory.support.IntegrationTest;
 import com.firstory.support.StoryFlow;
@@ -16,6 +17,7 @@ import org.springframework.test.web.servlet.ResultMatcher;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -320,6 +322,156 @@ class CreditIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.credits.unlimited").value(true))
                 .andExpect(jsonPath("$.credits.remaining").doesNotExist())
                 .andExpect(jsonPath("$.credits.total").doesNotExist());
+    }
+
+    @Test
+    void 탈퇴하고_다시_가입하면_새_무료_없이_예전_1회를_이어_받는다() throws Exception {
+        String email = newEmail();
+        withdraw(signUp(email));
+
+        Browser back = signUp(email);
+
+        back.get("/api/me").andExpect(jsonPath("$.storiesRemaining").value(1));
+        back.get("/api/home")
+                .andExpect(jsonPath("$.credits.remaining").value(1))
+                .andExpect(jsonPath("$.credits.total").value(1));
+        assertThat(creditSources(email)).containsExactly("SIGNUP_FREE");
+        assertThat(creditRowsOfEmail(email)).isOne();
+    }
+
+    @Test
+    void 다_쓰고_탈퇴해도_다시_가입하면_0회다() throws Exception {
+        String email = newEmail();
+        Browser parent = signUp(email);
+        StoryFlow.reviewing(parent, poller);
+        withdraw(parent);
+
+        Browser back = signUp(email);
+
+        back.get("/api/me").andExpect(jsonPath("$.storiesRemaining").value(0));
+        back.get("/api/home")
+                .andExpect(jsonPath("$.credits.remaining").value(0))
+                .andExpect(jsonPath("$.credits.total").value(1));
+        back.post("/api/stories", null).andExpect(jsonPath("$.code").value("STORY_LIMIT_REACHED"));
+    }
+
+    @Test
+    void 초대_2회_중_1회를_쓰고_다시_가입하면_1분의_2다() throws Exception {
+        String email = newEmail();
+        Browser parent = browser();
+        parent.get("/api/invite/" + inviteCode(100, Duration.ofDays(10), Duration.ofDays(10)));
+        signUpIn(parent, email, allConsents());
+        StoryFlow.reviewing(parent, poller);
+        withdraw(parent);
+
+        Browser back = browser();
+        back.get("/api/invite/" + inviteCode(100, Duration.ofDays(10), Duration.ofDays(10)));
+        signUpIn(back, email, allConsents());
+
+        back.get("/api/home")
+                .andExpect(jsonPath("$.credits.remaining").value(1))
+                .andExpect(jsonPath("$.credits.total").value(2));
+        assertThat(creditSources(email)).containsExactly("INVITE");
+    }
+
+    @Test
+    void 기한이_지난_예전_이용권은_0이고_새_무료도_없다() throws Exception {
+        String email = newEmail();
+        Browser parent = browser();
+        parent.get("/api/invite/" + inviteCode(100, Duration.ofDays(10), Duration.ofDays(1)));
+        signUpIn(parent, email, allConsents());
+        withdraw(parent);
+        advance(Duration.ofDays(1));
+
+        Browser back = browser();
+        back.get("/api/invite/" + inviteCode(100, Duration.ofDays(10), Duration.ofDays(10)));
+        signUpIn(back, email, allConsents());
+
+        back.get("/api/me").andExpect(jsonPath("$.storiesRemaining").value(0));
+        back.get("/api/home")
+                .andExpect(jsonPath("$.credits.remaining").value(0))
+                .andExpect(jsonPath("$.credits.total").value(0));
+        assertThat(creditSources(email)).containsExactly("INVITE");
+    }
+
+    @Test
+    void 탈퇴_계정이_여럿이면_가장_최근_계정_것만_이어_받는다() throws Exception {
+        String email = newEmail();
+        withdraw(signUp(email));
+        withdraw(signUp(email));
+        // 고치기 전에 재가입해 오래된 계정도 따로 무료를 갖고 있는 경우를 흉내 낸다
+        jdbc.update("""
+                INSERT INTO story_credits (user_id, source, amount, created_at, updated_at)
+                SELECT min(id), 'SIGNUP_FREE', 1, now(), now() FROM users WHERE email = ?""", email);
+
+        Browser back = signUp(email);
+
+        back.get("/api/me").andExpect(jsonPath("$.storiesRemaining").value(1));
+        assertThat(creditSources(email)).hasSize(1);
+        // 처음 받은 1회가 계정을 따라 옮겨 다녔고, 오래된 계정 것은 그 자리에 남는다
+        assertThat(creditRowsOfEmail(email)).isEqualTo(2);
+    }
+
+    @Test
+    void 사전_연락을_아직_안_받은_이메일은_재가입하면_사전_연락_2회다() throws Exception {
+        String email = newEmail();
+        withdraw(signUp(email));
+        preContact(email, Duration.ofDays(1));
+
+        Browser back = signUp(email);
+
+        back.get("/api/me").andExpect(jsonPath("$.signupSource").value("PRE_CONTACT"));
+        back.get("/api/home")
+                .andExpect(jsonPath("$.credits.remaining").value(2))
+                .andExpect(jsonPath("$.credits.total").value(2));
+        assertThat(preContactGrantedAt(email)).isNotNull();
+    }
+
+    @Test
+    void 카카오로_다시_가입해도_이어_받는다() throws Exception {
+        String email = newEmail();
+        String code = "resignup-" + UUID.randomUUID();
+        kakao.register(code, new KakaoUser(String.valueOf(Math.abs(code.hashCode())), email, true));
+        Browser parent = kakaoSignUp(code);
+        StoryFlow.reviewing(parent, poller);
+        parent.post("/api/me/withdraw", "{}").andExpect(status().isNoContent());
+
+        Browser back = kakaoSignUp(code);
+
+        back.get("/api/me").andExpect(jsonPath("$.storiesRemaining").value(0));
+        assertThat(creditSources(email)).hasSize(1);
+    }
+
+    private Browser kakaoSignUp(String code) throws Exception {
+        Browser parent = browser();
+        parent.post("/api/auth/kakao/login", """
+                {"code": "%s", "redirectUri": "http://localhost:5173/oauth/kakao"}""".formatted(code))
+                .andExpect(jsonPath("$.status").value("SIGNUP_REQUIRED"));
+        parent.post("/api/auth/kakao/signup", """
+                {"consents": %s, "termsVersion": "2026-10-01"}""".formatted(allConsents()))
+                .andExpect(status().isCreated());
+        return parent;
+    }
+
+    /** 탈퇴하고, 같은 이메일로 인증번호를 다시 받을 수 있게(60초) 시간을 옮긴다 */
+    private void withdraw(Browser parent) throws Exception {
+        parent.post("/api/me/withdraw", """
+                {"currentPassword": "%s"}""".formatted(PASSWORD)).andExpect(status().isNoContent());
+        advance(Duration.ofMinutes(2));
+    }
+
+    /** 그 이메일의 지금(탈퇴하지 않은) 회원이 가진 이용권 종류 */
+    private List<String> creditSources(String email) {
+        return jdbc.queryForList("""
+                SELECT c.source FROM story_credits c JOIN users u ON u.id = c.user_id
+                WHERE u.email = ? AND u.deleted_at IS NULL ORDER BY c.id""", String.class, email);
+    }
+
+    /** 그 이메일로 가입했던 모든 계정(탈퇴 포함)의 이용권 행 수 */
+    private int creditRowsOfEmail(String email) {
+        return jdbc.queryForObject("""
+                SELECT count(*) FROM story_credits c JOIN users u ON u.id = c.user_id WHERE u.email = ?""",
+                Integer.class, email);
     }
 
     private static ResultMatcher redirectsTo(String location) {
