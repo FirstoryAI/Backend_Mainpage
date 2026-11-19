@@ -9,7 +9,9 @@ import com.firstory.domain.credit.entity.StoryCredit;
 import com.firstory.domain.credit.repository.InviteCodeRepository;
 import com.firstory.domain.credit.repository.PreContactRepository;
 import com.firstory.domain.credit.repository.StoryCreditRepository;
+import com.firstory.domain.user.entity.SignupSource;
 import com.firstory.domain.user.entity.User;
+import com.firstory.domain.user.repository.UserRepository;
 import com.firstory.global.config.FirstoryProperties;
 import com.firstory.global.error.BusinessException;
 import com.firstory.global.error.ErrorCode;
@@ -33,6 +35,7 @@ import java.util.Optional;
  *   <li>그 밖: 베타 동안(invite-only)은 가입 불가, 아니면 무료 1회 (GENERAL)</li>
  * </ol>
  * 무료 이용권은 한 종류만 준다. 초대·사전 연락으로 받았으면 일반 1회는 없다.
+ * 같은 이메일로 탈퇴했다가 다시 가입하면 새 무료 없이 가장 최근에 탈퇴한 계정의 이용권을 쓴 기록째 옮긴다 (#93).
  */
 @Service
 @RequiredArgsConstructor
@@ -44,6 +47,8 @@ public class SignupGate {
     private final InviteCodeRepository inviteCodeRepository;
     private final PreContactRepository preContactRepository;
     private final StoryCreditRepository creditRepository;
+    private final UserRepository userRepository;
+    private final CreditService creditService;
     private final FirstoryProperties properties;
     private final Clock clock;
 
@@ -122,6 +127,17 @@ public class SignupGate {
     public void apply(User user, SignupGrant grant, HttpSession session) {
         user.markSignupSource(grant.source());
         Instant now = clock.instant();
+        Optional<Long> previous = userRepository.findLastWithdrawnId(user.getEmail());
+        if (previous.isPresent()) {
+            // 탈퇴·재가입으로 무료를 늘리지 못하게 새 무료 대신 예전 이용권을 그대로 잇는다.
+            // 가장 최근 계정만: 그 계정이 이전 것을 이미 이어 받았다
+            creditRepository.moveToUser(previous.get(), user.getId(), now);
+            if (grant.source() == SignupSource.PRE_CONTACT) {
+                creditService.syncPreContact(user.getId());   // 처음 받는 사전 연락은 기존 회원과 같은 규칙
+            }
+            session.removeAttribute(TICKET_ATTRIBUTE);
+            return;
+        }
         switch (grant.source()) {
             case DEV -> {
                 // 이용권 없이 무제한 (CreditService가 이메일로 본다)
