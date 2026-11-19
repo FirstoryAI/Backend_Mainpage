@@ -216,6 +216,7 @@ Actions는 SSH를 쓰지 않는다. GitHub OIDC로 AWS 역할을 받아 **SSM Ru
 | 사전 연락 이메일 | `closes_at` 전에 가입·로그인하면 `credit_amount`회, `credit_expires_at`까지 | `pre_contacts` 행 |
 | 개발용 이메일 | 무제한 | `.env`의 `UNLIMITED_EMAILS` |
 | 일반 가입·기존 회원 | 1회, 기한 없음 | (자동) |
+| 탈퇴 후 같은 이메일로 재가입 | 새 무료 없음. 가장 최근 탈퇴 계정의 이용권을 쓴 횟수째 그대로(기한도 그대로) | (자동). 베타 동안은 재가입에도 초대 링크가 필요하고 자리를 쓴다 |
 
 무료는 한 종류만 받는다(초대·사전 연락 2회면 일반 1회는 없다). `closes_at`(받을 수 있는 마감)이 지나면 초대 링크는 닫히고, 아직 받지 않은 사전 연락 이메일은 일반 가입·일반 회원(무료 1회)으로 본다. `credit_expires_at`(쓸 수 있는 기한)이 지나면 받은 이용권은 남아도 쓸 수 없다. `.env`의 `BETA_INVITE_ONLY=true`면 초대 링크·사전 연락·개발용 이메일만 가입할 수 있다. 베타가 끝나면 `false`로 바꾸고 `docker compose up -d`.
 

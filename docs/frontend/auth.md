@@ -86,6 +86,7 @@ POST /api/auth/logout                                                           
 - **베타 동안**(서버 `BETA_INVITE_ONLY=true`)은 초대 링크로 들어온 사람, 사전 연락 이메일, 개발용 이메일만 가입할 수 있다. 그 밖은 `email/send-code`(SIGNUP)부터 403 `SIGNUP_INVITE_REQUIRED`, 가입하려는 사이 선착순이 찼으면 403 `INVITE_CLOSED`. 응답의 `message`를 그대로 보여 주면 된다.
 - **이용권**: 동화 한 편을 AI로 처음 만들 때(생성 확정) 1회를 쓴다. 다시 만들기·다시 시도는 쓰지 않는다.
   - 초대 링크·사전 연락 가입은 무료 2회(쓸 수 있는 기한 있음, 지나면 남아도 쓸 수 없음), 일반 가입·기존 회원은 무료 1회. 무료는 한 종류만 받는다. 받을 수 있는 마감이 지난 뒤 사전 연락 이메일로 가입하면 일반 가입(1회)이다.
+  - 같은 이메일로 탈퇴했다가 다시 가입하면 무료를 새로 받지 않고 예전 계정의 이용권을 그대로 이어 받는다(쓴 횟수 포함). 홈 `credits`도 예전 기준이다(예: 2회 중 1회 쓰고 탈퇴 → 다시 가입하면 `1/2`). 예전 계정의 동화는 새 계정에 보이지 않는다.
   - `GET /api/me`의 `storiesRemaining`(앞으로 만들 수 있는 동화 수, 무제한이면 null), `unlimitedStories`, `signupSource`(GENERAL / INVITE / PRE_CONTACT / DEV).
   - 다 쓰면 `POST /api/stories`(동화 만들기 시작)가 403 `STORY_LIMIT_REACHED`. 그사이 다른 동화로 다 쓴 경우 `POST /confirm`도 같은 오류. 응답의 `message`를 보여 주면 된다. 결제(한달권)는 아직 없다.
   - 동화를 지워도 쓴 횟수는 돌아오지 않는다. AI가 생성을 받지 못한 경우(`AI_UNAVAILABLE` 등)는 돌아온다.
