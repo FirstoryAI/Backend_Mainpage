@@ -88,6 +88,7 @@ cp .env.example .env && chmod 600 .env && vi .env
 - 메일: `MAIL_USERNAME`은 팀 Gmail 주소, `MAIL_PASSWORD`는 그 계정에 2단계 인증을 켜고 [앱 비밀번호](https://myaccount.google.com/apppasswords)에서 만든 16자리. `MAIL_MODE=smtp`와 함께 넣는다. smtp인데 둘 중 하나라도 비면 기동하지 않는다. `MAIL_FROM`은 비우면 `MAIL_USERNAME`. EC2는 587 포트로 보내는 데 막힘이 없다.
 - 메일 디자인(HTML): `.env`에 `APP_URL`(메일 버튼이 여는 프론트 주소, 예 `https://www.도메인`)을 넣는다. 그림 주소는 compose가 `https://${API_DOMAIN}/mail`로 만든다. `APP_URL`이 비면 글자 메일만 간다
 - 카카오: `KAKAO_REST_API_KEY`는 카카오 디벨로퍼스 [앱 → 앱 키]의 REST API 키. `KAKAO_MODE=http`와 함께 넣는다(http인데 비면 기동하지 않는다). [카카오 로그인 → 보안]에서 Client Secret을 켰으면 `KAKAO_CLIENT_SECRET`도 넣는다. `KAKAO_REDIRECT_URIS`는 카카오에 등록한 프론트 redirect URI(쉼표로 여러 개). `KAKAO_MODE`를 넣지 않으면 fake(아무 code로 가짜 회원이 된다. 실제 서비스에서는 쓰지 않는다).
+- `ELEVENLABS_API_KEY`는 동화 낭독(일레븐랩스) 키. 비우면 음성 없이 동화만 만들고 미리보기·책 쪽의 `audioUrl`이 null이다. 넣거나 바꾼 뒤에는 `docker compose up -d ai`(또는 AI 저장소 Actions의 EC2 배포 수동 실행)로 AI 컨테이너를 다시 띄워야 적용된다.
 - `OPENAI_API_KEY`, `S3_BUCKET`도 Railway AI 서비스와 같은 값이다. `AI_INTERNAL_TOKEN`은 새로 만들어도 된다(Spring과 AI가 같은 `.env`를 읽는다).
 - `POSTGRES_IMAGE`는 Railway DB와 같은 메이저 버전으로 한다(Railway DB에서 `SELECT version();`, 11/2 기준 18.6). 더 높은 버전의 `pg_dump` 파일은 낮은 버전에 복원되지 않을 수 있다. 18부터 공식 이미지의 데이터 위치가 바뀌어 compose는 볼륨을 `/var/lib/postgresql`에 붙인다. 16 이하 이미지를 쓰면 볼륨 경로를 `/var/lib/postgresql/data`로 되돌린다.
 - AWS 접근 키는 넣지 않는다(IAM 역할).
