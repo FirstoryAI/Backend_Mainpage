@@ -5,13 +5,16 @@ import com.firstory.domain.generation.dto.ApproveResponse;
 import com.firstory.domain.generation.dto.GenerationStatusResponse;
 import com.firstory.domain.generation.dto.PreviewResponse;
 import com.firstory.domain.generation.dto.RegenerateRequest;
+import com.firstory.domain.generation.dto.SoundWordPositionsRequest;
 import com.firstory.domain.generation.dto.VersionResponse;
 import com.firstory.domain.generation.entity.GenerationRun;
+import com.firstory.domain.generation.entity.PageSoundWord;
 import com.firstory.domain.generation.entity.RegenerateScope;
 import com.firstory.domain.generation.entity.RunStatus;
 import com.firstory.domain.generation.entity.RunTrigger;
 import com.firstory.domain.generation.entity.StoryFeedback;
 import com.firstory.domain.generation.entity.StoryFiles;
+import com.firstory.domain.generation.entity.StoryPage;
 import com.firstory.domain.generation.entity.StoryVersion;
 import com.firstory.domain.generation.repository.GenerationRunRepository;
 import com.firstory.domain.generation.repository.StoryFeedbackRepository;
@@ -38,8 +41,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -171,6 +176,41 @@ public class ReviewService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.VERSION_NOT_FOUND));
         story.showVersion(version);
         return previewOf(story);
+    }
+
+    /**
+     * 미리보기에서 부모가 옮긴 의성어·의태어 조각 자리를 저장한다 (#100). REVIEWING에서만, 그 버전의 그 쪽에만 남는다.
+     * 미리보기·함께 읽기는 같은 쪽 행을 읽어서 확정한 뒤에도 옮긴 자리가 그대로 보인다.
+     * 동화를 잠가 읽어서 같은 때 들어온 확정과 겹치지 않는다.
+     *
+     * @return 옮긴 뒤의 soundWord
+     */
+    @Transactional
+    public PageSoundWord moveSoundWord(Long userId, Long storyId, Long versionId, int pageNo,
+                                       SoundWordPositionsRequest request) {
+        Story story = loader.findEditableForUpdate(userId, storyId, REVIEWING);
+        StoryVersion version = versionRepository.findByIdAndStoryId(versionId, story.getId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.VERSION_NOT_FOUND));
+        if (pageNo < 1 || pageNo > pageCount) {
+            throw new BusinessException(ErrorCode.PAGE_OUT_OF_RANGE);
+        }
+        StoryPage page = pageRepository.findByVersionIdAndPageNo(version.getId(), pageNo)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PAGE_OUT_OF_RANGE));
+        PageSoundWord current = page.getSoundWord();
+        if (current == null) {
+            throw new BusinessException(ErrorCode.SOUND_WORD_NOT_FOUND);
+        }
+        Map<Integer, double[]> moved = new HashMap<>();
+        for (SoundWordPositionsRequest.Piece piece : request.pieces()) {
+            // 같은 조각을 두 번 보냈거나 없는 조각 순번이면 받지 않는다
+            if (piece.index() >= current.pieces().size()
+                    || moved.put(piece.index(), new double[]{piece.x(), piece.y()}) != null) {
+                throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+            }
+        }
+        PageSoundWord next = current.withPositions(moved);
+        page.moveSoundWord(next);
+        return next;
     }
 
     /**

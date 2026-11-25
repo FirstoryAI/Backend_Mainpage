@@ -1,5 +1,7 @@
 package com.firstory.domain.generation.controller;
 
+import com.firstory.domain.generation.dto.SoundWordPositionsRequest;
+import com.firstory.domain.generation.entity.PageSoundWord;
 import com.firstory.domain.generation.dto.ApproveRequest;
 import com.firstory.domain.generation.dto.ApproveResponse;
 import com.firstory.domain.generation.dto.CurrentVersionRequest;
@@ -80,6 +82,20 @@ public class ReviewController {
     public PreviewResponse showVersion(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id,
                                        @Valid @RequestBody CurrentVersionRequest request) {
         return reviewService.showVersion(principal.getUserId(), id, request.versionId());
+    }
+
+    @Operation(summary = "의성어·의태어 자리 저장",
+            description = "미리보기에서 부모가 드래그로 옮긴 조각 자리. REVIEWING에서만. index는 soundWord.pieces 순서(0부터), "
+                    + "x·y는 그림 전체 기준 0~100%. 보낸 조각만 바꾸고 글·색·방향과 보내지 않은 조각은 그대로다. "
+                    + "그 버전의 그 쪽에만 저장되어 미리보기·함께 읽기(확정 뒤 포함)의 soundWord에 그대로 나온다. "
+                    + "없는 조각 순번, 같은 순번 두 번, 범위 밖 좌표는 VALIDATION_FAILED. 응답은 옮긴 뒤의 soundWord")
+    @ApiErrorCodes({ErrorCode.VALIDATION_FAILED, ErrorCode.STORY_BLOCKED, ErrorCode.INVALID_STATUS_TRANSITION,
+            ErrorCode.VERSION_NOT_FOUND, ErrorCode.PAGE_OUT_OF_RANGE, ErrorCode.SOUND_WORD_NOT_FOUND})
+    @PutMapping("/versions/{versionId:\\d+}/pages/{pageNo:\\d+}/sound-word-positions")
+    public PageSoundWord moveSoundWord(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id,
+                                       @PathVariable Long versionId, @PathVariable int pageNo,
+                                       @Valid @RequestBody SoundWordPositionsRequest request) {
+        return reviewService.moveSoundWord(principal.getUserId(), id, versionId, pageNo, request);
     }
 
     @Operation(summary = "확정 (REV-04)", description = "REVIEWING에서. 지금 보여 주는 버전으로 확정한다. 알림은 보내지 않는다. "

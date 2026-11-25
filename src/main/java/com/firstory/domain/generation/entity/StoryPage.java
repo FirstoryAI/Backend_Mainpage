@@ -109,6 +109,13 @@ public class StoryPage extends BaseTimeEntity {
                 ImageStatus.PENDING, null, null);
     }
 
+    /**
+     * 미리보기에서 부모가 옮긴 의성어 조각 자리를 저장한다 (#100). 이 버전의 쪽에만 남는다.
+     */
+    public void moveSoundWord(PageSoundWord moved) {
+        this.soundWord = Objects.requireNonNull(moved);
+    }
+
     public void imageDone(String imageKey) {
         this.imageKey = Objects.requireNonNull(imageKey);
         this.imageStatus = ImageStatus.DONE;
