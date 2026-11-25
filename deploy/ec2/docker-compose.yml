@@ -37,6 +37,7 @@ services:
       IMAGE_CONCURRENCY: ${IMAGE_CONCURRENCY:-3}
       LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
       LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}   # 동화 낭독. 비면 음성만 빠지고 동화는 그대로 (#98)
     volumes:
       - ai-data:/data   # 체크포인트 (/data/checkpoints.db). 지워지면 만들던 동화가 409로 끊긴다
     mem_limit: 1g
