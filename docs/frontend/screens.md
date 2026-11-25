@@ -268,7 +268,7 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `GET /api/stories/{id}/preview` | `version{id, versionNo, title}`, `characterSheetUrl`, `coverUrl`, `frontCoverUrl`, `backCoverUrl`, `pages[]{pageNo, text, imageStatus, imageUrl, textPosition, textBlocks, soundWord}`, `regenerateRemaining` |
+| 들어올 때 | `GET /api/stories/{id}/preview` | `version{id, versionNo, title}`, `characterSheetUrl`, `coverUrl`, `frontCoverUrl`, `backCoverUrl`, `pages[]{pageNo, text, imageStatus, imageUrl, textPosition, textBlocks, soundWord, audioStatus, audioUrl}`, `regenerateRemaining` |
 | 다시 만들기 | REV-02 | |
 | 동화 설명과 부모용 가이드 | GDE-01 (`GET .../guide`, REVIEWING에서도 된다) | 동화 설명은 `beforeReading.intent` |
 | 버전 목록 | 아래 "버전 목록" | |
@@ -277,6 +277,7 @@
 **그림**
 
 - `imageUrl`(예: `/api/stories/12/versions/30/pages/1/image`)을 **`<img src>`에 그대로** 넣는다. 쿠키가 자동으로 붙어 내 동화 그림만 보인다. 주소에 파일 경로는 없다.
+- `audioUrl`(예: `/api/stories/12/versions/30/pages/1/audio`)은 그 쪽을 읽어 주는 음성(해설과 등장인물 목소리를 이은 mp3, `audio/mpeg`)이다. `<audio src>`에 그대로 넣는다(그림처럼 쿠키가 붙는다). `audioStatus`는 `"DONE"` | `"FAILED"` | `null`이고 **`DONE`일 때만 `audioUrl`이 있다**. `null`(옛 동화, 음성이 없는 쪽)이나 `FAILED`면 재생 버튼을 숨기고 글만 보여 주면 된다. 음성 재생은 **선택 기능**이라 붙이지 않아도 화면은 그대로 동작한다. 없는 음성 주소를 열면 404 `AUDIO_NOT_FOUND`.
 - `imageStatus: "FAILED"`면 `imageUrl`이 null이다. **빈 자리(대체 그림)** 를 보여 주고 "그림만 다시"로 그 쪽을 다시 그리게 안내한다.
 - `coverUrl`은 표지(제목이 들어간 정사각형 그림). 표지가 없는 버전이면 캐릭터 시트 주소다. `characterSheetUrl`은 주인공 기준 그림. 둘 다 null일 수 있다.
 - `frontCoverUrl`, `backCoverUrl`은 책 맨 앞·맨 뒤에 넣는 앞표지(제목 포함)·뒤표지(빈 바탕에 주인공 혼자 작게, 글자 없음)다. 앞표지는 정사각형 표지(`coverUrl`)와 같은 그림이고 뒤표지는 1024×1024 정사각형이다(AI_worker#125 전 버전은 둘 다 1920×1088 가로). 없으면(이 기능 전에 만든 버전, 표지 실패) null이고, 그러면 지금처럼 1쪽부터 보여 준다.
@@ -399,7 +400,7 @@
 
 | 때 | API | 볼 것 |
 |---|---|---|
-| 들어올 때 | `GET /api/stories/{id}/book` | `title, coverUrl, frontCoverUrl, backCoverUrl, pageCount, pages[]{pageNo, text, imageUrl, imageStatus, textPosition, textBlocks, soundWord}, prompts[]{id, afterPage, question, parentHint}` |
+| 들어올 때 | `GET /api/stories/{id}/book` | `title, coverUrl, frontCoverUrl, backCoverUrl, pageCount, pages[]{pageNo, text, imageUrl, imageStatus, textPosition, textBlocks, soundWord, audioStatus, audioUrl}, prompts[]{id, afterPage, question, parentHint}` |
 | 이어 읽기 확인 | `GET /api/stories/{id}/reading-sessions/resume` | 200 `{sessionId, lastPage, startedAt}`이면 "이어 읽을까요?", **204면 이어 읽을 것 없음** |
 | 처음부터 읽기 | `POST /api/stories/{id}/reading-sessions` | 201 `{sessionId, lastPage: 0}` |
 | 쪽 넘길 때마다 | `PUT /api/reading-sessions/{sessionId}/progress` `{page}` (1~10) | 204 |
