@@ -76,6 +76,33 @@ class SoundWordPositionsIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void 쪽별_그림만_다시는_바꾸지_않은_쪽의_옮긴_자리를_이어받는다() throws Exception {
+        Browser parent = signUp(newEmail());
+        long id = StoryFlow.reviewing(parent, poller);
+        long first = currentVersionId(parent, id);
+        parent.put(positions(id, first, 2), """
+                {"pieces": [{"index": 0, "x": 12.5, "y": 60}]}""").andExpect(status().isOk());
+        parent.put(positions(id, first, 5), """
+                {"pieces": [{"index": 0, "x": 20, "y": 20}]}""").andExpect(status().isOk());
+
+        parent.post(StoryFlow.url(id) + "/regenerate", """
+                {"scope": "IMAGES", "pages": [5]}""").andExpect(status().isAccepted());
+        for (int i = 0; i < 3; i++) {
+            poller.pollOnce();
+        }
+
+        long second = currentVersionId(parent, id);
+        assertThat(second).isNotEqualTo(first);
+        parent.get(StoryFlow.url(id) + "/preview")
+                // 그림·글이 그대로인 2쪽은 옮긴 자리 그대로
+                .andExpect(jsonPath("$.pages[1].soundWord.pieces[0].x").value(12.5))
+                .andExpect(jsonPath("$.pages[1].soundWord.pieces[0].y").value(60.0))
+                .andExpect(jsonPath("$.pages[1].soundWord.pieces[1].x").value(45.0))
+                // 다시 그린 5쪽은 AI가 새로 정한 자리
+                .andExpect(jsonPath("$.pages[4].soundWord.pieces[0].x").value(75.0));
+    }
+
+    @Test
     void 잘못된_쪽_조각_좌표는_막는다() throws Exception {
         Browser parent = signUp(newEmail());
         long id = StoryFlow.reviewing(parent, poller);

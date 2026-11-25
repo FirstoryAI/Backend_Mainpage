@@ -3,6 +3,7 @@ package com.firstory.domain.generation.service;
 import com.firstory.domain.credit.service.CreditService;
 import com.firstory.domain.generation.entity.GenerationRun;
 import com.firstory.domain.generation.entity.StoryFiles;
+import com.firstory.domain.generation.entity.PageSoundWord;
 import com.firstory.domain.generation.entity.StoryPage;
 import com.firstory.domain.generation.entity.StoryVersion;
 import com.firstory.domain.generation.repository.GenerationRunRepository;
@@ -28,6 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -128,7 +131,7 @@ public class GenerationResultRecorder {
         StoryVersion version = versionRepository.save(StoryVersion.create(story, run, versionNo, run.getBaseVersion(),
                 title(result.title()), result.checkpointId(), result.design(), characterSheetKey(result),
                 result.coverPath(), result.frontCoverPath(), result.backCoverPath()));
-        savePages(version, result.pages());
+        savePages(version, run.getBaseVersion(), result.pages());
         saveGuide(version, result.guide());
 
         AiGenerationResult.Cost cost = result.cost();
@@ -155,10 +158,13 @@ public class GenerationResultRecorder {
                 safety.reason(), occurrenceNo, clock.instant()));
     }
 
-    private void savePages(StoryVersion version, List<AiGenerationResult.Page> pages) {
+    private void savePages(StoryVersion version, StoryVersion baseVersion, List<AiGenerationResult.Page> pages) {
+        Map<Integer, StoryPage> basePages = baseVersion == null ? Map.of()
+                : pageRepository.findAllByVersionIdOrderByPageNoAsc(baseVersion.getId()).stream()
+                        .collect(Collectors.toMap(StoryPage::getPageNo, Function.identity()));
         pages.stream().sorted(Comparator.comparingInt(AiGenerationResult.Page::pageNo)).forEach(page -> {
             StoryPage storyPage = StoryPage.create(version, page.pageNo(), page.text(), page.imagePrompt(),
-                    page.textPosition(), page.textBlocks(), page.soundWord());
+                    page.textPosition(), page.textBlocks(), soundWord(page, basePages.get(page.pageNo())));
             if (page.imageDone()) {
                 storyPage.imageDone(page.imagePath());
             } else {
@@ -171,6 +177,21 @@ public class GenerationResultRecorder {
             }
             pageRepository.save(storyPage);
         });
+    }
+
+    /**
+     * 의성어 자리. 다시 만들기에서 그림과 글이 그대로인 쪽(쪽별 그림만 다시의 나머지 쪽)은 기준 버전의 자리를 이어받는다.
+     * 부모가 미리보기에서 옮긴 자리(#100)가 새 버전에서 AI가 처음 정한 자리로 돌아가지 않게 한다.
+     * 그림이나 글이 바뀐 쪽은 AI가 새로 정한 자리.
+     */
+    private static PageSoundWord soundWord(AiGenerationResult.Page page, StoryPage basePage) {
+        PageSoundWord fresh = page.soundWord();
+        if (basePage == null || !page.imageDone() || basePage.getImageKey() == null
+                || !basePage.getImageKey().equals(page.imagePath()) || !basePage.getText().equals(page.text())) {
+            return fresh;
+        }
+        PageSoundWord kept = basePage.getSoundWord();
+        return kept != null && fresh != null && kept.text().equals(fresh.text()) ? kept : fresh;
     }
 
     private void saveGuide(StoryVersion version, AiGenerationResult.Guide guide) {
