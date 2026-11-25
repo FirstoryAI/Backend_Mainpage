@@ -11,6 +11,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -52,13 +54,19 @@ public class StoryImageController {
         return image(storyImageService.pageImage(principal.getUserId(), id, versionId, pageNo));
     }
 
-    @Operation(summary = "쪽 음성", description = "쪽 음성 (해설·등장인물 목소리, mp3). 음성이 없거나 실패한 쪽은 AUDIO_NOT_FOUND")
-    @ApiResponse(responseCode = "200", description = "mp3 음성",
+    @Operation(summary = "쪽 음성", description = "쪽 음성 (해설·등장인물 목소리, mp3). 음성이 없거나 실패한 쪽은 AUDIO_NOT_FOUND. "
+            + "HTTP Range 요청을 지원한다(아이폰·아이패드 Safari 재생에 필요): Range: bytes=0-1 이면 206과 Content-Range, "
+            + "Range가 없으면 200 전체, 응답에 Accept-Ranges: bytes, 범위를 벗어나면 416")
+    @ApiResponse(responseCode = "200", description = "mp3 음성 (Range 없을 때 전체)",
+            content = @Content(mediaType = AUDIO_MPEG, schema = @Schema(type = "string", format = "binary")))
+    @ApiResponse(responseCode = "206", description = "mp3 음성 일부 (Range 요청)",
             content = @Content(mediaType = AUDIO_MPEG, schema = @Schema(type = "string", format = "binary")))
     @GetMapping("/pages/{pageNo:\\d+}/audio")
-    public ResponseEntity<byte[]> pageAudio(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id,
-                                            @PathVariable Long versionId, @PathVariable int pageNo) {
-        return image(storyImageService.pageAudio(principal.getUserId(), id, versionId, pageNo));
+    public ResponseEntity<Resource> pageAudio(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id,
+                                              @PathVariable Long versionId, @PathVariable int pageNo) {
+        // Resource로 내려야 Spring이 Range 요청을 206으로 처리하고 Accept-Ranges를 붙인다
+        StoredFile file = storyImageService.pageAudio(principal.getUserId(), id, versionId, pageNo);
+        return withImageHeaders(ResponseEntity.ok(), file).body(new ByteArrayResource(file.bytes()));
     }
 
     @Operation(summary = "캐릭터 시트", description = "캐릭터 시트가 없으면 IMAGE_NOT_FOUND")
@@ -105,11 +113,14 @@ public class StoryImageController {
 
     // 그림과 음성이 같은 헤더를 쓴다. Content-Type은 파일 확장자로 정해진다
     private static ResponseEntity<byte[]> image(StoredFile file) {
-        return ResponseEntity.ok()
+        return withImageHeaders(ResponseEntity.ok(), file).body(file.bytes());
+    }
+
+    private static ResponseEntity.BodyBuilder withImageHeaders(ResponseEntity.BodyBuilder builder, StoredFile file) {
+        return builder
                 .contentType(MediaType.parseMediaType(file.contentType()))
                 .cacheControl(CacheControl.maxAge(CACHE_FOR).cachePrivate())
                 .header("X-Content-Type-Options", "nosniff")
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline().build().toString())
-                .body(file.bytes());
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline().build().toString());
     }
 }

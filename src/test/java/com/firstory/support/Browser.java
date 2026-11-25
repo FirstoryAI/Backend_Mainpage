@@ -39,6 +39,10 @@ public class Browser {
         return perform(MockMvcRequestBuilders.get(url));
     }
 
+    public ResultActions get(String url, String headerName, String headerValue) throws Exception {
+        return perform(MockMvcRequestBuilders.get(url).header(headerName, headerValue));
+    }
+
     public ResultActions post(String url, String json) throws Exception {
         return perform(withCsrf(withBody(MockMvcRequestBuilders.post(url), json)));
     }

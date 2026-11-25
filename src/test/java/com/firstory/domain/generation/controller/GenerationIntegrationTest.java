@@ -305,6 +305,49 @@ class GenerationIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void 음성_API는_Range_없으면_200_전체와_Accept_Ranges를_내려준다() throws Exception {
+        long id = reviewingStory();
+        long versionId = currentVersionId(id);
+
+        MvcResult result = parent.get(audioUrl(id, versionId, 1))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "audio/mpeg"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "max-age=3600, private"))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "inline"))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsByteArray().length).isGreaterThan(2);
+    }
+
+    @Test
+    void 음성_API는_Range_요청에_206_부분만_내려준다() throws Exception {
+        long id = reviewingStory();
+        long versionId = currentVersionId(id);
+        byte[] full = parent.get(audioUrl(id, versionId, 1)).andReturn().getResponse().getContentAsByteArray();
+
+        MvcResult result = parent.get(audioUrl(id, versionId, 1), HttpHeaders.RANGE, "bytes=0-1")
+                .andExpect(status().isPartialContent())
+                .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 0-1/" + full.length))
+                .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "audio/mpeg"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "max-age=3600, private"))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "inline"))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsByteArray()).containsExactly(full[0], full[1]);
+    }
+
+    @Test
+    void 음성_API는_범위를_벗어난_Range에_416() throws Exception {
+        long id = reviewingStory();
+        long versionId = currentVersionId(id);
+
+        parent.get(audioUrl(id, versionId, 1), HttpHeaders.RANGE, "bytes=99999999-")
+                .andExpect(status().isRequestedRangeNotSatisfiable());
+    }
+
+    @Test
     void 음성_API는_내_동화의_버전과_쪽이_아니면_404() throws Exception {
         long id = reviewingStory();
         long versionId = currentVersionId(id);
