@@ -181,6 +181,7 @@ com.firstory
 - 그림만 다시는 바뀌지 않은 쪽이 이전 실행의 파일 key를 그대로 쓴다. 글 다시 만들기도 AI가 장면이 바뀐 쪽만 새로 그려, 나머지 쪽과 캐릭터 시트는 이전 실행 key다. 파일을 복사하지 않는다.
 - 다시 시도(`retry`, FAILED → REQUESTED)는 마지막 실패 실행과 같은 범위·쪽·기준 버전으로 RETRY 실행을 만든다. 다시 만들기 횟수에 넣지 않는다. 마지막 실패가 결과 위기 신호(`OUTPUT_UNSAFE`)면 AI 그래프는 부모 검토에서 멈춰 있어 `AiClient.retry`가 409이므로 `AiClient.regenerate`를 부른다(범위는 실패한 실행의 것, ALL이면 CHARACTER_STORY, 기준은 그 실행의 기준 버전 checkpointId, 첫 생성이면 null).
 - AI 결과의 가이드는 AI 저장소 `nodes/render.py`의 04-guide.json 그대로(`synopsis`, `before_reading{intent, tips}`, `prompts[{after_page, purpose, text, parent_hint}]`, `after_reading{bridge_question, if_undecided}`). `text` → `guide_prompts.question`, `seq`는 받은 순서대로 1부터, `parent_hint`와 `if_undecided`는 없을 수 있다. `synopsis`(동화 줄거리)는 `reading_guides.synopsis`에 저장하고 동화 상세(`StoryDetailResponse.synopsis`)로 지금 보여 주는 버전의 것을 내린다. 없거나 빈 문자열이면 null.
+- 미리보기에서 부모가 옮긴 의성어 조각 자리(#100): `PUT /api/stories/{id}/versions/{versionId}/pages/{pageNo}/sound-word-positions`(REVIEWING만, `ReviewService.moveSoundWord`)가 그 쪽 행의 `sound_word` x·y만 덮어쓴다(`PageSoundWord.withPositions`, DB 변경 없음). 버전마다 쪽 행이 따로라 버전별로 남고, 미리보기·`/book`이 같은 행을 읽어 확정 뒤에도 유지된다. AI가 처음 정한 자리는 남기지 않는다. 다시 만들기 결과를 저장할 때(`GenerationResultRecorder.soundWord`) 기준 버전과 그림 key·글이 같은 쪽은 기준 버전의 자리(옮긴 자리)를 이어받는다.
 - 확정(`approve`)은 Spring이 먼저 저장하고(COMPLETED, confirmedAt) 트랜잭션 밖에서 `AiClient.approve`를 부른다. AI가 실패해도 확정은 유지한다. 동화를 처음부터 잠가 읽는다(`StoryLoader.findEditableForUpdate`).
 
 ## 피드백 (Backend#76)

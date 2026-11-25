@@ -1,6 +1,8 @@
 package com.firstory.domain.generation.entity;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -55,6 +57,23 @@ public record PageSoundWord(String text, String color, List<Piece> pieces) {
             joined.append(piece.text());
         }
         return joined.toString().equals(raw.text().replace(" ", "")) ? raw : null;
+    }
+
+    /**
+     * 부모가 미리보기에서 옮긴 조각 자리. 받은 조각(순번)의 x·y만 바꾸고 글·색·방향과 받지 않은 조각은 그대로 둔다.
+     *
+     * @param moved 순번 → [x, y] (%). 순번이 조각 범위 밖이거나 좌표가 0~100 밖이면 IllegalArgumentException
+     */
+    public PageSoundWord withPositions(Map<Integer, double[]> moved) {
+        List<Piece> next = new ArrayList<>(pieces);
+        moved.forEach((index, xy) -> {
+            if (index == null || index < 0 || index >= next.size() || !inRange(xy[0]) || !inRange(xy[1])) {
+                throw new IllegalArgumentException("조각 순번이나 좌표가 범위 밖이에요");
+            }
+            Piece old = next.get(index);
+            next.set(index, new Piece(old.text(), xy[0], xy[1], old.side()));
+        });
+        return new PageSoundWord(text, color, List.copyOf(next));
     }
 
     private static boolean inRange(double value) {

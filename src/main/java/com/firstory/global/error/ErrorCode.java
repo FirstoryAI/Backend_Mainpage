@@ -63,6 +63,7 @@ public enum ErrorCode {
     FEEDBACK_TOO_LONG(HttpStatus.BAD_REQUEST, "요청 메모는 300자까지 쓸 수 있어요."),
     VERSION_NOT_FOUND(HttpStatus.NOT_FOUND, "이 동화의 버전을 찾을 수 없어요."),
     IMAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "그림을 찾을 수 없어요."),
+    SOUND_WORD_NOT_FOUND(HttpStatus.NOT_FOUND, "이 쪽에는 옮길 수 있는 의성어·의태어가 없어요."),
     AUDIO_NOT_FOUND(HttpStatus.NOT_FOUND, "음성을 찾을 수 없어요."),
     READING_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "읽기 기록을 찾을 수 없어요. 처음부터 다시 읽어 주세요."),
     PROMPT_NOT_FOUND(HttpStatus.NOT_FOUND, "이 동화의 대화 질문을 찾을 수 없어요.");
