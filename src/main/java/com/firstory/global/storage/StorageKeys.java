@@ -16,6 +16,7 @@ final class StorageKeys {
             "jpg", "image/jpeg",
             "jpeg", "image/jpeg",
             "webp", "image/webp",
+            "mp3", "audio/mpeg",
             "json", "application/json");
     private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
 

@@ -8,6 +8,7 @@ import com.firstory.global.config.FirstoryProperties.Ai.Fake;
 import com.firstory.global.error.BusinessException;
 import com.firstory.global.error.ErrorCode;
 import com.firstory.global.storage.LocalFileStorage;
+import com.firstory.global.storage.StoredFile;
 import com.firstory.support.MutableClock;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
@@ -217,6 +218,14 @@ class FakeAiClientTest {
         }
         assertThat(result.characterSheets()).singleElement()
                 .satisfies(sheet -> assertThat(storage.exists(sheet.path())).isTrue());
+        // 쪽마다 가짜 음성(mp3)이 저장소에 있다
+        for (AiGenerationResult.Page page : result.pages()) {
+            assertThat(page.audioDone()).isTrue();
+            assertThat(page.audioPath()).startsWith("stories/12/runs/1/audio/page-").endsWith(".mp3");
+            StoredFile audio = storage.read(page.audioPath()).orElseThrow();
+            assertThat(audio.bytes()).startsWith('I', 'D', '3');
+            assertThat(audio.contentType()).isEqualTo("audio/mpeg");
+        }
     }
 
     @Test

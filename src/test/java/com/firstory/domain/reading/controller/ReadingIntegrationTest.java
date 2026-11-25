@@ -230,6 +230,9 @@ class ReadingIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.pages[0].imageUrl").value("/api/stories/" + id + "/versions/" + versionId
                         + "/pages/1/image"))
                 .andExpect(jsonPath("$.pages[0].imageStatus").value("DONE"))
+                .andExpect(jsonPath("$.pages[0].audioStatus").value("DONE"))
+                .andExpect(jsonPath("$.pages[0].audioUrl").value("/api/stories/" + id + "/versions/" + versionId
+                        + "/pages/1/audio"))
                 .andExpect(jsonPath("$.pages[0].textPosition").value("BOTTOM"))
                 .andExpect(jsonPath("$.pages[2].textPosition").value("TOP"))   // 가짜 AI는 3의 배수 쪽만 위
                 .andExpect(jsonPath("$.pages[0].textBlocks[0].x").value(5.0))

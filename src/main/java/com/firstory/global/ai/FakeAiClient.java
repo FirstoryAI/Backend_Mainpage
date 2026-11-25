@@ -77,6 +77,8 @@ import java.util.regex.Pattern;
  */
 public class FakeAiClient implements AiClient {
 
+    /** 가짜 쪽 음성. 재생되는 mp3는 아니고 ID3 머리말만 있는 작은 파일이다 */
+    static final byte[] FAKE_AUDIO = {'I', 'D', '3', 3, 0, 0, 0, 0, 0, 0};
     public static final Sample SAMPLE = Sample.load();
     public static final String FIRST_QUESTION = SAMPLE.questions().getFirst();
     public static final String SUMMARY = "아이가 겪은 일과 부모님이 전하고 싶은 마음을 정리했어요.";
@@ -505,8 +507,10 @@ public class FakeAiClient implements AiClient {
             } else {
                 String key = prefix + "images/page-%02d.png".formatted(pageNo);
                 storage.write(key, png(color(pageNo, runNo)), "image/png");
+                String audioKey = prefix + "audio/page-%02d.mp3".formatted(pageNo);
+                storage.write(audioKey, FAKE_AUDIO, "audio/mpeg");
                 pages.add(new AiGenerationResult.Page(pageNo, text, "page " + pageNo, position, key,
-                        "done", textBlocks(text, position), soundWord(text)));
+                        "done", textBlocks(text, position), soundWord(text), audioKey, "done"));
             }
         }
 

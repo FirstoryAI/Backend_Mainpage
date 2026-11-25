@@ -164,6 +164,11 @@ public class GenerationResultRecorder {
             } else {
                 storyPage.imageFailed();
             }
+            if (page.audioDone()) {
+                storyPage.audioDone(page.audioPath());
+            } else if (page.audioFailed()) {
+                storyPage.audioFailed();
+            }
             pageRepository.save(storyPage);
         });
     }
