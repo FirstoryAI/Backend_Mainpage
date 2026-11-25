@@ -11,6 +11,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -25,18 +27,19 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Duration;
 
 /**
- * 그림 내려주기. 주소에는 DB id만 들어가고 파일 위치는 DB에 저장된 key로만 찾는다.
+ * 그림과 쪽 음성 내려주기. 주소에는 DB id만 들어가고 파일 위치는 DB에 저장된 key로만 찾는다.
  * 오류는 JSON으로 내려야 해서 produces를 걸지 않고 응답에서 Content-Type을 정한다.
  */
-@Tag(name = "동화 그림", description = "로그인 필요. 내 동화의 버전과 쪽이 아니면 모두 404")
+@Tag(name = "동화 그림", description = "그림과 쪽 음성. 로그인 필요. 내 동화의 버전과 쪽이 아니면 모두 404")
 @ApiErrorCodes({ErrorCode.UNAUTHORIZED, ErrorCode.STORY_NOT_FOUND, ErrorCode.VERSION_NOT_FOUND,
-        ErrorCode.IMAGE_NOT_FOUND})
+        ErrorCode.IMAGE_NOT_FOUND, ErrorCode.AUDIO_NOT_FOUND})
 @RestController
 @RequestMapping("/api/stories/{id:\\d+}/versions/{versionId:\\d+}")
 @RequiredArgsConstructor
 public class StoryImageController {
 
     private static final Duration CACHE_FOR = Duration.ofHours(1);
+    private static final String AUDIO_MPEG = "audio/mpeg";
     private static final String IMAGE_WEBP = "image/webp";   // Content-Type은 key 확장자로 정한다 (StorageKeys)
 
     private final StoryImageService storyImageService;
@@ -49,6 +52,21 @@ public class StoryImageController {
     public ResponseEntity<byte[]> pageImage(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id,
                                             @PathVariable Long versionId, @PathVariable int pageNo) {
         return image(storyImageService.pageImage(principal.getUserId(), id, versionId, pageNo));
+    }
+
+    @Operation(summary = "쪽 음성", description = "쪽 음성 (해설·등장인물 목소리, mp3). 음성이 없거나 실패한 쪽은 AUDIO_NOT_FOUND. "
+            + "HTTP Range 요청을 지원한다(아이폰·아이패드 Safari 재생에 필요): Range: bytes=0-1 이면 206과 Content-Range, "
+            + "Range가 없으면 200 전체, 응답에 Accept-Ranges: bytes, 범위를 벗어나면 416")
+    @ApiResponse(responseCode = "200", description = "mp3 음성 (Range 없을 때 전체)",
+            content = @Content(mediaType = AUDIO_MPEG, schema = @Schema(type = "string", format = "binary")))
+    @ApiResponse(responseCode = "206", description = "mp3 음성 일부 (Range 요청)",
+            content = @Content(mediaType = AUDIO_MPEG, schema = @Schema(type = "string", format = "binary")))
+    @GetMapping("/pages/{pageNo:\\d+}/audio")
+    public ResponseEntity<Resource> pageAudio(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id,
+                                              @PathVariable Long versionId, @PathVariable int pageNo) {
+        // Resource로 내려야 Spring이 Range 요청을 206으로 처리하고 Accept-Ranges를 붙인다
+        StoredFile file = storyImageService.pageAudio(principal.getUserId(), id, versionId, pageNo);
+        return withImageHeaders(ResponseEntity.ok(), file).body(new ByteArrayResource(file.bytes()));
     }
 
     @Operation(summary = "캐릭터 시트", description = "캐릭터 시트가 없으면 IMAGE_NOT_FOUND")
@@ -93,12 +111,16 @@ public class StoryImageController {
         return image(storyImageService.backCover(principal.getUserId(), id, versionId));
     }
 
+    // 그림과 음성이 같은 헤더를 쓴다. Content-Type은 파일 확장자로 정해진다
     private static ResponseEntity<byte[]> image(StoredFile file) {
-        return ResponseEntity.ok()
+        return withImageHeaders(ResponseEntity.ok(), file).body(file.bytes());
+    }
+
+    private static ResponseEntity.BodyBuilder withImageHeaders(ResponseEntity.BodyBuilder builder, StoredFile file) {
+        return builder
                 .contentType(MediaType.parseMediaType(file.contentType()))
                 .cacheControl(CacheControl.maxAge(CACHE_FOR).cachePrivate())
                 .header("X-Content-Type-Options", "nosniff")
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline().build().toString())
-                .body(file.bytes());
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline().build().toString());
     }
 }

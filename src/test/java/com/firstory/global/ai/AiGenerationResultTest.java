@@ -1,5 +1,6 @@
 package com.firstory.global.ai;
 
+import com.firstory.domain.generation.entity.TextPosition;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -16,6 +17,22 @@ class AiGenerationResultTest {
 
         assertThat(result.fileKeys()).contains("stories/2/runs/1/images/front-cover.png",
                 "stories/1/runs/1/images/back-cover.png");
+    }
+
+    @Test
+    void 파일_key에_쪽_음성도_들어간다() {
+        AiGenerationResult.Page page = new AiGenerationResult.Page(1, "글", "p", TextPosition.BOTTOM,
+                "stories/1/runs/1/images/page-01.png", "done", null, null,
+                "stories/1/runs/1/audio/page-01.mp3", "done");
+        AiGenerationResult result = new AiGenerationResult(1, "cp", "제목", null, null, null, null, List.of(),
+                List.of(page), null, null, null);
+
+        assertThat(result.fileKeys()).containsExactly("stories/1/runs/1/images/page-01.png",
+                "stories/1/runs/1/audio/page-01.mp3");
+        assertThat(page.audioDone()).isTrue();
+        assertThat(page.audioFailed()).isFalse();
+        assertThat(new AiGenerationResult.Page(1, "글", "p", TextPosition.BOTTOM, null, "failed", null, null,
+                null, "failed").audioFailed()).isTrue();
     }
 
     @Test

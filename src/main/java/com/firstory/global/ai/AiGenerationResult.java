@@ -38,22 +38,38 @@ public record AiGenerationResult(int runNo, String checkpointId, String title, M
      * @param imageStatus  done | failed (AI 값 그대로)
      * @param textBlocks   글 덩어리 배치 (AI text_blocks). 없거나 형식이 어긋나면 null
      * @param soundWord    의성어·의태어 조각과 색 (AI sound_word). 없거나 형식이 어긋나면 null
+     * @param audioPath    쪽 음성 mp3 key (AI audio_path). 음성이 없거나 옛 AI면 null
+     * @param audioStatus  done | failed (AI 값 그대로). 이 동화에 음성이 없거나 옛 AI면 null
      */
     public record Page(int pageNo, String text, String imagePrompt, TextPosition textPosition, String imagePath,
-                       String imageStatus, List<PageTextBlock> textBlocks, PageSoundWord soundWord) {
+                       String imageStatus, List<PageTextBlock> textBlocks, PageSoundWord soundWord,
+                       String audioPath, String audioStatus) {
+
+        public Page(int pageNo, String text, String imagePrompt, TextPosition textPosition, String imagePath,
+                    String imageStatus, List<PageTextBlock> textBlocks, PageSoundWord soundWord) {
+            this(pageNo, text, imagePrompt, textPosition, imagePath, imageStatus, textBlocks, soundWord, null, null);
+        }
 
         public Page(int pageNo, String text, String imagePrompt, TextPosition textPosition, String imagePath,
                     String imageStatus, List<PageTextBlock> textBlocks) {
-            this(pageNo, text, imagePrompt, textPosition, imagePath, imageStatus, textBlocks, null);
+            this(pageNo, text, imagePrompt, textPosition, imagePath, imageStatus, textBlocks, null, null, null);
         }
 
         public Page(int pageNo, String text, String imagePrompt, TextPosition textPosition, String imagePath,
                     String imageStatus) {
-            this(pageNo, text, imagePrompt, textPosition, imagePath, imageStatus, null, null);
+            this(pageNo, text, imagePrompt, textPosition, imagePath, imageStatus, null, null, null, null);
         }
 
         public boolean imageDone() {
             return "done".equalsIgnoreCase(imageStatus) && imagePath != null;
+        }
+
+        public boolean audioDone() {
+            return "done".equalsIgnoreCase(audioStatus) && audioPath != null;
+        }
+
+        public boolean audioFailed() {
+            return "failed".equalsIgnoreCase(audioStatus);
         }
     }
 
@@ -85,12 +101,13 @@ public record AiGenerationResult(int runNo, String checkpointId, String title, M
     }
 
     /**
-     * 결과에 들어 있는 모든 파일 key (표지, 앞·뒤표지, 캐릭터 시트, 쪽 그림).
+     * 결과에 들어 있는 모든 파일 key (표지, 앞·뒤표지, 캐릭터 시트, 쪽 그림, 쪽 음성).
      */
     public List<String> fileKeys() {
         return Stream.of(Stream.of(coverPath, frontCoverPath, backCoverPath),
                         characterSheets.stream().map(CharacterSheet::path),
-                        pages.stream().map(Page::imagePath))
+                        pages.stream().map(Page::imagePath),
+                        pages.stream().map(Page::audioPath))
                 .flatMap(keys -> keys)
                 .filter(Objects::nonNull)
                 .toList();

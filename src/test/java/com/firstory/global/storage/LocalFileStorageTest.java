@@ -56,6 +56,15 @@ class LocalFileStorageTest {
     }
 
     @Test
+    void mp3_key는_audio_mpeg로_읽는다() {
+        String key = "stories/12/runs/1/audio/page-01.mp3";
+
+        storage.write(key, new byte[]{'I', 'D', '3'}, "audio/mpeg");
+
+        assertThat(storage.read(key).orElseThrow().contentType()).isEqualTo("audio/mpeg");
+    }
+
+    @Test
     void 한글_이름도_쓸_수_있다() {
         String key = "stories/12/runs/1/images/sheet-main-아로.png";
 

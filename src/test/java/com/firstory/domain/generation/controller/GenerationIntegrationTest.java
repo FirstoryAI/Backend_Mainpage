@@ -197,6 +197,9 @@ class GenerationIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.pages[*].imageStatus", everyItem(is("DONE"))))
                 .andExpect(jsonPath("$.pages[*].imageUrl", everyItem(matchesPattern(
                         "/api/stories/" + id + "/versions/" + versionId + "/pages/\\d+/image"))))
+                .andExpect(jsonPath("$.pages[*].audioStatus", everyItem(is("DONE"))))
+                .andExpect(jsonPath("$.pages[0].audioUrl").value("/api/stories/" + id + "/versions/" + versionId
+                        + "/pages/1/audio"))
                 .andExpect(jsonPath("$.regenerateRemaining").value(1))
                 .andReturn().getResponse().getContentAsString();
 
@@ -284,6 +287,94 @@ class GenerationIntegrationTest extends IntegrationTest {
             assertError(other.get(versionUrl(id, versionId) + side), ErrorCode.STORY_NOT_FOUND);
             assertError(parent.get(versionUrl(id, otherVersionId) + side), ErrorCode.VERSION_NOT_FOUND);
         }
+    }
+
+    @Test
+    void 음성_API는_mp3와_보안_헤더를_내려준다() throws Exception {
+        long id = reviewingStory();
+        long versionId = currentVersionId(id);
+
+        MvcResult result = parent.get(audioUrl(id, versionId, 1))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "audio/mpeg"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "max-age=3600, private"))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "inline"))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsByteArray()).startsWith('I', 'D', '3');
+    }
+
+    @Test
+    void 음성_API는_Range_없으면_200_전체와_Accept_Ranges를_내려준다() throws Exception {
+        long id = reviewingStory();
+        long versionId = currentVersionId(id);
+
+        MvcResult result = parent.get(audioUrl(id, versionId, 1))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "audio/mpeg"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "max-age=3600, private"))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "inline"))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsByteArray().length).isGreaterThan(2);
+    }
+
+    @Test
+    void 음성_API는_Range_요청에_206_부분만_내려준다() throws Exception {
+        long id = reviewingStory();
+        long versionId = currentVersionId(id);
+        byte[] full = parent.get(audioUrl(id, versionId, 1)).andReturn().getResponse().getContentAsByteArray();
+
+        MvcResult result = parent.get(audioUrl(id, versionId, 1), HttpHeaders.RANGE, "bytes=0-1")
+                .andExpect(status().isPartialContent())
+                .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 0-1/" + full.length))
+                .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "audio/mpeg"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "max-age=3600, private"))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "inline"))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsByteArray()).containsExactly(full[0], full[1]);
+    }
+
+    @Test
+    void 음성_API는_범위를_벗어난_Range에_416() throws Exception {
+        long id = reviewingStory();
+        long versionId = currentVersionId(id);
+
+        parent.get(audioUrl(id, versionId, 1), HttpHeaders.RANGE, "bytes=99999999-")
+                .andExpect(status().isRequestedRangeNotSatisfiable());
+    }
+
+    @Test
+    void 음성_API는_내_동화의_버전과_쪽이_아니면_404() throws Exception {
+        long id = reviewingStory();
+        long versionId = currentVersionId(id);
+        long otherVersionId = currentVersionId(reviewingStory());
+
+        assertError(signUp(newEmail()).get(audioUrl(id, versionId, 1)), ErrorCode.STORY_NOT_FOUND);
+        assertError(parent.get(audioUrl(id, otherVersionId, 1)), ErrorCode.VERSION_NOT_FOUND);
+        assertError(parent.get(audioUrl(id, versionId, 99)), ErrorCode.AUDIO_NOT_FOUND);
+        browser().get(audioUrl(id, versionId, 1)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void 음성이_없거나_실패한_쪽은_주소가_없고_음성_API도_404() throws Exception {
+        long id = reviewingStory();
+        long versionId = currentVersionId(id);
+        jdbc.update("UPDATE story_pages SET audio_key = NULL, audio_status = NULL WHERE version_id = ? AND page_no = 2",
+                versionId);
+        jdbc.update("UPDATE story_pages SET audio_status = 'FAILED' WHERE version_id = ? AND page_no = 3", versionId);
+
+        parent.get(storyUrl(id) + "/preview")
+                .andExpect(jsonPath("$.pages[1].audioStatus").value(nullValue()))
+                .andExpect(jsonPath("$.pages[1].audioUrl").value(nullValue()))
+                .andExpect(jsonPath("$.pages[2].audioStatus").value("FAILED"))
+                .andExpect(jsonPath("$.pages[2].audioUrl").value(nullValue()))
+                .andExpect(jsonPath("$.pages[0].imageUrl").isNotEmpty());
+        assertError(parent.get(audioUrl(id, versionId, 2)), ErrorCode.AUDIO_NOT_FOUND);
+        assertError(parent.get(audioUrl(id, versionId, 3)), ErrorCode.AUDIO_NOT_FOUND);
     }
 
     @Test
@@ -836,6 +927,10 @@ class GenerationIntegrationTest extends IntegrationTest {
 
     private static String versionUrl(long id, long versionId) {
         return storyUrl(id) + "/versions/" + versionId;
+    }
+
+    private static String audioUrl(long id, long versionId, int pageNo) {
+        return versionUrl(id, versionId) + "/pages/" + pageNo + "/audio";
     }
 
     private static String imageUrl(long id, long versionId, int pageNo) {

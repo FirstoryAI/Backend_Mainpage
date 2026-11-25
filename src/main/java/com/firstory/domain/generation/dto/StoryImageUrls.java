@@ -15,6 +15,10 @@ public final class StoryImageUrls {
         return versionPath(storyId, versionId) + "/pages/" + pageNo + "/image";
     }
 
+    public static String pageAudio(Long storyId, Long versionId, int pageNo) {
+        return versionPath(storyId, versionId) + "/pages/" + pageNo + "/audio";
+    }
+
     public static String characterSheet(Long storyId, Long versionId) {
         return versionPath(storyId, versionId) + "/character-sheet";
     }

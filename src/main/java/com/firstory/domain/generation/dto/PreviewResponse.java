@@ -1,5 +1,6 @@
 package com.firstory.domain.generation.dto;
 
+import com.firstory.domain.generation.entity.AudioStatus;
 import com.firstory.domain.generation.entity.ImageStatus;
 import com.firstory.domain.generation.entity.PageSoundWord;
 import com.firstory.domain.generation.entity.PageTextBlock;
@@ -42,11 +43,14 @@ public record PreviewResponse(Long storyId, StoryStatus status, VersionSummary v
      * @param textPosition 옛 화면용 글 자리. textBlocks가 null일 때만 이걸로 그린다
      * @param textBlocks   글 덩어리 배치(1~2개). 옛 동화와 그림이 실패한 쪽은 null
      * @param soundWord    의성어·의태어 조각(1~2개, 조각 가운데 x·y %)과 색 #RRGGBB. 옛 동화·별표 말 없는 쪽·그림 실패 쪽은 null
+     * @param audioStatus  쪽 음성 상태. 음성이 없는 쪽·옛 동화는 null
+     * @param audioUrl     쪽 음성(해설·등장인물 목소리 mp3) 주소. DONE일 때만, 아니면 null
      */
     public record Page(int pageNo, String text, ImageStatus imageStatus, String imageUrl,
                        TextPosition textPosition,
                        @Schema(example = TEXT_BLOCKS_EXAMPLE) List<PageTextBlock> textBlocks,
-                       @Schema(example = SOUND_WORD_EXAMPLE) PageSoundWord soundWord) {
+                       @Schema(example = SOUND_WORD_EXAMPLE) PageSoundWord soundWord,
+                       AudioStatus audioStatus, String audioUrl) {
     }
 
     public static PreviewResponse of(Story story, StoryVersion version, List<StoryPage> pages,
@@ -66,7 +70,9 @@ public record PreviewResponse(Long storyId, StoryStatus status, VersionSummary v
         String imageUrl = page.getImageStatus() == ImageStatus.DONE
                 ? StoryImageUrls.page(storyId, versionId, page.getPageNo()) : null;
         return new Page(page.getPageNo(), page.getText(), page.getImageStatus(), imageUrl, page.getTextPosition(),
-                page.getTextBlocks(), page.getSoundWord());
+                page.getTextBlocks(), page.getSoundWord(), page.getAudioStatus(),
+                page.getAudioStatus() == AudioStatus.DONE
+                        ? StoryImageUrls.pageAudio(storyId, versionId, page.getPageNo()) : null);
     }
 
     // 본문에 부모 입력이 반영되어 있어 로그에 남기지 않는다

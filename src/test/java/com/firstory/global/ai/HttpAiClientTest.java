@@ -431,6 +431,24 @@ class HttpAiClientTest {
     }
 
     @Test
+    void 결과의_쪽_음성_key와_상태를_읽고_없으면_null() {
+        AiGenerationResult result = resultOf("""
+                {"run_no": 1, "checkpoint_id": "cp", "title": "제목",
+                 "pages": [{"page_no": 1, "text": "글", "image_path": "stories/123/runs/1/images/page-01.png",
+                            "image_status": "done", "audio_path": "stories/123/runs/1/audio/page-01.mp3",
+                            "audio_status": "done"},
+                           {"page_no": 2, "text": "글", "image_path": "stories/123/runs/1/images/page-02.png",
+                            "image_status": "done"}]}""");
+
+        assertThat(result.pages().get(0).audioPath()).isEqualTo("stories/123/runs/1/audio/page-01.mp3");
+        assertThat(result.pages().get(0).audioStatus()).isEqualTo("done");
+        assertThat(result.pages().get(0).audioDone()).isTrue();
+        assertThat(result.pages().get(1).audioPath()).isNull();
+        assertThat(result.pages().get(1).audioStatus()).isNull();
+        assertThat(result.pages().get(1).audioDone()).isFalse();
+    }
+
+    @Test
     void 결과의_앞뒤표지_key를_읽는다() {
         AiGenerationResult result = resultOf("""
                 {"run_no": 1, "checkpoint_id": "cp", "title": "제목",

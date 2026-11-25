@@ -56,6 +56,14 @@ public class StoryPage extends BaseTimeEntity {
     @Column(name = "image_status", nullable = false, length = 20)
     private ImageStatus imageStatus;
 
+    @Column(name = "audio_key")
+    private String audioKey;
+
+    /** 쪽 음성(해설·등장인물 목소리 mp3) 상태. 음성이 없는 쪽과 이전 동화는 null */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "audio_status", length = 20)
+    private AudioStatus audioStatus;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "text_position", nullable = false, length = 10)
     private TextPosition textPosition;
@@ -76,7 +84,8 @@ public class StoryPage extends BaseTimeEntity {
     }
 
     private StoryPage(StoryVersion version, int pageNo, String text, String imagePrompt, TextPosition textPosition,
-                      List<PageTextBlock> textBlocks, PageSoundWord soundWord, String imageKey, ImageStatus imageStatus) {
+                      List<PageTextBlock> textBlocks, PageSoundWord soundWord, String imageKey, ImageStatus imageStatus,
+                      String audioKey, AudioStatus audioStatus) {
         if (pageNo < FIRST_PAGE) {
             throw new IllegalArgumentException("쪽 번호는 1 이상이어야 해요: " + pageNo);
         }
@@ -89,13 +98,15 @@ public class StoryPage extends BaseTimeEntity {
         this.soundWord = soundWord;
         this.imageKey = imageKey;
         this.imageStatus = Objects.requireNonNull(imageStatus);
+        this.audioKey = audioKey;
+        this.audioStatus = audioStatus;
     }
 
     public static StoryPage create(StoryVersion version, int pageNo, String text, String imagePrompt,
                                    TextPosition textPosition, List<PageTextBlock> textBlocks,
                                    PageSoundWord soundWord) {
         return new StoryPage(version, pageNo, text, imagePrompt, textPosition, textBlocks, soundWord, null,
-                ImageStatus.PENDING);
+                ImageStatus.PENDING, null, null);
     }
 
     public void imageDone(String imageKey) {
@@ -107,12 +118,21 @@ public class StoryPage extends BaseTimeEntity {
         this.imageStatus = ImageStatus.FAILED;
     }
 
+    public void audioDone(String audioKey) {
+        this.audioKey = Objects.requireNonNull(audioKey);
+        this.audioStatus = AudioStatus.DONE;
+    }
+
+    public void audioFailed() {
+        this.audioStatus = AudioStatus.FAILED;
+    }
+
     /**
-     * 글과 이미지 키를 그대로 복사한 새 페이지.
+     * 글과 이미지·음성 키를 그대로 복사한 새 페이지.
      * "그림만 다시" 때 바뀌지 않은 쪽은 S3 파일을 복사하지 않고 키만 공유한다.
      */
     public StoryPage copyTo(StoryVersion target) {
         return new StoryPage(target, pageNo, text, imagePrompt, textPosition, textBlocks, soundWord, imageKey,
-                imageStatus);
+                imageStatus, audioKey, audioStatus);
     }
 }

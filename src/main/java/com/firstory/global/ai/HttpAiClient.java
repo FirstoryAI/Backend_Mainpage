@@ -381,7 +381,8 @@ public class HttpAiClient implements AiClient {
                     pages == null ? List.of() : pages.stream()
                             .map(page -> new AiGenerationResult.Page(page.pageNo(), page.text(), page.imagePrompt(),
                                     TextPosition.fromAi(page.textPosition()), page.imagePath(), page.imageStatus(),
-                                    textBlocks(threadId, page), soundWord(threadId, page)))
+                                    textBlocks(threadId, page), soundWord(threadId, page),
+                                    page.audioPath(), page.audioStatus()))
                             .toList(),
                     guide(guide),
                     cost == null ? null : new AiGenerationResult.Cost(cost.inputTokens(), cost.outputTokens(),
@@ -515,7 +516,9 @@ public class HttpAiClient implements AiClient {
                     @JsonProperty("image_path") String imagePath,
                     @JsonProperty("image_status") String imageStatus,
                     @JsonProperty("text_blocks") JsonNode textBlocks,
-                    @JsonProperty("sound_word") JsonNode soundWord) {
+                    @JsonProperty("sound_word") JsonNode soundWord,
+                    @JsonProperty("audio_path") String audioPath,
+                    @JsonProperty("audio_status") String audioStatus) {
     }
 
     record CostBody(@JsonProperty("input_tokens") int inputTokens, @JsonProperty("output_tokens") int outputTokens,

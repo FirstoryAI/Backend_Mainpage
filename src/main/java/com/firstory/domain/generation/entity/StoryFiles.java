@@ -7,6 +7,7 @@ package com.firstory.domain.generation.entity;
  * stories/{storyId}/runs/{runNo}/images/page-01.webp   (이전 동화와 가짜 AI는 .png)
  * stories/{storyId}/runs/{runNo}/images/cover.webp
  * stories/{storyId}/runs/{runNo}/images/sheet-{role}-{n}.webp   (이전 동화와 가짜 AI는 .png)
+ * stories/{storyId}/runs/{runNo}/audio/page-01.mp3   (쪽 음성. 음성이 없는 동화에는 없다)
  * </pre>
  * 확장자는 AI가 정하고, 그림 API는 확장자로 Content-Type을 정한다 (StorageKeys).
  * 그림만 다시 그린 버전은 바뀌지 않은 쪽이 이전 실행의 key를 그대로 쓴다.

@@ -1,5 +1,6 @@
 package com.firstory.domain.generation.service;
 
+import com.firstory.domain.generation.entity.AudioStatus;
 import com.firstory.domain.generation.entity.ImageStatus;
 import com.firstory.domain.generation.entity.StoryFiles;
 import com.firstory.domain.generation.entity.StoryPage;
@@ -20,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.function.Function;
 
 /**
- * 그림 내려주기. 보안 규칙:
+ * 그림·쪽 음성 내려주기. 보안 규칙:
  * <ul>
  *   <li>내 동화(findByIdAndUserId) → 그 동화의 버전 → 그 버전의 쪽 순서로 확인한다. 하나라도 아니면 404 (403 아님)</li>
  *   <li>파일은 DB에 저장된 key로만 찾는다. 요청 값으로 경로를 만들지 않는다</li>
@@ -46,7 +47,19 @@ public class StoryImageService {
                 .filter(page -> page.getImageStatus() == ImageStatus.DONE)
                 .map(StoryPage::getImageKey)
                 .orElseThrow(() -> new BusinessException(ErrorCode.IMAGE_NOT_FOUND));
-        return read(story, key);
+        return read(story, key, ErrorCode.IMAGE_NOT_FOUND);
+    }
+
+    /** 쪽 음성(mp3). 음성이 DONE인 쪽의 key만 내려준다 */
+    @Transactional(readOnly = true)
+    public StoredFile pageAudio(Long userId, Long storyId, Long versionId, int pageNo) {
+        Story story = loader.findOwned(userId, storyId);
+        StoryVersion version = findVersion(story, versionId);
+        String key = pageRepository.findByVersionIdAndPageNo(version.getId(), pageNo)
+                .filter(page -> page.getAudioStatus() == AudioStatus.DONE)
+                .map(StoryPage::getAudioKey)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AUDIO_NOT_FOUND));
+        return read(story, key, ErrorCode.AUDIO_NOT_FOUND);
     }
 
     @Transactional(readOnly = true)
@@ -74,7 +87,7 @@ public class StoryImageService {
      */
     private StoredFile versionImage(Long userId, Long storyId, Long versionId, Function<StoryVersion, String> keyOf) {
         Story story = loader.findOwned(userId, storyId);
-        return read(story, keyOf.apply(findVersion(story, versionId)));
+        return read(story, keyOf.apply(findVersion(story, versionId)), ErrorCode.IMAGE_NOT_FOUND);
     }
 
     private StoryVersion findVersion(Story story, Long versionId) {
@@ -82,20 +95,20 @@ public class StoryImageService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.VERSION_NOT_FOUND));
     }
 
-    private StoredFile read(Story story, String key) {
+    private StoredFile read(Story story, String key, ErrorCode notFound) {
         if (key == null) {
-            throw new BusinessException(ErrorCode.IMAGE_NOT_FOUND);
+            throw new BusinessException(notFound);
         }
         if (!StoryFiles.belongsTo(key, story.getId())) {
             // 결과 저장 때 이미 막지만 한 번 더 확인한다. key는 남기지 않는다
-            log.warn("다른 동화의 경로를 가리키는 그림이라 내려주지 않아요: story_id={}", story.getId());
-            throw new BusinessException(ErrorCode.IMAGE_NOT_FOUND);
+            log.warn("다른 동화의 경로를 가리키는 파일이라 내려주지 않아요: story_id={}", story.getId());
+            throw new BusinessException(notFound);
         }
         try {
-            return fileStorage.read(key).orElseThrow(() -> new BusinessException(ErrorCode.IMAGE_NOT_FOUND));
+            return fileStorage.read(key).orElseThrow(() -> new BusinessException(notFound));
         } catch (IllegalArgumentException e) {
-            log.warn("안전하지 않은 그림 key예요: story_id={}", story.getId());
-            throw new BusinessException(ErrorCode.IMAGE_NOT_FOUND);
+            log.warn("안전하지 않은 파일 key예요: story_id={}", story.getId());
+            throw new BusinessException(notFound);
         }
     }
 }
